@@ -42,7 +42,7 @@ jobs:
       run: go build -v -o bin/api ./cmd/api
     
     - name: Upload backend binary
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v5
       with:
         name: backend-binary
         path: backend/bin/api
@@ -113,7 +113,7 @@ jobs:
       run: npm run build
     
     - name: Upload frontend build
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v5
       with:
         name: frontend-dist
         path: frontend/dist
