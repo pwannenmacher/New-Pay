@@ -81,8 +81,9 @@ type OAuthProviderConfig struct {
 
 // OAuthProvidersConfig holds configuration for all OAuth providers
 type OAuthProvidersConfig struct {
-	RedirectURL string
-	Providers   []OAuthProviderConfig
+	RedirectURL         string
+	FrontendCallbackURL string
+	Providers           []OAuthProviderConfig
 }
 
 // CORSConfig holds CORS-related configuration
@@ -188,6 +189,7 @@ func Load() (*Config, error) {
 // loadOAuthProviders loads all OAuth provider configurations from environment variables
 func loadOAuthProviders() OAuthProvidersConfig {
 	redirectURL := getEnv("OAUTH_REDIRECT_URL", "http://localhost:8080/api/v1/auth/oauth/callback")
+	frontendCallbackURL := getEnv("OAUTH_FRONTEND_CALLBACK_URL", "http://localhost:3001/oauth/callback")
 
 	var providers []OAuthProviderConfig
 
@@ -222,8 +224,9 @@ func loadOAuthProviders() OAuthProvidersConfig {
 	}
 
 	return OAuthProvidersConfig{
-		RedirectURL: redirectURL,
-		Providers:   providers,
+		RedirectURL:         redirectURL,
+		FrontendCallbackURL: frontendCallbackURL,
+		Providers:           providers,
 	}
 }
 

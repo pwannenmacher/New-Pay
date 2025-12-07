@@ -774,7 +774,7 @@ func (h *AuthHandler) OAuthCallback(w http.ResponseWriter, r *http.Request) {
 	log.Printf("OAuth callback successful: user %s logged in", email)
 
 	// Redirect to frontend with access token in URL (will be stored in localStorage by frontend)
-	redirectURL := fmt.Sprintf("http://localhost:5173/oauth/callback?access_token=%s", accessToken)
+	redirectURL := fmt.Sprintf("%s?access_token=%s", h.config.OAuth.FrontendCallbackURL, accessToken)
 	http.Redirect(w, r, redirectURL, http.StatusTemporaryRedirect)
 }
 

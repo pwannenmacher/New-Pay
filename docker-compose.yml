@@ -23,7 +23,7 @@ services:
 
   api:
     build:
-      context: .
+      context: ./backend
       dockerfile: Dockerfile
     container_name: newpay-api
     env_file:
@@ -50,6 +50,26 @@ services:
       timeout: 5s
       retries: 3
       start_period: 20s
+    networks:
+      - newpay-network
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: newpay-frontend
+    ports:
+      - "3001:80"
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
     networks:
       - newpay-network
     restart: unless-stopped

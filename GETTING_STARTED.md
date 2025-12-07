@@ -229,7 +229,7 @@ go fmt ./...
 go vet ./...
 
 # Update Swagger docs
-swag init -g cmd/api/main.go -o docs
+cd backend && swag init -g cmd/api/main.go -o docs
 ```
 
 ### Frontend Development

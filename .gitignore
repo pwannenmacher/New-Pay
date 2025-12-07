@@ -41,7 +41,9 @@ go.work
 Thumbs.db
 
 # Build artifacts
-/bin/
+backend/bin/
+frontend/dist/
+frontend/build/
 /dist/
 /tmp/
 

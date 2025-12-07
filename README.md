@@ -106,6 +106,7 @@ go mod download
 #### 5. Run the application
 
 ```bash
+cd backend
 go run cmd/api/*.go
 ```
 
@@ -138,7 +139,7 @@ npm run dev
 - **[Docker Guide](docs/DOCKER.md)** - Docker deployment and configuration
 - **[JWT Security](docs/JWT_SECURITY.md)** - JWT implementation and security
 - **[JWT Key Management](docs/JWT_KEY_MANAGEMENT.md)** - Managing persistent JWT keys to prevent session invalidation
-- **[Migrations](docs/MIGRATIONS.md)** - Database migration guide
+- **[Migrations](backend/docs/MIGRATIONS.md)** - Database migration guide
 
 ## API Endpoints
 
@@ -333,7 +334,7 @@ To regenerate Swagger documentation after changes:
 
 ```bash
 go install github.com/swaggo/swag/cmd/swag@latest
-swag init -g cmd/api/main.go -o docs
+cd backend && swag init -g cmd/api/main.go -o docs
 ```
 
 ## Default Roles and Permissions
@@ -349,36 +350,40 @@ Permissions are grouped by resource and action (e.g., `users.read`, `reviews.cre
 ## Project Structure
 
 ```
-New-Pay/
-├── cmd/
-│   └── api/              # Application entry point
-├── internal/
-│   ├── auth/             # Authentication logic
-│   ├── config/           # Configuration management
-│   ├── database/         # Database connection & migrations
-│   ├── email/            # Email service
-│   ├── handlers/         # HTTP handlers
-│   ├── middleware/       # HTTP middleware
-│   ├── models/           # Data models
-│   ├── repository/       # Data access layer
-│   └── service/          # Business logic
-├── pkg/
-│   ├── logger/           # Logging utilities
-│   └── validator/        # Input validation
-├── frontend/             # React frontend application
+new-pay-gh/
+├── backend/              # Go Backend Service
+│   ├── cmd/api/         # Application entry point
+│   ├── internal/        # Private application code
+│   │   ├── auth/       # Authentication logic
+│   │   ├── config/     # Configuration management
+│   │   ├── database/   # Database connection & migrations
+│   │   ├── email/      # Email service
+│   │   ├── handlers/   # HTTP handlers
+│   │   ├── middleware/ # HTTP middleware
+│   │   ├── models/     # Data models
+│   │   ├── repository/ # Data access layer
+│   │   └── service/    # Business logic
+│   ├── pkg/            # Public libraries
+│   │   └── validator/  # Input validation
+│   ├── migrations/     # Database migrations
+│   ├── docs/           # API documentation & Swagger
+│   ├── scripts/        # Utility scripts
+│   ├── Dockerfile      # Backend Docker image
+│   └── go.mod          # Go dependencies
+│
+├── frontend/            # React Frontend Application
 │   ├── src/
-│   │   ├── components/   # React components
-│   │   ├── pages/        # Page components
-│   │   ├── contexts/     # React contexts
-│   │   ├── services/     # API services
-│   │   └── types/        # TypeScript types
-│   └── public/           # Static assets
-├── migrations/           # Database migrations
-├── docs/                 # Documentation & Swagger files
-├── .env.example          # Environment variables template
-├── docker-compose.yml    # Docker configuration
-├── Dockerfile            # Multi-stage Docker build
-└── README.md             # This file
+│   │   ├── components/ # React components
+│   │   ├── pages/      # Page components
+│   │   ├── contexts/   # React contexts
+│   │   ├── services/   # API services
+│   │   └── types/      # TypeScript types
+│   ├── public/         # Static assets
+│   └── package.json    # Frontend dependencies
+│
+├── docker-compose.yml   # Docker orchestration
+├── .env.example        # Environment template
+└── README.md           # This file
 ```
 
 ## OAuth 2.0 Integration
