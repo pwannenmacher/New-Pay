@@ -116,6 +116,7 @@ The backend API is fully documented with Swagger:
 ### Key Endpoints
 
 #### Authentication
+
 - `POST /api/v1/auth/register` - Register new user
 - `POST /api/v1/auth/login` - Login
 - `POST /api/v1/auth/refresh` - Refresh access token
@@ -124,10 +125,12 @@ The backend API is fully documented with Swagger:
 - `POST /api/v1/auth/password-reset/confirm` - Confirm password reset
 
 #### User Profile
+
 - `GET /api/v1/users/profile` - Get current user profile
 - `POST /api/v1/users/profile/update` - Update profile
 
 #### Admin (Admin Role Required)
+
 - `GET /api/v1/admin/users/list` - List all users
 - `GET /api/v1/admin/users/get?id=USER_ID` - Get specific user
 - `POST /api/v1/admin/users/assign-role` - Assign role to user
@@ -138,6 +141,7 @@ The backend API is fully documented with Swagger:
 ## Features
 
 ### Authentication & Security
+
 ✅ JWT-based authentication with automatic refresh
 ✅ Email verification
 ✅ Password reset flow
@@ -148,6 +152,7 @@ The backend API is fully documented with Swagger:
 ✅ Audit logging
 
 ### User Management
+
 ✅ User registration and login
 ✅ Profile viewing and editing
 ✅ Role-based access control (RBAC)
@@ -155,12 +160,14 @@ The backend API is fully documented with Swagger:
 ✅ Granular permissions system
 
 ### Admin Dashboard
+
 ✅ User management interface
 ✅ Role assignment
 ✅ Audit log viewer
 ✅ System monitoring
 
 ### Frontend
+
 ✅ Responsive design (mobile & desktop)
 ✅ Dark/light mode support
 ✅ Modern UI with Mantine components
@@ -254,23 +261,27 @@ npm run lint
 
 ### Backend Issues
 
-**Database Connection Failed**
+#### Database Connection Failed
+
 - Check PostgreSQL is running: `docker-compose ps`
 - Verify database credentials in `.env`
 - Check database exists: `psql -U newpay -d newpay_db`
 
-**Port Already in Use**
+#### Port Already in Use
+
 - Check if port 8080 is free: `lsof -i :8080`
 - Change `SERVER_PORT` in `.env`
 
 ### Frontend Issues
 
-**API Connection Failed**
+#### API Connection Failed
+
 - Verify backend is running on port 8080
 - Check `VITE_API_BASE_URL` in `frontend/.env`
 - Check CORS settings in backend `.env`
 
-**Build Errors**
+#### Build Errors
+
 - Clear cache: `rm -rf node_modules/.vite`
 - Reinstall dependencies: `rm -rf node_modules && npm install`
 
@@ -302,6 +313,7 @@ npm run lint
 ## Support
 
 For issues or questions:
+
 - Check the Swagger documentation: `http://localhost:8080/swagger/index.html`
 - Review the code comments
 - Check the logs: `docker-compose logs -f api`
