@@ -53,3 +53,9 @@ logs/
 
 # Copilot stuff
 /prompts/
+
+# Frontend
+node_modules/
+/frontend/dist/
+/frontend/.vite/
+/frontend/coverage/

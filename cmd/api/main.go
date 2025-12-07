@@ -68,7 +68,7 @@ func main() {
 	roleRepo := repository.NewRoleRepository(db.DB)
 	tokenRepo := repository.NewTokenRepository(db.DB)
 	sessionRepo := repository.NewSessionRepository(db.DB)
-	_ = repository.NewAuditRepository(db.DB)
+	auditRepo := repository.NewAuditRepository(db.DB)
 
 	// Initialize services
 	authService := auth.NewService(&cfg.JWT)
@@ -85,6 +85,7 @@ func main() {
 	// Initialize handlers
 	authHandler := handlers.NewAuthHandler(authSvc, auditMw)
 	userHandler := handlers.NewUserHandler(userRepo, roleRepo, auditMw)
+	auditHandler := handlers.NewAuditHandler(auditRepo)
 
 	// Setup router
 	mux := http.NewServeMux()
@@ -110,6 +111,13 @@ func main() {
 			),
 		),
 	)
+	mux.Handle("/api/v1/admin/users/list",
+		authMw.Authenticate(
+			rbacMw.RequireRole("admin")(
+				http.HandlerFunc(userHandler.ListUsers),
+			),
+		),
+	)
 	mux.Handle("/api/v1/admin/users/assign-role",
 		authMw.Authenticate(
 			rbacMw.RequireRole("admin")(
@@ -121,6 +129,20 @@ func main() {
 		authMw.Authenticate(
 			rbacMw.RequireRole("admin")(
 				http.HandlerFunc(userHandler.RemoveRole),
+			),
+		),
+	)
+	mux.Handle("/api/v1/admin/roles/list",
+		authMw.Authenticate(
+			rbacMw.RequireRole("admin")(
+				http.HandlerFunc(userHandler.ListRoles),
+			),
+		),
+	)
+	mux.Handle("/api/v1/admin/audit-logs/list",
+		authMw.Authenticate(
+			rbacMw.RequireRole("admin")(
+				http.HandlerFunc(auditHandler.ListAuditLogs),
 			),
 		),
 	)

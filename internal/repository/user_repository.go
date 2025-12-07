@@ -304,3 +304,45 @@ func (r *UserRepository) RemoveRole(userID, roleID uint) error {
 	}
 	return nil
 }
+
+// GetAll retrieves all users with pagination
+func (r *UserRepository) GetAll(limit, offset int) ([]models.User, error) {
+	query := `
+		SELECT id, email, password_hash, first_name, last_name, email_verified, email_verified_at,
+		       is_active, last_login_at, oauth_provider, oauth_provider_id, created_at, updated_at
+		FROM users
+		ORDER BY created_at DESC
+		LIMIT $1 OFFSET $2
+	`
+
+	rows, err := r.db.Query(query, limit, offset)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get users: %w", err)
+	}
+	defer rows.Close()
+
+	var users []models.User
+	for rows.Next() {
+		var user models.User
+		if err := rows.Scan(
+			&user.ID,
+			&user.Email,
+			&user.PasswordHash,
+			&user.FirstName,
+			&user.LastName,
+			&user.EmailVerified,
+			&user.EmailVerifiedAt,
+			&user.IsActive,
+			&user.LastLoginAt,
+			&user.OAuthProvider,
+			&user.OAuthProviderID,
+			&user.CreatedAt,
+			&user.UpdatedAt,
+		); err != nil {
+			return nil, fmt.Errorf("failed to scan user: %w", err)
+		}
+		users = append(users, user)
+	}
+
+	return users, nil
+}

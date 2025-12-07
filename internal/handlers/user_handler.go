@@ -263,3 +263,82 @@ func (h *UserHandler) RemoveRole(w http.ResponseWriter, r *http.Request) {
 		"message": "Role removed successfully",
 	})
 }
+
+// ListUsers lists all users with pagination (admin only)
+// @Summary List all users
+// @Description Get a paginated list of all users (admin only)
+// @Tags Admin
+// @Produce json
+// @Security BearerAuth
+// @Param page query int false "Page number" default(1)
+// @Param limit query int false "Items per page" default(20)
+// @Success 200 {array} map[string]interface{} "List of users"
+// @Failure 400 {object} map[string]string "Invalid parameters"
+// @Failure 401 {object} map[string]string "Unauthorized"
+// @Failure 403 {object} map[string]string "Forbidden - admin only"
+// @Router /admin/users/list [get]
+func (h *UserHandler) ListUsers(w http.ResponseWriter, r *http.Request) {
+	// Get pagination parameters
+	page := 1
+	limit := 20
+	
+	if pageStr := r.URL.Query().Get("page"); pageStr != "" {
+		if p, err := strconv.Atoi(pageStr); err == nil && p > 0 {
+			page = p
+		}
+	}
+	
+	if limitStr := r.URL.Query().Get("limit"); limitStr != "" {
+		if l, err := strconv.Atoi(limitStr); err == nil && l > 0 && l <= 100 {
+			limit = l
+		}
+	}
+	
+	offset := (page - 1) * limit
+	
+	users, err := h.userRepo.GetAll(limit, offset)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Failed to retrieve users")
+		return
+	}
+	
+	// Build response with user roles
+	var response []map[string]interface{}
+	for _, user := range users {
+		roles, _ := h.userRepo.GetUserRoles(user.ID)
+		response = append(response, map[string]interface{}{
+			"id":                user.ID,
+			"email":             user.Email,
+			"first_name":        user.FirstName,
+			"last_name":         user.LastName,
+			"email_verified":    user.EmailVerified,
+			"email_verified_at": user.EmailVerifiedAt,
+			"is_active":         user.IsActive,
+			"last_login_at":     user.LastLoginAt,
+			"created_at":        user.CreatedAt,
+			"roles":             roles,
+		})
+	}
+	
+	respondWithJSON(w, http.StatusOK, response)
+}
+
+// ListRoles lists all available roles (admin only)
+// @Summary List all roles
+// @Description Get a list of all available roles (admin only)
+// @Tags Admin
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {array} models.Role "List of roles"
+// @Failure 401 {object} map[string]string "Unauthorized"
+// @Failure 403 {object} map[string]string "Forbidden - admin only"
+// @Router /admin/roles/list [get]
+func (h *UserHandler) ListRoles(w http.ResponseWriter, r *http.Request) {
+	roles, err := h.roleRepo.GetAll()
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Failed to retrieve roles")
+		return
+	}
+	
+	respondWithJSON(w, http.StatusOK, roles)
+}
