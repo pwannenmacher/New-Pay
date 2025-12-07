@@ -1,15 +1,15 @@
 services:
   postgres:
-    image: postgres:16
+    image: postgres:18
     container_name: newpay-postgres
     environment:
       POSTGRES_USER: newpay
       POSTGRES_PASSWORD: newpay_password
       POSTGRES_DB: newpay_db
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U newpay -d newpay_db"]
       interval: 5s
@@ -100,5 +100,5 @@ networks:
     driver: bridge
 
 volumes:
-  postgres_data:
+  postgres:
   mailpit:
