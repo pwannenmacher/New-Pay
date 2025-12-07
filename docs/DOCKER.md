@@ -93,7 +93,7 @@ docker run -d \
 
 ## Image Layers
 
-```
+```plain
 Build Stage (golang:1.24-alpine):
 ├── Install git, ca-certificates
 ├── Copy go.mod, go.sum

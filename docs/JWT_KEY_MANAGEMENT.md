@@ -27,13 +27,13 @@ Note: `\n` are literal escape sequences (backslash + n).
 
 On startup, check logs:
 
-```
+```log
 ✓ Loaded persistent ECDSA private key from JWT_SECRET
 ```
 
 If key not loaded:
 
-```
+```log
 ⚠ Generating new ECDSA key pair (sessions will be invalidated on restart)
 ```
 
