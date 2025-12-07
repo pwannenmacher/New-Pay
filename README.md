@@ -49,6 +49,28 @@ New Pay is a modern platform for salary estimates and peer reviews with a robust
 
 ## Quick Start
 
+### Option 1: Using Docker (Recommended)
+
+The fastest way to get started is using Docker Compose, which runs both the database and API:
+
+```bash
+# Clone the repository
+git clone https://github.com/pwannenmacher/New-Pay.git
+cd New-Pay
+
+# Start all services (PostgreSQL + API)
+docker-compose up -d
+
+# Check the logs
+docker-compose logs -f api
+
+# The API will be available at http://localhost:8080
+```
+
+See [Docker Documentation](docs/DOCKER.md) for more details.
+
+### Option 2: Local Development
+
 ### 1. Clone the repository
 
 ```bash
@@ -67,7 +89,7 @@ Edit `.env` and configure your database and email settings.
 ### 3. Start PostgreSQL (using Docker)
 
 ```bash
-docker-compose up -d
+docker-compose up -d postgres
 ```
 
 Or use your own PostgreSQL instance.
