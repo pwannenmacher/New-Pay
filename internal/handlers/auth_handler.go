@@ -138,9 +138,19 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	// Log successful login
 	_ = h.auditMw.LogAction(&user.ID, "user.login", "users", "User logged in", getIP(r), r.UserAgent())
 
+	// Set refresh token as HTTP-only cookie
+	http.SetCookie(w, &http.Cookie{
+		Name:     "refresh_token",
+		Value:    refreshToken,
+		Path:     "/api/v1/auth/refresh",
+		MaxAge:   7 * 24 * 60 * 60, // 7 days
+		HttpOnly: true,
+		Secure:   r.TLS != nil, // Only send over HTTPS in production
+		SameSite: http.SameSiteStrictMode,
+	})
+
 	respondWithJSON(w, http.StatusOK, map[string]interface{}{
-		"access_token":  accessToken,
-		"refresh_token": refreshToken,
+		"access_token": accessToken,
 		"user": map[string]interface{}{
 			"id":         user.ID,
 			"email":      user.Email,
@@ -259,30 +269,74 @@ func (h *AuthHandler) ResetPassword(w http.ResponseWriter, r *http.Request) {
 
 // RefreshToken handles token refresh requests
 // @Summary Refresh access token
-// @Description Get a new access token using refresh token
+// @Description Get a new access token using refresh token from cookie
 // @Tags Authentication
 // @Accept json
 // @Produce json
-// @Param request body RefreshTokenRequest true "Refresh token"
 // @Success 200 {object} map[string]string "New access token"
 // @Failure 401 {object} map[string]string "Invalid refresh token"
 // @Router /auth/refresh [post]
 func (h *AuthHandler) RefreshToken(w http.ResponseWriter, r *http.Request) {
-	var req RefreshTokenRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondWithError(w, http.StatusBadRequest, "Invalid request body")
+	// Get refresh token from cookie
+	cookie, err := r.Cookie("refresh_token")
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "Refresh token not found")
 		return
 	}
 
 	// Refresh token
-	accessToken, err := h.authService.RefreshToken(req.RefreshToken)
+	accessToken, newRefreshToken, err := h.authService.RefreshToken(cookie.Value)
 	if err != nil {
+		// Clear invalid cookie
+		http.SetCookie(w, &http.Cookie{
+			Name:     "refresh_token",
+			Value:    "",
+			Path:     "/api/v1/auth/refresh",
+			MaxAge:   -1,
+			HttpOnly: true,
+		})
 		respondWithError(w, http.StatusUnauthorized, "Invalid refresh token")
 		return
 	}
 
+	// Set new refresh token as cookie
+	http.SetCookie(w, &http.Cookie{
+		Name:     "refresh_token",
+		Value:    newRefreshToken,
+		Path:     "/api/v1/auth/refresh",
+		MaxAge:   7 * 24 * 60 * 60, // 7 days
+		HttpOnly: true,
+		Secure:   r.TLS != nil,
+		SameSite: http.SameSiteStrictMode,
+	})
+
 	respondWithJSON(w, http.StatusOK, map[string]string{
 		"access_token": accessToken,
+	})
+}
+
+// Logout handles user logout
+// @Summary User logout
+// @Description Clear refresh token cookie
+// @Tags Authentication
+// @Accept json
+// @Produce json
+// @Success 200 {object} map[string]string "Logout successful"
+// @Router /auth/logout [post]
+func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
+	// Clear refresh token cookie
+	http.SetCookie(w, &http.Cookie{
+		Name:     "refresh_token",
+		Value:    "",
+		Path:     "/api/v1/auth/refresh",
+		MaxAge:   -1,
+		HttpOnly: true,
+		Secure:   r.TLS != nil,
+		SameSite: http.SameSiteStrictMode,
+	})
+
+	respondWithJSON(w, http.StatusOK, map[string]string{
+		"message": "Logged out successfully",
 	})
 }
 

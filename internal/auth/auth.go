@@ -1,8 +1,12 @@
 package auth
 
 import (
+	"crypto/ecdsa"
+	"crypto/elliptic"
 	"crypto/rand"
+	"crypto/x509"
 	"encoding/base64"
+	"encoding/pem"
 	"errors"
 	"fmt"
 	"time"
@@ -26,15 +30,18 @@ type JWTClaims struct {
 
 // Service handles authentication operations
 type Service struct {
-	jwtSecret         []byte
+	privateKey        *ecdsa.PrivateKey
+	publicKey         *ecdsa.PublicKey
 	jwtExpiration     time.Duration
 	refreshExpiration time.Duration
 }
 
 // NewService creates a new authentication service
 func NewService(cfg *config.JWTConfig) *Service {
+	privateKey, publicKey := loadOrGenerateKeys(cfg.Secret)
 	return &Service{
-		jwtSecret:         []byte(cfg.Secret),
+		privateKey:        privateKey,
+		publicKey:         publicKey,
 		jwtExpiration:     cfg.Expiration,
 		refreshExpiration: cfg.RefreshExpiration,
 	}
@@ -66,8 +73,8 @@ func (s *Service) generateTokenWithExpiration(userID uint, email string, expirat
 		},
 	}
 
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	tokenString, err := token.SignedString(s.jwtSecret)
+	token := jwt.NewWithClaims(jwt.SigningMethodES256, claims)
+	tokenString, err := token.SignedString(s.privateKey)
 	if err != nil {
 		return "", fmt.Errorf("failed to sign token: %w", err)
 	}
@@ -88,10 +95,10 @@ func (s *Service) GenerateRefreshToken(userID uint, email string) (string, error
 // ValidateToken validates a JWT token and returns the claims
 func (s *Service) ValidateToken(tokenString string) (*JWTClaims, error) {
 	token, err := jwt.ParseWithClaims(tokenString, &JWTClaims{}, func(token *jwt.Token) (interface{}, error) {
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+		if _, ok := token.Method.(*jwt.SigningMethodECDSA); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
-		return s.jwtSecret, nil
+		return s.publicKey, nil
 	})
 
 	if err != nil {
@@ -118,4 +125,23 @@ func GenerateRandomToken(length int) (string, error) {
 		return "", fmt.Errorf("failed to generate random token: %w", err)
 	}
 	return base64.URLEncoding.EncodeToString(bytes), nil
+}
+
+// loadOrGenerateKeys loads ECDSA keys from secret or generates new ones
+func loadOrGenerateKeys(secret string) (*ecdsa.PrivateKey, *ecdsa.PublicKey) {
+	// Try to parse secret as PEM-encoded private key
+	if block, _ := pem.Decode([]byte(secret)); block != nil {
+		if privateKey, err := x509.ParseECPrivateKey(block.Bytes); err == nil {
+			return privateKey, &privateKey.PublicKey
+		}
+	}
+
+	// Generate new key pair for development
+	// In production, you should load from a secure key management system
+	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		panic(fmt.Sprintf("failed to generate ECDSA key: %v", err))
+	}
+
+	return privateKey, &privateKey.PublicKey
 }

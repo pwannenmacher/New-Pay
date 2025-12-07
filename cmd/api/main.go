@@ -9,7 +9,7 @@ import (
 	"syscall"
 	"time"
 
-	httpSwagger "github.com/swaggo/http-swagger"
+	_ "github.com/pwannenmacher/New-Pay/docs" // This is for Swagger
 	"github.com/pwannenmacher/New-Pay/internal/auth"
 	"github.com/pwannenmacher/New-Pay/internal/config"
 	"github.com/pwannenmacher/New-Pay/internal/database"
@@ -18,7 +18,7 @@ import (
 	"github.com/pwannenmacher/New-Pay/internal/middleware"
 	"github.com/pwannenmacher/New-Pay/internal/repository"
 	"github.com/pwannenmacher/New-Pay/internal/service"
-	_ "github.com/pwannenmacher/New-Pay/docs" // This is for Swagger
+	httpSwagger "github.com/swaggo/http-swagger"
 )
 
 // @title New Pay API
@@ -92,6 +92,7 @@ func main() {
 	// Public routes
 	mux.HandleFunc("/api/v1/auth/register", authHandler.Register)
 	mux.HandleFunc("/api/v1/auth/login", authHandler.Login)
+	mux.HandleFunc("/api/v1/auth/logout", authHandler.Logout)
 	mux.HandleFunc("/api/v1/auth/verify-email", authHandler.VerifyEmail)
 	mux.HandleFunc("/api/v1/auth/password-reset/request", authHandler.RequestPasswordReset)
 	mux.HandleFunc("/api/v1/auth/password-reset/confirm", authHandler.ResetPassword)

@@ -255,19 +255,25 @@ func (s *AuthService) ResetPassword(tokenString, newPassword string) error {
 	return nil
 }
 
-// RefreshToken refreshes an access token using a refresh token
-func (s *AuthService) RefreshToken(refreshToken string) (string, error) {
+// RefreshToken refreshes an access token using a refresh token and returns a new refresh token
+func (s *AuthService) RefreshToken(refreshToken string) (string, string, error) {
 	// Validate refresh token
 	claims, err := s.authSvc.ValidateToken(refreshToken)
 	if err != nil {
-		return "", fmt.Errorf("invalid refresh token: %w", err)
+		return "", "", fmt.Errorf("invalid refresh token: %w", err)
 	}
 
 	// Generate new access token
 	accessToken, err := s.authSvc.GenerateToken(claims.UserID, claims.Email)
 	if err != nil {
-		return "", fmt.Errorf("failed to generate access token: %w", err)
+		return "", "", fmt.Errorf("failed to generate access token: %w", err)
 	}
 
-	return accessToken, nil
+	// Generate new refresh token (token rotation for security)
+	newRefreshToken, err := s.authSvc.GenerateRefreshToken(claims.UserID, claims.Email)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to generate refresh token: %w", err)
+	}
+
+	return accessToken, newRefreshToken, nil
 }
