@@ -611,6 +611,108 @@ func (s *AuthService) CountAllUsers() (int, error) {
 	return s.userRepo.CountAll()
 }
 
+// ResendVerificationEmail creates a new verification token and sends the email
+func (s *AuthService) ResendVerificationEmail(userID uint) error {
+	// Get user
+	user, err := s.userRepo.GetByID(userID)
+	if err != nil {
+		return fmt.Errorf("user not found: %w", err)
+	}
+
+	// Check if already verified
+	if user.EmailVerified {
+		return errors.New("email already verified")
+	}
+
+	// Delete any existing pending verification tokens for this user
+	if err := s.tokenRepo.DeletePendingEmailVerificationTokens(userID); err != nil {
+		log.Printf("Failed to delete pending tokens: %v", err)
+	}
+
+	// Generate new token
+	token, err := auth.GenerateRandomToken(32)
+	if err != nil {
+		return fmt.Errorf("failed to generate token: %w", err)
+	}
+
+	verificationToken := &models.EmailVerificationToken{
+		UserID:    userID,
+		Token:     token,
+		ExpiresAt: time.Now().Add(24 * time.Hour),
+	}
+
+	if err := s.tokenRepo.CreateEmailVerificationToken(verificationToken); err != nil {
+		return fmt.Errorf("failed to create verification token: %w", err)
+	}
+
+	// Send verification email
+	if err := s.emailSvc.SendVerificationEmail(user.Email, token); err != nil {
+		return fmt.Errorf("failed to send verification email: %w", err)
+	}
+
+	return nil
+}
+
+// SendVerificationEmailToUser sends a verification email to any user (admin only)
+func (s *AuthService) SendVerificationEmailToUser(userID uint) error {
+	// Get user
+	user, err := s.userRepo.GetByID(userID)
+	if err != nil {
+		return fmt.Errorf("user not found: %w", err)
+	}
+
+	// Delete any existing pending verification tokens for this user
+	if err := s.tokenRepo.DeletePendingEmailVerificationTokens(userID); err != nil {
+		log.Printf("Failed to delete pending tokens: %v", err)
+	}
+
+	// Generate new token
+	token, err := auth.GenerateRandomToken(32)
+	if err != nil {
+		return fmt.Errorf("failed to generate token: %w", err)
+	}
+
+	verificationToken := &models.EmailVerificationToken{
+		UserID:    userID,
+		Token:     token,
+		ExpiresAt: time.Now().Add(24 * time.Hour),
+	}
+
+	if err := s.tokenRepo.CreateEmailVerificationToken(verificationToken); err != nil {
+		return fmt.Errorf("failed to create verification token: %w", err)
+	}
+
+	// Send verification email
+	if err := s.emailSvc.SendVerificationEmail(user.Email, token); err != nil {
+		return fmt.Errorf("failed to send verification email: %w", err)
+	}
+
+	return nil
+}
+
+// CancelEmailVerification cancels all pending email verification tokens for a user (admin only)
+func (s *AuthService) CancelEmailVerification(userID uint) error {
+	if err := s.tokenRepo.DeletePendingEmailVerificationTokens(userID); err != nil {
+		return fmt.Errorf("failed to cancel verification: %w", err)
+	}
+	return nil
+}
+
+// RevokeEmailVerification marks a user's email as unverified (admin only)
+func (s *AuthService) RevokeEmailVerification(userID uint) error {
+	// Delete pending tokens first
+	if err := s.tokenRepo.DeletePendingEmailVerificationTokens(userID); err != nil {
+		log.Printf("Failed to delete pending tokens: %v", err)
+	}
+
+	// Mark email as unverified
+	if err := s.userRepo.UnverifyEmail(userID); err != nil {
+		return fmt.Errorf("failed to revoke verification: %w", err)
+	}
+
+	return nil
+}
+
 func timePtr(t time.Time) *time.Time {
 	return &t
 }

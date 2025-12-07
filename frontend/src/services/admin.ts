@@ -82,6 +82,21 @@ export const adminApi = {
     apiClient.post<{ message: string }>('/admin/users/delete', {
       user_id: userId
     }),
+
+  sendVerificationEmail: (userId: number) =>
+    apiClient.post<{ message: string }>('/admin/users/send-verification', {
+      user_id: userId
+    }),
+
+  cancelVerification: (userId: number) =>
+    apiClient.post<{ message: string }>('/admin/users/cancel-verification', {
+      user_id: userId
+    }),
+
+  revokeVerification: (userId: number) =>
+    apiClient.post<{ message: string }>('/admin/users/revoke-verification', {
+      user_id: userId
+    }),
   
   // Role management
   listRoles: () =>

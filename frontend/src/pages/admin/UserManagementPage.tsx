@@ -21,7 +21,7 @@ import {
   PasswordInput,
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
-import { IconUserPlus, IconUserMinus, IconSearch, IconX, IconChevronUp, IconChevronDown, IconLock, IconLockOpen, IconEdit, IconTrash, IconKey } from '@tabler/icons-react';
+import { IconUserPlus, IconUserMinus, IconSearch, IconX, IconChevronUp, IconChevronDown, IconLock, IconLockOpen, IconEdit, IconTrash, IconKey, IconMail, IconMailOff, IconMailX } from '@tabler/icons-react';
 import { adminApi, type UserListParams } from '../../services/admin';
 import type { UserWithRoles, Role, ApiError } from '../../types';
 
@@ -314,6 +314,62 @@ export const UserManagementPage = () => {
     }
   };
 
+  const handleSendVerification = async (user: UserWithRoles) => {
+    try {
+      await adminApi.sendVerificationEmail(user.id);
+      notifications.show({
+        title: 'Success',
+        message: 'Verification email sent successfully',
+        color: 'green',
+      });
+    } catch (error) {
+      const apiError = error as ApiError;
+      notifications.show({
+        title: 'Error',
+        message: apiError.error || 'Failed to send verification email',
+        color: 'red',
+      });
+    }
+  };
+
+  const handleCancelVerification = async (user: UserWithRoles) => {
+    try {
+      await adminApi.cancelVerification(user.id);
+      notifications.show({
+        title: 'Success',
+        message: 'Pending verification cancelled successfully',
+        color: 'green',
+      });
+      loadUsers();
+    } catch (error) {
+      const apiError = error as ApiError;
+      notifications.show({
+        title: 'Error',
+        message: apiError.error || 'Failed to cancel verification',
+        color: 'red',
+      });
+    }
+  };
+
+  const handleRevokeVerification = async (user: UserWithRoles) => {
+    try {
+      await adminApi.revokeVerification(user.id);
+      notifications.show({
+        title: 'Success',
+        message: 'Email verification revoked successfully',
+        color: 'green',
+      });
+      loadUsers();
+    } catch (error) {
+      const apiError = error as ApiError;
+      notifications.show({
+        title: 'Error',
+        message: apiError.error || 'Failed to revoke verification',
+        color: 'red',
+      });
+    }
+  };
+
   const clearFilters = () => {
     setSearchQuery('');
     setSelectedRoleFilters([]);
@@ -558,6 +614,37 @@ export const UserManagementPage = () => {
                           {user.is_active ? <IconLock size={16} /> : <IconLockOpen size={16} />}
                         </ActionIcon>
                       </Tooltip>
+                      <Tooltip label="Send Verification Email">
+                        <ActionIcon
+                          color="cyan"
+                          variant="light"
+                          onClick={() => handleSendVerification(user)}
+                        >
+                          <IconMail size={16} />
+                        </ActionIcon>
+                      </Tooltip>
+                      {!user.email_verified && (
+                        <Tooltip label="Cancel Pending Verification">
+                          <ActionIcon
+                            color="orange"
+                            variant="light"
+                            onClick={() => handleCancelVerification(user)}
+                          >
+                            <IconMailX size={16} />
+                          </ActionIcon>
+                        </Tooltip>
+                      )}
+                      {user.email_verified && (
+                        <Tooltip label="Revoke Email Verification">
+                          <ActionIcon
+                            color="red"
+                            variant="light"
+                            onClick={() => handleRevokeVerification(user)}
+                          >
+                            <IconMailOff size={16} />
+                          </ActionIcon>
+                        </Tooltip>
+                      )}
                       <Tooltip label="Assign Role">
                         <ActionIcon
                           color="blue"

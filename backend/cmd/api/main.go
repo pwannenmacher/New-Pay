@@ -114,6 +114,7 @@ func main() {
 	mux.Handle("/api/v1/users/profile", authMw.Authenticate(http.HandlerFunc(userHandler.GetProfile)))
 	mux.Handle("/api/v1/users/profile/update", authMw.Authenticate(http.HandlerFunc(userHandler.UpdateProfile)))
 	mux.Handle("/api/v1/users/password/change", authMw.Authenticate(http.HandlerFunc(userHandler.ChangePassword)))
+	mux.Handle("/api/v1/users/resend-verification", authMw.Authenticate(http.HandlerFunc(userHandler.ResendVerificationEmail)))
 	mux.Handle("/api/v1/users/sessions", authMw.Authenticate(http.HandlerFunc(sessionHandler.GetMySessions)))
 	mux.Handle("/api/v1/users/sessions/delete", authMw.Authenticate(http.HandlerFunc(sessionHandler.DeleteMySession)))
 	mux.Handle("/api/v1/users/sessions/delete-all", authMw.Authenticate(http.HandlerFunc(sessionHandler.DeleteAllMySessions)))
@@ -172,6 +173,27 @@ func main() {
 		authMw.Authenticate(
 			rbacMw.RequireRole("admin")(
 				http.HandlerFunc(userHandler.DeleteUser),
+			),
+		),
+	)
+	mux.Handle("/api/v1/admin/users/send-verification",
+		authMw.Authenticate(
+			rbacMw.RequireRole("admin")(
+				http.HandlerFunc(userHandler.AdminSendVerificationEmail),
+			),
+		),
+	)
+	mux.Handle("/api/v1/admin/users/cancel-verification",
+		authMw.Authenticate(
+			rbacMw.RequireRole("admin")(
+				http.HandlerFunc(userHandler.AdminCancelVerification),
+			),
+		),
+	)
+	mux.Handle("/api/v1/admin/users/revoke-verification",
+		authMw.Authenticate(
+			rbacMw.RequireRole("admin")(
+				http.HandlerFunc(userHandler.AdminRevokeVerification),
 			),
 		),
 	)

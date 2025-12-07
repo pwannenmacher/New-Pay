@@ -170,3 +170,13 @@ func (r *TokenRepository) DeleteExpiredTokens() error {
 
 	return nil
 }
+
+// DeletePendingEmailVerificationTokens deletes all unused email verification tokens for a user
+func (r *TokenRepository) DeletePendingEmailVerificationTokens(userID uint) error {
+	query := `DELETE FROM email_verification_tokens WHERE user_id = $1 AND used_at IS NULL`
+	_, err := r.db.Exec(query, userID)
+	if err != nil {
+		return fmt.Errorf("failed to delete pending email verification tokens: %w", err)
+	}
+	return nil
+}

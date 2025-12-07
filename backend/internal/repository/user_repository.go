@@ -226,6 +226,22 @@ func (r *UserRepository) VerifyEmail(userID uint) error {
 	return nil
 }
 
+// UnverifyEmail marks a user's email as unverified
+func (r *UserRepository) UnverifyEmail(userID uint) error {
+	query := `
+		UPDATE users
+		SET email_verified = false, email_verified_at = NULL, updated_at = $1
+		WHERE id = $2
+	`
+
+	_, err := r.db.Exec(query, time.Now(), userID)
+	if err != nil {
+		return fmt.Errorf("failed to unverify email: %w", err)
+	}
+
+	return nil
+}
+
 // UpdateLastLogin updates the last login timestamp
 func (r *UserRepository) UpdateLastLogin(userID uint) error {
 	query := `

@@ -1,8 +1,11 @@
-import { AppShell, Burger, Group, Button, Menu, Avatar, Text } from '@mantine/core';
+import { AppShell, Burger, Group, Button, Menu, Avatar, Text, Alert } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { Link, useNavigate } from 'react-router-dom';
-import { IconUser, IconLogout, IconSettings, IconShieldLock } from '@tabler/icons-react';
+import { IconUser, IconLogout, IconSettings, IconShieldLock, IconAlertCircle, IconMail } from '@tabler/icons-react';
 import { useAuth } from '../../contexts/AuthContext';
+import { useState } from 'react';
+import { apiClient } from '../../services/api';
+import { notifications } from '@mantine/notifications';
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -12,10 +15,31 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
   const [opened, { toggle }] = useDisclosure();
   const { user, logout, isAuthenticated } = useAuth();
   const navigate = useNavigate();
+  const [isResendingVerification, setIsResendingVerification] = useState(false);
 
   const handleLogout = async () => {
     await logout();
     navigate('/login');
+  };
+
+  const handleResendVerification = async () => {
+    setIsResendingVerification(true);
+    try {
+      await apiClient.post('/users/resend-verification', {});
+      notifications.show({
+        title: 'Success',
+        message: 'Verification email sent successfully. Please check your inbox.',
+        color: 'green',
+      });
+    } catch (error) {
+      notifications.show({
+        title: 'Error',
+        message: 'Failed to send verification email',
+        color: 'red',
+      });
+    } finally {
+      setIsResendingVerification(false);
+    }
   };
 
   const isAdmin = user?.roles?.some((role) => role.name === 'admin');
@@ -128,7 +152,35 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
         )}
       </AppShell.Navbar>
 
-      <AppShell.Main>{children}</AppShell.Main>
+      <AppShell.Main>
+        {isAuthenticated && user && !user.email_verified && (
+          <Alert
+            variant="light"
+            color="yellow"
+            title="Email Verification Required"
+            icon={<IconAlertCircle />}
+            mb="md"
+            withCloseButton={false}
+          >
+            <Group justify="space-between" align="center">
+              <Text size="sm">
+                Your email address has not been verified yet. Please check your inbox for the verification email.
+              </Text>
+              <Button
+                size="xs"
+                variant="light"
+                color="yellow"
+                leftSection={<IconMail size={14} />}
+                onClick={handleResendVerification}
+                loading={isResendingVerification}
+              >
+                Resend Email
+              </Button>
+            </Group>
+          </Alert>
+        )}
+        {children}
+      </AppShell.Main>
     </AppShell>
   );
 };

@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -821,5 +822,155 @@ func (h *UserHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
 
 	respondWithJSON(w, http.StatusOK, map[string]string{
 		"message": "User deleted successfully",
+	})
+}
+
+// ResendVerificationEmail resends verification email for the current user
+// @Summary Resend verification email
+// @Description Resend email verification link for current user if not yet verified
+// @Tags Users
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} map[string]string "Verification email sent"
+// @Failure 400 {object} map[string]string "Email already verified"
+// @Failure 401 {object} map[string]string "Unauthorized"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Router /users/resend-verification [post]
+func (h *UserHandler) ResendVerificationEmail(w http.ResponseWriter, r *http.Request) {
+	userID, ok := middleware.GetUserID(r)
+	if !ok {
+		respondWithError(w, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+
+	if err := h.authSvc.ResendVerificationEmail(userID); err != nil {
+		if err.Error() == "email already verified" {
+			respondWithError(w, http.StatusBadRequest, "Email already verified")
+			return
+		}
+		_ = h.auditMw.LogAction(&userID, "user.resend_verification.error", "users", "Failed to resend verification: "+err.Error(), getIP(r), r.UserAgent())
+		respondWithError(w, http.StatusInternalServerError, "Failed to send verification email")
+		return
+	}
+
+	_ = h.auditMw.LogAction(&userID, "user.resend_verification", "users", "Verification email resent", getIP(r), r.UserAgent())
+
+	respondWithJSON(w, http.StatusOK, map[string]string{
+		"message": "Verification email sent successfully",
+	})
+}
+
+// AdminSendVerificationEmail sends verification email to any user (admin only)
+// @Summary Send verification email to user
+// @Description Admin endpoint to send verification email to any user
+// @Tags Admin
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body object true "User ID"
+// @Success 200 {object} map[string]string "Verification email sent"
+// @Failure 400 {object} map[string]string "Invalid request"
+// @Failure 401 {object} map[string]string "Unauthorized"
+// @Failure 403 {object} map[string]string "Forbidden - admin only"
+// @Failure 404 {object} map[string]string "User not found"
+// @Router /admin/users/send-verification [post]
+func (h *UserHandler) AdminSendVerificationEmail(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		UserID uint `json:"user_id"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondWithError(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+
+	if err := h.authSvc.SendVerificationEmailToUser(req.UserID); err != nil {
+		actorID, _ := middleware.GetUserID(r)
+		_ = h.auditMw.LogAction(&actorID, "admin.send_verification.error", "users", "Failed to send verification: "+err.Error(), getIP(r), r.UserAgent())
+		respondWithError(w, http.StatusInternalServerError, "Failed to send verification email")
+		return
+	}
+
+	actorID, _ := middleware.GetUserID(r)
+	_ = h.auditMw.LogAction(&actorID, "admin.send_verification", "users", fmt.Sprintf("Sent verification email to user ID %d", req.UserID), getIP(r), r.UserAgent())
+
+	respondWithJSON(w, http.StatusOK, map[string]string{
+		"message": "Verification email sent successfully",
+	})
+}
+
+// AdminCancelVerification cancels pending email verification for a user (admin only)
+// @Summary Cancel pending email verification
+// @Description Admin endpoint to cancel all pending verification tokens for a user
+// @Tags Admin
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body object true "User ID"
+// @Success 200 {object} map[string]string "Verification cancelled"
+// @Failure 400 {object} map[string]string "Invalid request"
+// @Failure 401 {object} map[string]string "Unauthorized"
+// @Failure 403 {object} map[string]string "Forbidden - admin only"
+// @Router /admin/users/cancel-verification [post]
+func (h *UserHandler) AdminCancelVerification(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		UserID uint `json:"user_id"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondWithError(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+
+	if err := h.authSvc.CancelEmailVerification(req.UserID); err != nil {
+		actorID, _ := middleware.GetUserID(r)
+		_ = h.auditMw.LogAction(&actorID, "admin.cancel_verification.error", "users", "Failed to cancel verification: "+err.Error(), getIP(r), r.UserAgent())
+		respondWithError(w, http.StatusInternalServerError, "Failed to cancel verification")
+		return
+	}
+
+	actorID, _ := middleware.GetUserID(r)
+	_ = h.auditMw.LogAction(&actorID, "admin.cancel_verification", "users", fmt.Sprintf("Cancelled verification for user ID %d", req.UserID), getIP(r), r.UserAgent())
+
+	respondWithJSON(w, http.StatusOK, map[string]string{
+		"message": "Email verification cancelled successfully",
+	})
+}
+
+// AdminRevokeVerification marks a user's email as unverified (admin only)
+// @Summary Revoke email verification
+// @Description Admin endpoint to mark a user's email as unverified
+// @Tags Admin
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body object true "User ID"
+// @Success 200 {object} map[string]string "Verification revoked"
+// @Failure 400 {object} map[string]string "Invalid request"
+// @Failure 401 {object} map[string]string "Unauthorized"
+// @Failure 403 {object} map[string]string "Forbidden - admin only"
+// @Router /admin/users/revoke-verification [post]
+func (h *UserHandler) AdminRevokeVerification(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		UserID uint `json:"user_id"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondWithError(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+
+	if err := h.authSvc.RevokeEmailVerification(req.UserID); err != nil {
+		actorID, _ := middleware.GetUserID(r)
+		_ = h.auditMw.LogAction(&actorID, "admin.revoke_verification.error", "users", "Failed to revoke verification: "+err.Error(), getIP(r), r.UserAgent())
+		respondWithError(w, http.StatusInternalServerError, "Failed to revoke verification")
+		return
+	}
+
+	actorID, _ := middleware.GetUserID(r)
+	_ = h.auditMw.LogAction(&actorID, "admin.revoke_verification", "users", fmt.Sprintf("Revoked verification for user ID %d", req.UserID), getIP(r), r.UserAgent())
+
+	respondWithJSON(w, http.StatusOK, map[string]string{
+		"message": "Email verification revoked successfully",
 	})
 }

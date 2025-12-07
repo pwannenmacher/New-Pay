@@ -32,6 +32,7 @@ export const ProfilePage = () => {
   const [passwordModalOpened, setPasswordModalOpened] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isPasswordLoading, setIsPasswordLoading] = useState(false);
+  const [isResendingVerification, setIsResendingVerification] = useState(false);
 
   const form = useForm<ProfileUpdateRequest>({
     initialValues: {
@@ -120,6 +121,29 @@ export const ProfilePage = () => {
     }
   };
 
+  const handleResendVerification = async () => {
+    setIsResendingVerification(true);
+    
+    try {
+      await apiClient.post('/users/resend-verification', {});
+      
+      notifications.show({
+        title: 'Success',
+        message: 'Verification email sent successfully. Please check your inbox.',
+        color: 'green',
+      });
+    } catch (error) {
+      const apiError = error as ApiError;
+      notifications.show({
+        title: 'Error',
+        message: apiError.error || 'Failed to send verification email',
+        color: 'red',
+      });
+    } finally {
+      setIsResendingVerification(false);
+    }
+  };
+
   if (!user) {
     return null;
   }
@@ -144,10 +168,23 @@ export const ProfilePage = () => {
             <Text fw={500} size="sm" c="dimmed">Email</Text>
             <Group gap="xs">
               <Text size="lg">{user.email}</Text>
-              {user.email_verified && (
+              {user.email_verified ? (
                 <Badge color="green" variant="light">Verified</Badge>
+              ) : (
+                <Badge color="yellow" variant="light">Not Verified</Badge>
               )}
             </Group>
+            {!user.email_verified && (
+              <Button 
+                size="xs" 
+                variant="light" 
+                mt="xs"
+                onClick={handleResendVerification}
+                loading={isResendingVerification}
+              >
+                Resend Verification Email
+              </Button>
+            )}
           </div>
 
           <div>
