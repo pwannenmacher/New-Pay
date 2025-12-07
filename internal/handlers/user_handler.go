@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	"github.com/pwannenmacher/New-Pay/internal/middleware"
+	"github.com/pwannenmacher/New-Pay/internal/models"
 	"github.com/pwannenmacher/New-Pay/internal/repository"
 )
 
