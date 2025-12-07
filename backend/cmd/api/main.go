@@ -18,6 +18,7 @@ import (
 	"new-pay/internal/middleware"
 	"new-pay/internal/repository"
 	"new-pay/internal/service"
+
 	httpSwagger "github.com/swaggo/http-swagger"
 )
 
@@ -70,14 +71,16 @@ func main() {
 	sessionRepo := repository.NewSessionRepository(db.DB)
 	auditRepo := repository.NewAuditRepository(db.DB)
 	oauthConnRepo := repository.NewOAuthConnectionRepository(db.DB)
+	catalogRepo := repository.NewCatalogRepository(db.DB)
 
 	// Initialize services
 	authService := auth.NewService(&cfg.JWT)
 	emailService := email.NewService(&cfg.Email)
 	authSvc := service.NewAuthService(userRepo, tokenRepo, roleRepo, sessionRepo, oauthConnRepo, authService, emailService)
+	catalogService := service.NewCatalogService(catalogRepo)
 
 	// Initialize middleware
-	authMw := middleware.NewAuthMiddleware(authService, sessionRepo)
+	authMw := middleware.NewAuthMiddleware(authService, sessionRepo, userRepo)
 	rbacMw := middleware.NewRBACMiddleware(db.DB)
 	corsMw := middleware.NewCORSMiddleware(&cfg.CORS)
 	rateLimiter := middleware.NewRateLimiter(&cfg.RateLimit)
@@ -89,6 +92,7 @@ func main() {
 	auditHandler := handlers.NewAuditHandler(auditRepo)
 	sessionHandler := handlers.NewSessionHandler(sessionRepo, authSvc, auditMw, db.DB)
 	configHandler := handlers.NewConfigHandler(cfg)
+	catalogHandler := handlers.NewCatalogHandler(catalogService, auditMw)
 
 	// Setup router
 	mux := http.NewServeMux()
@@ -229,6 +233,124 @@ func main() {
 		authMw.Authenticate(
 			rbacMw.RequireRole("admin")(
 				http.HandlerFunc(sessionHandler.DeleteAllUserSessions),
+			),
+		),
+	)
+
+	// Catalog routes - Public (users can view catalogs in review phase)
+	mux.Handle("GET /api/v1/catalogs", authMw.Authenticate(http.HandlerFunc(catalogHandler.GetAllCatalogs)))
+	mux.Handle("GET /api/v1/catalogs/{id}", authMw.Authenticate(http.HandlerFunc(catalogHandler.GetCatalogByID)))
+
+	// Catalog routes - Admin only
+	mux.Handle("POST /api/v1/admin/catalogs",
+		authMw.Authenticate(
+			rbacMw.RequireRole("admin")(
+				http.HandlerFunc(catalogHandler.CreateCatalog),
+			),
+		),
+	)
+	mux.Handle("PUT /api/v1/admin/catalogs/{id}",
+		authMw.Authenticate(
+			rbacMw.RequireRole("admin")(
+				http.HandlerFunc(catalogHandler.UpdateCatalog),
+			),
+		),
+	)
+	mux.Handle("DELETE /api/v1/admin/catalogs/{id}",
+		authMw.Authenticate(
+			rbacMw.RequireRole("admin")(
+				http.HandlerFunc(catalogHandler.DeleteCatalog),
+			),
+		),
+	)
+	mux.Handle("POST /api/v1/admin/catalogs/{id}/transition-to-review",
+		authMw.Authenticate(
+			rbacMw.RequireRole("admin")(
+				http.HandlerFunc(catalogHandler.TransitionToReview),
+			),
+		),
+	)
+	mux.Handle("POST /api/v1/admin/catalogs/{id}/transition-to-archived",
+		authMw.Authenticate(
+			rbacMw.RequireRole("admin")(
+				http.HandlerFunc(catalogHandler.TransitionToArchived),
+			),
+		),
+	)
+	mux.Handle("POST /api/v1/admin/catalogs/{id}/categories",
+		authMw.Authenticate(
+			rbacMw.RequireRole("admin")(
+				http.HandlerFunc(catalogHandler.CreateCategory),
+			),
+		),
+	)
+	mux.Handle("PUT /api/v1/admin/catalogs/{id}/categories/{categoryId}",
+		authMw.Authenticate(
+			rbacMw.RequireRole("admin")(
+				http.HandlerFunc(catalogHandler.UpdateCategory),
+			),
+		),
+	)
+	mux.Handle("DELETE /api/v1/admin/catalogs/{id}/categories/{categoryId}",
+		authMw.Authenticate(
+			rbacMw.RequireRole("admin")(
+				http.HandlerFunc(catalogHandler.DeleteCategory),
+			),
+		),
+	)
+	mux.Handle("POST /api/v1/admin/catalogs/{id}/levels",
+		authMw.Authenticate(
+			rbacMw.RequireRole("admin")(
+				http.HandlerFunc(catalogHandler.CreateLevel),
+			),
+		),
+	)
+	mux.Handle("PUT /api/v1/admin/catalogs/{id}/levels/{levelId}",
+		authMw.Authenticate(
+			rbacMw.RequireRole("admin")(
+				http.HandlerFunc(catalogHandler.UpdateLevel),
+			),
+		),
+	)
+	mux.Handle("DELETE /api/v1/admin/catalogs/{id}/levels/{levelId}",
+		authMw.Authenticate(
+			rbacMw.RequireRole("admin")(
+				http.HandlerFunc(catalogHandler.DeleteLevel),
+			),
+		),
+	)
+	mux.Handle("POST /api/v1/admin/catalogs/{id}/categories/{categoryId}/paths",
+		authMw.Authenticate(
+			rbacMw.RequireRole("admin")(
+				http.HandlerFunc(catalogHandler.CreatePath),
+			),
+		),
+	)
+	mux.Handle("PUT /api/v1/admin/catalogs/{id}/categories/{categoryId}/paths/{pathId}",
+		authMw.Authenticate(
+			rbacMw.RequireRole("admin")(
+				http.HandlerFunc(catalogHandler.UpdatePath),
+			),
+		),
+	)
+	mux.Handle("DELETE /api/v1/admin/catalogs/{id}/categories/{categoryId}/paths/{pathId}",
+		authMw.Authenticate(
+			rbacMw.RequireRole("admin")(
+				http.HandlerFunc(catalogHandler.DeletePath),
+			),
+		),
+	)
+	mux.Handle("POST /api/v1/admin/catalogs/{id}/descriptions",
+		authMw.Authenticate(
+			rbacMw.RequireRole("admin")(
+				http.HandlerFunc(catalogHandler.CreateOrUpdateDescription),
+			),
+		),
+	)
+	mux.Handle("GET /api/v1/admin/catalogs/{id}/changes",
+		authMw.Authenticate(
+			rbacMw.RequireRole("admin")(
+				http.HandlerFunc(catalogHandler.GetChanges),
 			),
 		),
 	)

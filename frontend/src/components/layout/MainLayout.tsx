@@ -1,7 +1,7 @@
 import { AppShell, Burger, Group, Button, Menu, Avatar, Text, Alert } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { Link, useNavigate } from 'react-router-dom';
-import { IconUser, IconLogout, IconSettings, IconShieldLock, IconAlertCircle, IconMail } from '@tabler/icons-react';
+import { IconUser, IconLogout, IconSettings, IconShieldLock, IconAlertCircle, IconMail, IconBook } from '@tabler/icons-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useAppConfig } from '../../contexts/AppConfigContext';
 import { useState } from 'react';
@@ -149,6 +149,17 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
                   mb="xs"
                 >
                   Admin Dashboard
+                </Button>
+                <Button
+                  variant="subtle"
+                  component={Link}
+                  to="/admin/catalogs"
+                  fullWidth
+                  justify="flex-start"
+                  leftSection={<IconBook size={16} />}
+                  mb="xs"
+                >
+                  Kriterienkataloge
                 </Button>
               </>
             )}

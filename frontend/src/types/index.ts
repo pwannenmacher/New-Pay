@@ -132,3 +132,84 @@ export interface ApiError {
   message?: string;
   details?: Record<string, string[]>;
 }
+
+// Criteria Catalog types
+export type CatalogPhase = 'draft' | 'review' | 'archived';
+
+export interface CriteriaCatalog {
+  id: number;
+  name: string;
+  description?: string;
+  valid_from: string;
+  valid_until: string;
+  phase: CatalogPhase;
+  created_by?: number;
+  created_at: string;
+  updated_at: string;
+  published_at?: string;
+  archived_at?: string;
+}
+
+export interface Category {
+  id: number;
+  catalog_id: number;
+  name: string;
+  description?: string;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Level {
+  id: number;
+  catalog_id: number;
+  name: string;
+  level_number: number;
+  description?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Path {
+  id: number;
+  category_id: number;
+  name: string;
+  description?: string;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PathLevelDescription {
+  id: number;
+  path_id: number;
+  level_id: number;
+  description: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CatalogChange {
+  id: number;
+  catalog_id: number;
+  entity_type: 'catalog' | 'category' | 'path' | 'level' | 'description';
+  entity_id: number;
+  field_name: string;
+  old_value?: string;
+  new_value?: string;
+  changed_by?: number;
+  changed_at: string;
+}
+
+export interface PathWithDescriptions extends Path {
+  descriptions?: PathLevelDescription[];
+}
+
+export interface CategoryWithPaths extends Category {
+  paths?: PathWithDescriptions[];
+}
+
+export interface CatalogWithDetails extends CriteriaCatalog {
+  categories?: CategoryWithPaths[];
+  levels?: Level[];
+}

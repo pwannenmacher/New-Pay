@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"new-pay/internal/auth"
+	"new-pay/internal/models"
 	"new-pay/internal/repository"
 )
 
@@ -14,19 +15,22 @@ type contextKey string
 const (
 	UserIDKey    contextKey = "user_id"
 	UserEmailKey contextKey = "user_email"
+	UserRolesKey contextKey = "user_roles"
 )
 
 // AuthMiddleware validates JWT tokens
 type AuthMiddleware struct {
 	authService *auth.Service
 	sessionRepo *repository.SessionRepository
+	userRepo    *repository.UserRepository
 }
 
 // NewAuthMiddleware creates a new auth middleware
-func NewAuthMiddleware(authService *auth.Service, sessionRepo *repository.SessionRepository) *AuthMiddleware {
+func NewAuthMiddleware(authService *auth.Service, sessionRepo *repository.SessionRepository, userRepo *repository.UserRepository) *AuthMiddleware {
 	return &AuthMiddleware{
 		authService: authService,
 		sessionRepo: sessionRepo,
+		userRepo:    userRepo,
 	}
 }
 
@@ -65,9 +69,23 @@ func (m *AuthMiddleware) Authenticate(next http.Handler) http.Handler {
 			}
 		}
 
+		// Load user roles
+		roles, err := m.userRepo.GetUserRoles(claims.UserID)
+		if err != nil {
+			// If we can't load roles, treat as empty role list (still authenticated)
+			roles = []models.Role{}
+		}
+
+		// Extract role names
+		roleNames := make([]string, len(roles))
+		for i, role := range roles {
+			roleNames[i] = role.Name
+		}
+
 		// Add user info to context
 		ctx := context.WithValue(r.Context(), UserIDKey, claims.UserID)
 		ctx = context.WithValue(ctx, UserEmailKey, claims.Email)
+		ctx = context.WithValue(ctx, UserRolesKey, roleNames)
 
 		// Call the next handler
 		next.ServeHTTP(w, r.WithContext(ctx))
@@ -104,6 +122,12 @@ func GetUserID(r *http.Request) (uint, bool) {
 func GetUserEmail(r *http.Request) (string, bool) {
 	email, ok := r.Context().Value(UserEmailKey).(string)
 	return email, ok
+}
+
+// GetUserRoles retrieves the user roles from the request context
+func GetUserRoles(r *http.Request) ([]string, bool) {
+	roles, ok := r.Context().Value(UserRolesKey).([]string)
+	return roles, ok
 }
 
 // Helper function to respond with JSON error

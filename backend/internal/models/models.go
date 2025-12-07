@@ -117,3 +117,93 @@ type OAuthConnection struct {
 	CreatedAt  time.Time `json:"created_at" db:"created_at"`
 	UpdatedAt  time.Time `json:"updated_at" db:"updated_at"`
 }
+
+// CriteriaCatalog represents a criteria catalog with phases and validity
+type CriteriaCatalog struct {
+	ID          uint       `json:"id" db:"id"`
+	Name        string     `json:"name" db:"name"`
+	Description *string    `json:"description,omitempty" db:"description"`
+	ValidFrom   time.Time  `json:"valid_from" db:"valid_from"`
+	ValidUntil  time.Time  `json:"valid_until" db:"valid_until"`
+	Phase       string     `json:"phase" db:"phase"` // draft, review, archived
+	CreatedBy   *uint      `json:"created_by,omitempty" db:"created_by"`
+	CreatedAt   time.Time  `json:"created_at" db:"created_at"`
+	UpdatedAt   time.Time  `json:"updated_at" db:"updated_at"`
+	PublishedAt *time.Time `json:"published_at,omitempty" db:"published_at"`
+	ArchivedAt  *time.Time `json:"archived_at,omitempty" db:"archived_at"`
+}
+
+// Category represents a category within a criteria catalog
+type Category struct {
+	ID          uint      `json:"id" db:"id"`
+	CatalogID   uint      `json:"catalog_id" db:"catalog_id"`
+	Name        string    `json:"name" db:"name"`
+	Description *string   `json:"description,omitempty" db:"description"`
+	SortOrder   int       `json:"sort_order" db:"sort_order"`
+	CreatedAt   time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at" db:"updated_at"`
+}
+
+// Level represents a level (column) in the criteria matrix
+type Level struct {
+	ID          uint      `json:"id" db:"id"`
+	CatalogID   uint      `json:"catalog_id" db:"catalog_id"`
+	Name        string    `json:"name" db:"name"`
+	LevelNumber int       `json:"level_number" db:"level_number"`
+	Description *string   `json:"description,omitempty" db:"description"`
+	CreatedAt   time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at" db:"updated_at"`
+}
+
+// Path represents a path (row) within a category
+type Path struct {
+	ID          uint      `json:"id" db:"id"`
+	CategoryID  uint      `json:"category_id" db:"category_id"`
+	Name        string    `json:"name" db:"name"`
+	Description *string   `json:"description,omitempty" db:"description"`
+	SortOrder   int       `json:"sort_order" db:"sort_order"`
+	CreatedAt   time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at" db:"updated_at"`
+}
+
+// PathLevelDescription represents a cell in the criteria matrix
+type PathLevelDescription struct {
+	ID          uint      `json:"id" db:"id"`
+	PathID      uint      `json:"path_id" db:"path_id"`
+	LevelID     uint      `json:"level_id" db:"level_id"`
+	Description string    `json:"description" db:"description"`
+	CreatedAt   time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at" db:"updated_at"`
+}
+
+// CatalogChange represents a change log entry for catalog modifications
+type CatalogChange struct {
+	ID         uint      `json:"id" db:"id"`
+	CatalogID  uint      `json:"catalog_id" db:"catalog_id"`
+	EntityType string    `json:"entity_type" db:"entity_type"` // catalog, category, path, level, description
+	EntityID   uint      `json:"entity_id" db:"entity_id"`
+	FieldName  string    `json:"field_name" db:"field_name"`
+	OldValue   *string   `json:"old_value,omitempty" db:"old_value"`
+	NewValue   *string   `json:"new_value,omitempty" db:"new_value"`
+	ChangedBy  *uint     `json:"changed_by,omitempty" db:"changed_by"`
+	ChangedAt  time.Time `json:"changed_at" db:"changed_at"`
+}
+
+// CatalogWithDetails extends CriteriaCatalog with nested structures
+type CatalogWithDetails struct {
+	CriteriaCatalog
+	Categories []CategoryWithPaths `json:"categories,omitempty"`
+	Levels     []Level             `json:"levels,omitempty"`
+}
+
+// CategoryWithPaths extends Category with paths
+type CategoryWithPaths struct {
+	Category
+	Paths []PathWithDescriptions `json:"paths,omitempty"`
+}
+
+// PathWithDescriptions extends Path with descriptions for all levels
+type PathWithDescriptions struct {
+	Path
+	Descriptions []PathLevelDescription `json:"descriptions,omitempty"`
+}

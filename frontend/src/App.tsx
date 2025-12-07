@@ -19,6 +19,9 @@ import { AdminDashboardPage } from './pages/admin/AdminDashboardPage';
 import { UserManagementPage } from './pages/admin/UserManagementPage';
 import { AuditLogsPage } from './pages/admin/AuditLogsPage';
 import { SessionsPage } from './pages/admin/SessionsPage';
+import { CatalogManagementPage } from './pages/admin/CatalogManagementPage';
+import { CatalogEditorPage } from './pages/admin/CatalogEditorPage';
+import { CatalogViewPage } from './pages/admin/CatalogViewPage';
 
 function App() {
   return (
@@ -78,6 +81,33 @@ function App() {
                 element={
                   <ProtectedRoute requireAdmin>
                     <SessionsPage />
+                  </ProtectedRoute>
+                }
+              />
+              
+              <Route
+                path="/admin/catalogs"
+                element={
+                  <ProtectedRoute requireAdmin>
+                    <CatalogManagementPage />
+                  </ProtectedRoute>
+                }
+              />
+              
+              <Route
+                path="/admin/catalogs/:id"
+                element={
+                  <ProtectedRoute requireAdmin>
+                    <CatalogViewPage />
+                  </ProtectedRoute>
+                }
+              />
+              
+              <Route
+                path="/admin/catalogs/:id/edit"
+                element={
+                  <ProtectedRoute requireAdmin>
+                    <CatalogEditorPage />
                   </ProtectedRoute>
                 }
               />
