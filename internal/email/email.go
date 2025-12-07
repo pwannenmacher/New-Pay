@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"html/template"
+	"net"
 	"net/smtp"
 
 	"github.com/pwannenmacher/New-Pay/internal/config"
@@ -138,18 +139,50 @@ func (s *Service) sendEmail(to, subject, body string) error {
 	message.WriteString("\r\n")
 	message.WriteString(body)
 
-	// Set up authentication
-	auth := smtp.PlainAuth(
-		"",
-		s.config.SMTPUsername,
-		s.config.SMTPPassword,
-		s.config.SMTPHost,
-	)
+	// Connect to SMTP server
+	addr := net.JoinHostPort(s.config.SMTPHost, s.config.SMTPPort)
 
-	// Send the email
-	addr := fmt.Sprintf("%s:%s", s.config.SMTPHost, s.config.SMTPPort)
-	if err := smtp.SendMail(addr, auth, s.config.SMTPFrom, []string{to}, message.Bytes()); err != nil {
-		return fmt.Errorf("failed to send email: %w", err)
+	// Establish connection
+	conn, err := net.Dial("tcp", addr)
+	if err != nil {
+		return fmt.Errorf("failed to connect to SMTP server: %w", err)
+	}
+	defer conn.Close()
+
+	// Create SMTP client
+	client, err := smtp.NewClient(conn, s.config.SMTPHost)
+	if err != nil {
+		return fmt.Errorf("failed to create SMTP client: %w", err)
+	}
+	defer client.Close()
+
+	// Authenticate only if credentials are provided and not empty
+	// For development (e.g., Mailpit), no authentication is needed
+	if s.config.SMTPUsername != "" && s.config.SMTPPassword != "" {
+		auth := smtp.PlainAuth("", s.config.SMTPUsername, s.config.SMTPPassword, s.config.SMTPHost)
+		// Try to authenticate, but don't fail if it's not supported (e.g., Mailpit)
+		_ = client.Auth(auth)
+	}
+
+	// Set sender
+	if err := client.Mail(s.config.SMTPFrom); err != nil {
+		return fmt.Errorf("failed to set sender: %w", err)
+	}
+
+	// Set recipient
+	if err := client.Rcpt(to); err != nil {
+		return fmt.Errorf("failed to set recipient: %w", err)
+	}
+
+	// Send message
+	wc, err := client.Data()
+	if err != nil {
+		return fmt.Errorf("failed to initiate data transfer: %w", err)
+	}
+	defer wc.Close()
+
+	if _, err := wc.Write(message.Bytes()); err != nil {
+		return fmt.Errorf("failed to write message: %w", err)
 	}
 
 	return nil
