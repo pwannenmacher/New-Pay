@@ -68,7 +68,7 @@ func TestGenerateToken(t *testing.T) {
 	userID := uint(1)
 	email := "test@example.com"
 
-	token, err := svc.GenerateToken(userID, email)
+	token, _, err := svc.GenerateToken(userID, email)
 	if err != nil {
 		t.Fatalf("Failed to generate token: %v", err)
 	}
@@ -90,7 +90,7 @@ func TestValidateToken(t *testing.T) {
 	email := "test@example.com"
 
 	// Generate a token
-	token, err := svc.GenerateToken(userID, email)
+	token, _, err := svc.GenerateToken(userID, email)
 	if err != nil {
 		t.Fatalf("Failed to generate token: %v", err)
 	}
@@ -122,7 +122,7 @@ func TestValidateExpiredToken(t *testing.T) {
 	email := "test@example.com"
 
 	// Generate an expired token
-	token, err := svc.GenerateToken(userID, email)
+	token, _, err := svc.GenerateToken(userID, email)
 	if err != nil {
 		t.Fatalf("Failed to generate token: %v", err)
 	}

@@ -13,4 +13,16 @@ export default defineConfig({
       },
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+          'mantine-core': ['@mantine/core', '@mantine/hooks'],
+          'mantine-extras': ['@mantine/form', '@mantine/notifications'],
+        },
+      },
+    },
+    chunkSizeWarningLimit: 600,
+  },
 })

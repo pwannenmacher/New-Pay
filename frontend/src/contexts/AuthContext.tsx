@@ -34,6 +34,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
             headers: {
               'Authorization': `Bearer ${token}`,
             },
+            credentials: 'include',
           });
           
           if (response.ok) {

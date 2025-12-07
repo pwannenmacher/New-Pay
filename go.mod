@@ -1,6 +1,6 @@
 module github.com/pwannenmacher/New-Pay
 
-go 1.24.10
+go 1.25.5
 
 require (
 	github.com/golang-jwt/jwt/v5 v5.3.0

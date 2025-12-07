@@ -1,5 +1,5 @@
 # Build stage
-FROM golang:1.24-alpine AS builder
+FROM golang:1.25-alpine AS builder
 
 # Install build dependencies (git for go modules, ca-certificates for HTTPS)
 RUN apk add --no-cache git ca-certificates tzdata
@@ -27,7 +27,7 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
     ./cmd/api/main.go ./cmd/api/helpers.go
 
 # Final stage - use Alpine for small size with shell access
-FROM alpine:3.18
+FROM alpine:3.21
 
 # Install runtime dependencies
 RUN apk add --no-cache ca-certificates tzdata wget

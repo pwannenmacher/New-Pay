@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import {
   Paper,
@@ -12,16 +12,28 @@ import {
   Stack,
   Group,
   Divider,
+  Alert,
 } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { notifications } from '@mantine/notifications';
 import { useAuth } from '../../contexts/AuthContext';
+import { useAppConfig } from '../../contexts/AppConfigContext';
+import { useOAuthConfig } from '../../hooks/useOAuthConfig';
 import type { RegisterRequest, ApiError } from '../../types';
 
 export const RegisterPage = () => {
   const navigate = useNavigate();
   const { register } = useAuth();
+  const { enableRegistration, loading: configLoading } = useAppConfig();
+  const { config: oauthConfig } = useOAuthConfig();
   const [isLoading, setIsLoading] = useState(false);
+
+  // Redirect if registration is disabled
+  useEffect(() => {
+    if (!configLoading && !enableRegistration) {
+      navigate('/login');
+    }
+  }, [enableRegistration, configLoading, navigate]);
 
   const form = useForm<RegisterRequest>({
     initialValues: {
@@ -61,10 +73,26 @@ export const RegisterPage = () => {
     }
   };
 
-  const handleOAuthLogin = (provider: 'google' | 'facebook') => {
-    const redirectUrl = `http://localhost:8080/api/v1/auth/${provider}/login`;
+  const handleOAuthLogin = (provider: string) => {
+    const redirectUrl = `http://localhost:8080/api/v1/auth/oauth/login?provider=${encodeURIComponent(provider)}`;
     window.location.href = redirectUrl;
   };
+
+  // Show loading or nothing while checking config
+  if (configLoading) {
+    return null;
+  }
+
+  // If registration is disabled, show message (should redirect anyway)
+  if (!enableRegistration) {
+    return (
+      <Container size={420} my={40}>
+        <Alert color="yellow" title="Registration Disabled">
+          Registration is currently disabled. Please contact an administrator.
+        </Alert>
+      </Container>
+    );
+  }
 
   return (
     <Container size={420} my={40}>
@@ -113,22 +141,24 @@ export const RegisterPage = () => {
           </Stack>
         </form>
 
-        <Divider label="Or continue with" labelPosition="center" my="lg" />
+        {oauthConfig?.enabled && oauthConfig.providers.length > 0 && (
+          <>
+            <Divider label="Or continue with" labelPosition="center" my="lg" />
 
-        <Group grow mb="md" mt="md">
-          <Button
-            variant="default"
-            onClick={() => handleOAuthLogin('google')}
-          >
-            Google
-          </Button>
-          <Button
-            variant="default"
-            onClick={() => handleOAuthLogin('facebook')}
-          >
-            Facebook
-          </Button>
-        </Group>
+            <Stack gap="xs">
+              {oauthConfig.providers.map((provider) => (
+                <Button
+                  key={provider.name}
+                  variant="default"
+                  onClick={() => handleOAuthLogin(provider.name)}
+                  fullWidth
+                >
+                  Sign up with {provider.name}
+                </Button>
+              ))}
+            </Stack>
+          </>
+        )}
 
         <Text ta="center" mt="md">
           Already have an account?{' '}

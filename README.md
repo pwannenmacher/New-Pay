@@ -129,6 +129,17 @@ npm run dev
 
 - Frontend: `http://localhost:5173`
 
+## Additional Documentation
+
+- **[OAuth/SSO Configuration](docs/OAUTH_CONFIGURATION.md)** - How to configure OAuth providers (Google, Microsoft, Keycloak, etc.)
+- **[Session Management](docs/SESSION_MANAGEMENT.md)** - User and admin session management
+- **[API Documentation](docs/API.md)** - Detailed API endpoint documentation
+- **[Development Guide](docs/DEVELOPMENT.md)** - Development workflow and best practices
+- **[Docker Guide](docs/DOCKER.md)** - Docker deployment and configuration
+- **[JWT Security](docs/JWT_SECURITY.md)** - JWT implementation and security
+- **[JWT Key Management](docs/JWT_KEY_MANAGEMENT.md)** - Managing persistent JWT keys to prevent session invalidation
+- **[Migrations](docs/MIGRATIONS.md)** - Database migration guide
+
 ## API Endpoints
 
 For comprehensive API documentation with request/response examples, visit the Swagger UI at `http://localhost:8080/swagger/index.html` when the server is running.

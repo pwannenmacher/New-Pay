@@ -16,11 +16,15 @@ import {
 import { useForm } from '@mantine/form';
 import { notifications } from '@mantine/notifications';
 import { useAuth } from '../../contexts/AuthContext';
+import { useAppConfig } from '../../contexts/AppConfigContext';
+import { useOAuthConfig } from '../../hooks/useOAuthConfig';
 import type { LoginRequest, ApiError } from '../../types';
 
 export const LoginPage = () => {
   const navigate = useNavigate();
   const { login } = useAuth();
+  const { enableRegistration } = useAppConfig();
+  const { config: oauthConfig } = useOAuthConfig();
   const [isLoading, setIsLoading] = useState(false);
 
   const form = useForm<LoginRequest>({
@@ -57,9 +61,8 @@ export const LoginPage = () => {
     }
   };
 
-  const handleOAuthLogin = (provider: 'google' | 'facebook') => {
-    // Redirect to OAuth provider
-    const redirectUrl = `http://localhost:8080/api/v1/auth/${provider}/login`;
+  const handleOAuthLogin = (provider: string) => {
+    const redirectUrl = `http://localhost:8080/api/v1/auth/oauth/login?provider=${encodeURIComponent(provider)}`;
     window.location.href = redirectUrl;
   };
 
@@ -101,29 +104,33 @@ export const LoginPage = () => {
           </Stack>
         </form>
 
-        <Divider label="Or continue with" labelPosition="center" my="lg" />
+        {oauthConfig?.enabled && oauthConfig.providers.length > 0 && (
+          <>
+            <Divider label="Or continue with" labelPosition="center" my="lg" />
 
-        <Group grow mb="md" mt="md">
-          <Button
-            variant="default"
-            onClick={() => handleOAuthLogin('google')}
-          >
-            Google
-          </Button>
-          <Button
-            variant="default"
-            onClick={() => handleOAuthLogin('facebook')}
-          >
-            Facebook
-          </Button>
-        </Group>
+            <Stack gap="xs">
+              {oauthConfig.providers.map((provider) => (
+                <Button
+                  key={provider.name}
+                  variant="default"
+                  onClick={() => handleOAuthLogin(provider.name)}
+                  fullWidth
+                >
+                  Sign in with {provider.name}
+                </Button>
+              ))}
+            </Stack>
+          </>
+        )}
 
-        <Text ta="center" mt="md">
-          Don&apos;t have an account?{' '}
-          <Anchor component={Link} to="/register" fw={700}>
-            Register
-          </Anchor>
-        </Text>
+        {enableRegistration && (
+          <Text ta="center" mt="md">
+            Don&apos;t have an account?{' '}
+            <Anchor component={Link} to="/register" fw={700}>
+              Register
+            </Anchor>
+          </Text>
+        )}
       </Paper>
     </Container>
   );

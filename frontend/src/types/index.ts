@@ -1,4 +1,13 @@
 // User types
+export interface OAuthConnection {
+  id: number;
+  user_id: number;
+  provider: string;
+  provider_id: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface User {
   id: number;
   email: string;
@@ -12,6 +21,8 @@ export interface User {
   updated_at: string;
   oauth_provider?: string;
   roles?: Role[];
+  oauth_connections?: OAuthConnection[];
+  has_local_password?: boolean;
 }
 
 export interface UserWithRoles extends User {
@@ -42,6 +53,7 @@ export interface Permission {
 export interface AuditLog {
   id: number;
   user_id?: number;
+  user_email?: string;
   action: string;
   resource: string;
   details?: string;
@@ -99,6 +111,19 @@ export interface AssignRoleRequest {
 export interface RemoveRoleRequest {
   user_id: number;
   role_id: number;
+}
+
+// Session types
+export interface Session {
+  session_id: string;
+  created_at: string;
+  last_activity_at: string;
+  ip_address: string;
+  user_agent: string;
+  expires_at: string;
+  user_id?: number;
+  user_email?: string;
+  user_name?: string;
 }
 
 // API Error types

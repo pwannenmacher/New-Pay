@@ -93,6 +93,7 @@ type Session struct {
 type AuditLog struct {
 	ID        uint      `json:"id" db:"id"`
 	UserID    *uint     `json:"user_id,omitempty" db:"user_id"`
+	UserEmail *string   `json:"user_email,omitempty" db:"user_email"`
 	Action    string    `json:"action" db:"action"`
 	Resource  string    `json:"resource" db:"resource"`
 	Details   string    `json:"details,omitempty" db:"details"`
@@ -105,4 +106,14 @@ type AuditLog struct {
 type UserWithRoles struct {
 	User
 	Roles []Role `json:"roles"`
+}
+
+// OAuthConnection represents a connection between a user and an OAuth provider
+type OAuthConnection struct {
+	ID         uint      `json:"id" db:"id"`
+	UserID     uint      `json:"user_id" db:"user_id"`
+	Provider   string    `json:"provider" db:"provider"`
+	ProviderID string    `json:"provider_id" db:"provider_id"`
+	CreatedAt  time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt  time.Time `json:"updated_at" db:"updated_at"`
 }

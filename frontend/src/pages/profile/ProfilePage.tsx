@@ -15,6 +15,7 @@ import { useForm } from '@mantine/form';
 import { notifications } from '@mantine/notifications';
 import { useAuth } from '../../contexts/AuthContext';
 import { apiClient } from '../../services/api';
+import { SessionManagement } from '../../components/sessions/SessionManagement';
 import type { ProfileUpdateRequest, User, ApiError } from '../../types';
 
 export const ProfilePage = () => {
@@ -101,6 +102,50 @@ export const ProfilePage = () => {
             </div>
           )}
 
+          {user.oauth_connections && user.oauth_connections.length > 0 && (
+            <div>
+              <Text fw={500} size="sm" c="dimmed">Connected Accounts</Text>
+              <Group gap="xs">
+                {user.oauth_connections.map((conn) => (
+                  <Badge key={conn.id} color="blue" variant="light">
+                    {conn.provider}
+                  </Badge>
+                ))}
+              </Group>
+            </div>
+          )}
+
+          <div>
+            <Text fw={500} size="sm" c="dimmed">Login Methods</Text>
+            <Group gap="xs">
+              {user.has_local_password && (
+                <Badge color="gray" variant="light">Email + Password</Badge>
+              )}
+              {user.oauth_connections && user.oauth_connections.length > 0 ? (
+                <Badge color="green" variant="light">
+                  OAuth ({user.oauth_connections.length} provider{user.oauth_connections.length > 1 ? 's' : ''})
+                </Badge>
+              ) : (
+                !user.has_local_password && (
+                  <Badge color="yellow" variant="light">OAuth Only</Badge>
+                )
+              )}
+            </Group>
+          </div>
+
+          {user.roles && user.roles.length > 0 && (
+            <div>
+              <Text fw={500} size="sm" c="dimmed">Roles</Text>
+              <Group gap="xs">
+                {user.roles.map((role) => (
+                  <Badge key={role.id} color="violet" variant="light">
+                    {role.name}
+                  </Badge>
+                ))}
+              </Group>
+            </div>
+          )}
+
           <div>
             <Text fw={500} size="sm" c="dimmed">Member Since</Text>
             <Text size="lg">
@@ -155,6 +200,8 @@ export const ProfilePage = () => {
           </Stack>
         </form>
       </Modal>
+
+      <SessionManagement />
     </Container>
   );
 };

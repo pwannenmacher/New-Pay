@@ -1,21 +1,21 @@
 import { Container, Paper, Title, SimpleGrid, Card, Text, Group } from '@mantine/core';
-import { IconUsers, IconShieldLock, IconFileText } from '@tabler/icons-react';
+import { IconUsers, IconFileText, IconDevices } from '@tabler/icons-react';
 import { Link } from 'react-router-dom';
 
 export const AdminDashboardPage = () => {
   const adminCards = [
     {
       title: 'User Management',
-      description: 'Manage users and their roles',
+      description: 'Manage users and assign roles',
       icon: IconUsers,
       link: '/admin/users',
       color: 'blue',
     },
     {
-      title: 'Role Management',
-      description: 'View and manage system roles',
-      icon: IconShieldLock,
-      link: '/admin/users',
+      title: 'Session Management',
+      description: 'View and manage active user sessions',
+      icon: IconDevices,
+      link: '/admin/sessions',
       color: 'green',
     },
     {

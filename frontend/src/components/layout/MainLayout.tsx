@@ -120,27 +120,7 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
                   justify="flex-start"
                   mb="xs"
                 >
-                  Dashboard
-                </Button>
-                <Button
-                  variant="subtle"
-                  component={Link}
-                  to="/admin/users"
-                  fullWidth
-                  justify="flex-start"
-                  mb="xs"
-                >
-                  Users
-                </Button>
-                <Button
-                  variant="subtle"
-                  component={Link}
-                  to="/admin/audit-logs"
-                  fullWidth
-                  justify="flex-start"
-                  mb="xs"
-                >
-                  Audit Logs
+                  Admin Dashboard
                 </Button>
               </>
             )}

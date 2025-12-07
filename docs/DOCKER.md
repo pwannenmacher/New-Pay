@@ -40,6 +40,20 @@ docker-compose logs -f api
 docker-compose down
 ```
 
+**Important**: The `docker-compose.yml` reads all configuration from your `.env` file. Make sure to:
+
+1. Copy `.env.example` to `.env`
+2. Update the credentials and secrets in `.env`
+3. Generate a persistent JWT key: `go run scripts/generate-jwt-keys.go`
+4. All database credentials, OAuth secrets, and SMTP settings are loaded from `.env`
+
+The docker-compose configuration:
+- PostgreSQL credentials come from `DB_USER`, `DB_PASSWORD`, `DB_NAME` in `.env`
+- API configuration is loaded from `.env` with Docker-specific overrides:
+  - `DB_HOST` is overridden to `postgres` (container name)
+  - `SMTP_HOST` is overridden to `mailpit` (container name)
+- No hardcoded credentials in `docker-compose.yml`
+
 ### Option 2: Running the container manually
 
 First, ensure PostgreSQL is running, then:

@@ -20,12 +20,13 @@ var (
 
 // AuthService handles authentication business logic
 type AuthService struct {
-	userRepo    *repository.UserRepository
-	tokenRepo   *repository.TokenRepository
-	roleRepo    *repository.RoleRepository
-	sessionRepo *repository.SessionRepository
-	authSvc     *auth.Service
-	emailSvc    *email.Service
+	userRepo      *repository.UserRepository
+	tokenRepo     *repository.TokenRepository
+	roleRepo      *repository.RoleRepository
+	sessionRepo   *repository.SessionRepository
+	oauthConnRepo *repository.OAuthConnectionRepository
+	authSvc       *auth.Service
+	emailSvc      *email.Service
 }
 
 // NewAuthService creates a new authentication service
@@ -34,16 +35,18 @@ func NewAuthService(
 	tokenRepo *repository.TokenRepository,
 	roleRepo *repository.RoleRepository,
 	sessionRepo *repository.SessionRepository,
+	oauthConnRepo *repository.OAuthConnectionRepository,
 	authSvc *auth.Service,
 	emailSvc *email.Service,
 ) *AuthService {
 	return &AuthService{
-		userRepo:    userRepo,
-		tokenRepo:   tokenRepo,
-		roleRepo:    roleRepo,
-		sessionRepo: sessionRepo,
-		authSvc:     authSvc,
-		emailSvc:    emailSvc,
+		userRepo:      userRepo,
+		tokenRepo:     tokenRepo,
+		roleRepo:      roleRepo,
+		sessionRepo:   sessionRepo,
+		oauthConnRepo: oauthConnRepo,
+		authSvc:       authSvc,
+		emailSvc:      emailSvc,
 	}
 }
 
@@ -74,10 +77,28 @@ func (s *AuthService) Register(email, password, firstName, lastName string) (*mo
 		return nil, fmt.Errorf("failed to create user: %w", err)
 	}
 
-	// Assign default "user" role
-	defaultRole, err := s.roleRepo.GetByName("user")
+	// Check if this is the first user in the system
+	userCount, err := s.userRepo.CountAll()
+	if err != nil {
+		log.Printf("Failed to count users: %v", err)
+	}
+
+	// Assign role: first user gets Admin, others get user role
+	var roleName string
+	if userCount == 1 {
+		roleName = "Admin"
+		log.Printf("Assigning Admin role to first user: %s", email)
+	} else {
+		roleName = "user"
+	}
+
+	role, err := s.roleRepo.GetByName(roleName)
 	if err == nil {
-		_ = s.userRepo.AssignRole(user.ID, defaultRole.ID)
+		if err := s.userRepo.AssignRole(user.ID, role.ID); err != nil {
+			log.Printf("Failed to assign %s role to user %d: %v", roleName, user.ID, err)
+		}
+	} else {
+		log.Printf("Failed to find %s role: %v", roleName, err)
 	}
 
 	// Generate email verification token
@@ -296,31 +317,37 @@ func (s *AuthService) ResetPassword(tokenString, newPassword string) error {
 }
 
 // RefreshToken refreshes an access token using a refresh token and returns a new refresh token
-func (s *AuthService) RefreshToken(refreshToken, ipAddress, userAgent string) (string, string, error) {
+func (s *AuthService) RefreshToken(refreshToken, ipAddress, userAgent string) (accessToken, newRefreshToken string, user *models.User, err error) {
 	// Validate refresh token
 	claims, err := s.authSvc.ValidateToken(refreshToken)
 	if err != nil {
-		return "", "", fmt.Errorf("invalid refresh token: %w", err)
+		return "", "", nil, fmt.Errorf("invalid refresh token: %w", err)
 	}
 
 	// Check if JTI exists in session (validates token hasn't been revoked)
 	if claims.ID == "" {
-		return "", "", errors.New("token missing JTI")
+		return "", "", nil, errors.New("token missing JTI")
 	}
 
 	session, err := s.sessionRepo.GetByJTI(claims.ID)
 	if err != nil {
-		return "", "", fmt.Errorf("session not found or expired: %w", err)
+		return "", "", nil, fmt.Errorf("session not found or expired: %w", err)
 	}
 
 	// Verify session belongs to the user from the token
 	if session.UserID != claims.UserID {
-		return "", "", errors.New("session user mismatch")
+		return "", "", nil, errors.New("session user mismatch")
 	}
 
 	// Verify it's a refresh token session
 	if session.TokenType != "refresh" {
-		return "", "", errors.New("invalid token type")
+		return "", "", nil, errors.New("invalid token type")
+	}
+
+	// Get user data
+	user, err = s.userRepo.GetByID(claims.UserID)
+	if err != nil {
+		return "", "", nil, fmt.Errorf("user not found: %w", err)
 	}
 
 	// Delete old session (all tokens from this session - access + refresh)
@@ -329,24 +356,25 @@ func (s *AuthService) RefreshToken(refreshToken, ipAddress, userAgent string) (s
 	// Generate new session ID for the new token pair
 	newSessionID, err := auth.GenerateRandomToken(16)
 	if err != nil {
-		return "", "", fmt.Errorf("failed to generate session ID: %w", err)
+		return "", "", nil, fmt.Errorf("failed to generate session ID: %w", err)
 	}
 
 	// Generate new access token
 	accessToken, accessJTI, err := s.authSvc.GenerateToken(claims.UserID, claims.Email)
 	if err != nil {
-		return "", "", fmt.Errorf("failed to generate access token: %w", err)
+		return "", "", nil, fmt.Errorf("failed to generate access token: %w", err)
 	}
 
 	// Generate new refresh token (token rotation for security)
-	newRefreshToken, refreshJTI, err := s.authSvc.GenerateRefreshToken(claims.UserID, claims.Email)
+	var refreshJTI string
+	newRefreshToken, refreshJTI, err = s.authSvc.GenerateRefreshToken(claims.UserID, claims.Email)
 	if err != nil {
-		return "", "", fmt.Errorf("failed to generate refresh token: %w", err)
+		return "", "", nil, fmt.Errorf("failed to generate refresh token: %w", err)
 	}
 
 	// Create new refresh session with new session ID
 	if err := s.CreateSession(claims.UserID, newSessionID, refreshJTI, "refresh", ipAddress, userAgent, time.Now().Add(7*24*time.Hour)); err != nil {
-		return "", "", fmt.Errorf("failed to create refresh session: %w", err)
+		return "", "", nil, fmt.Errorf("failed to create refresh session: %w", err)
 	}
 
 	// Create access token session for tracking (same session ID)
@@ -355,7 +383,7 @@ func (s *AuthService) RefreshToken(refreshToken, ipAddress, userAgent string) (s
 		fmt.Printf("Warning: failed to create access token session: %v\n", err)
 	}
 
-	return accessToken, newRefreshToken, nil
+	return accessToken, newRefreshToken, user, nil
 }
 
 // InvalidateSession invalidates a session by JTI
@@ -407,4 +435,167 @@ func (s *AuthService) InvalidateCurrentSession(token string) error {
 // InvalidateAllUserSessions invalidates all sessions for a user
 func (s *AuthService) InvalidateAllUserSessions(userID uint) error {
 	return s.sessionRepo.DeleteAllUserSessions(userID)
+}
+
+// GetUserRoles retrieves all roles for a user
+func (s *AuthService) GetUserRoles(userID uint) ([]models.Role, error) {
+	return s.userRepo.GetUserRoles(userID)
+}
+
+// GenerateTokensForUser generates access and refresh tokens for a user
+func (s *AuthService) GenerateTokensForUser(user *models.User) (accessToken, refreshToken, accessJTI, refreshJTI string, err error) {
+	// Generate JWT tokens
+	accessToken, accessJTI, err = s.authSvc.GenerateToken(user.ID, user.Email)
+	if err != nil {
+		return "", "", "", "", fmt.Errorf("failed to generate access token: %w", err)
+	}
+
+	refreshToken, refreshJTI, err = s.authSvc.GenerateRefreshToken(user.ID, user.Email)
+	if err != nil {
+		return "", "", "", "", fmt.Errorf("failed to generate refresh token: %w", err)
+	}
+
+	return accessToken, refreshToken, accessJTI, refreshJTI, nil
+}
+
+// ExtractJTI extracts the JTI from a token without validation
+func (s *AuthService) ExtractJTI(tokenString string) (string, error) {
+	return s.authSvc.ExtractJTI(tokenString)
+}
+
+// FindOrCreateOAuthUser finds an existing user by OAuth provider or email and manages OAuth connections
+// Returns the user and a boolean indicating if the user was newly created
+func (s *AuthService) FindOrCreateOAuthUser(email, firstName, lastName, oauthProvider, oauthProviderID string) (*models.User, bool, error) {
+	var user *models.User
+	var isNewUser bool
+
+	// First, try to find user by OAuth provider and provider ID
+	if oauthProviderID != "" {
+		conn, err := s.oauthConnRepo.GetByProviderAndID(oauthProvider, oauthProviderID)
+		if err == nil {
+			// Found existing OAuth connection, get the user
+			user, err = s.userRepo.GetByID(conn.UserID)
+			if err != nil {
+				return nil, false, fmt.Errorf("failed to get user from OAuth connection: %w", err)
+			}
+
+			// Update last login
+			user.LastLoginAt = timePtr(time.Now())
+			if err := s.userRepo.Update(user); err != nil {
+				log.Printf("Failed to update last login for user %d: %v", user.ID, err)
+			}
+
+			// Update connection timestamp
+			if err := s.oauthConnRepo.Update(conn); err != nil {
+				log.Printf("Failed to update OAuth connection for user %d: %v", user.ID, err)
+			}
+
+			log.Printf("Existing user logged in via OAuth: id=%d, email=%s, provider=%s", user.ID, user.Email, oauthProvider)
+			return user, false, nil
+		}
+	}
+
+	// OAuth connection not found, try to find user by email
+	user, err := s.userRepo.GetByEmail(email)
+	if err == nil {
+		// User exists but no OAuth connection for this provider
+		// Create new OAuth connection for this user
+		if oauthProviderID != "" {
+			conn := &models.OAuthConnection{
+				UserID:     user.ID,
+				Provider:   oauthProvider,
+				ProviderID: oauthProviderID,
+			}
+
+			if err := s.oauthConnRepo.Create(conn); err != nil {
+				log.Printf("Failed to create OAuth connection for user %d: %v", user.ID, err)
+			} else {
+				log.Printf("Created OAuth connection for existing user: id=%d, provider=%s", user.ID, oauthProvider)
+			}
+		}
+
+		// Update last login
+		user.LastLoginAt = timePtr(time.Now())
+		if err := s.userRepo.Update(user); err != nil {
+			log.Printf("Failed to update last login for user %s: %v", email, err)
+		}
+
+		log.Printf("Existing user logged in via OAuth (new provider link): id=%d, email=%s, provider=%s", user.ID, user.Email, oauthProvider)
+		return user, false, nil
+	}
+
+	// User doesn't exist, create new one
+	log.Printf("Creating new user from OAuth: email=%s, firstName=%s, lastName=%s, provider=%s", email, firstName, lastName, oauthProvider)
+
+	// Set default names if not provided
+	if firstName == "" {
+		firstName = email[:len(email)-len("@...")]
+	}
+	if lastName == "" {
+		lastName = "User"
+	}
+
+	user = &models.User{
+		Email:         email,
+		FirstName:     firstName,
+		LastName:      lastName,
+		EmailVerified: true, // OAuth users are considered verified
+		IsActive:      true,
+		// No password for OAuth-only users
+	}
+
+	// Create user
+	if err := s.userRepo.Create(user); err != nil {
+		return nil, false, fmt.Errorf("failed to create OAuth user: %w", err)
+	}
+	isNewUser = true
+
+	// Create OAuth connection
+	if oauthProviderID != "" {
+		conn := &models.OAuthConnection{
+			UserID:     user.ID,
+			Provider:   oauthProvider,
+			ProviderID: oauthProviderID,
+		}
+
+		if err := s.oauthConnRepo.Create(conn); err != nil {
+			log.Printf("Failed to create OAuth connection for new user %d: %v", user.ID, err)
+		}
+	}
+
+	// Check if this is the first user in the system
+	userCount, err := s.userRepo.CountAll()
+	if err != nil {
+		log.Printf("Failed to count users: %v", err)
+	}
+
+	// Assign role: first user gets Admin, others get user role
+	var roleName string
+	if userCount == 1 {
+		roleName = "Admin"
+		log.Printf("Assigning Admin role to first OAuth user: %s", email)
+	} else {
+		roleName = "user"
+	}
+
+	role, err := s.roleRepo.GetByName(roleName)
+	if err != nil {
+		log.Printf("Failed to find %s role: %v", roleName, err)
+	} else {
+		if err := s.userRepo.AssignRole(user.ID, role.ID); err != nil {
+			log.Printf("Failed to assign %s role: %v", roleName, err)
+		}
+	}
+
+	log.Printf("Successfully created OAuth user: id=%d, email=%s, provider=%s", user.ID, user.Email, oauthProvider)
+	return user, isNewUser, nil
+}
+
+// GetUserOAuthConnections gets all OAuth connections for a user
+func (s *AuthService) GetUserOAuthConnections(userID uint) ([]models.OAuthConnection, error) {
+	return s.oauthConnRepo.GetByUserID(userID)
+}
+
+func timePtr(t time.Time) *time.Time {
+	return &t
 }

@@ -17,7 +17,7 @@ type Config struct {
 	JWT       JWTConfig
 	Session   SessionConfig
 	Email     EmailConfig
-	OAuth     OAuthConfig
+	OAuth     OAuthProvidersConfig
 	CORS      CORSConfig
 	RateLimit RateLimitConfig
 	App       AppConfig
@@ -68,14 +68,21 @@ type EmailConfig struct {
 	PasswordResetURL string
 }
 
-// OAuthConfig holds OAuth-related configuration
-type OAuthConfig struct {
-	GoogleClientID       string
-	GoogleClientSecret   string
-	GoogleRedirectURL    string
-	FacebookClientID     string
-	FacebookClientSecret string
-	FacebookRedirectURL  string
+// OAuthProviderConfig holds configuration for a single OAuth provider
+type OAuthProviderConfig struct {
+	Name         string
+	Enabled      bool
+	ClientID     string
+	ClientSecret string
+	AuthURL      string
+	TokenURL     string
+	UserInfoURL  string
+}
+
+// OAuthProvidersConfig holds configuration for all OAuth providers
+type OAuthProvidersConfig struct {
+	RedirectURL string
+	Providers   []OAuthProviderConfig
 }
 
 // CORSConfig holds CORS-related configuration
@@ -97,10 +104,12 @@ type RateLimitConfig struct {
 
 // AppConfig holds general application configuration
 type AppConfig struct {
-	Env      string
-	Name     string
-	Version  string
-	LogLevel string
+	Env                     string
+	Name                    string
+	Version                 string
+	LogLevel                string
+	EnableRegistration      bool
+	EnableOAuthRegistration bool
 }
 
 // Load loads configuration from environment variables
@@ -140,18 +149,11 @@ func Load() (*Config, error) {
 			SMTPPort:         getEnv("SMTP_PORT", "587"),
 			SMTPUsername:     getEnv("SMTP_USERNAME", ""),
 			SMTPPassword:     getEnv("SMTP_PASSWORD", ""),
-			SMTPFrom:         getEnv("SMTP_FROM", "noreply@newpay.com"),
+			SMTPFrom:         getEnv("SMTP_FROM", "noreply@example.com"),
 			VerificationURL:  getEnv("EMAIL_VERIFICATION_URL", "http://localhost:8080/api/v1/auth/verify-email"),
 			PasswordResetURL: getEnv("PASSWORD_RESET_URL", "http://localhost:8080/api/v1/auth/reset-password"),
 		},
-		OAuth: OAuthConfig{
-			GoogleClientID:       getEnv("GOOGLE_CLIENT_ID", ""),
-			GoogleClientSecret:   getEnv("GOOGLE_CLIENT_SECRET", ""),
-			GoogleRedirectURL:    getEnv("GOOGLE_REDIRECT_URL", ""),
-			FacebookClientID:     getEnv("FACEBOOK_CLIENT_ID", ""),
-			FacebookClientSecret: getEnv("FACEBOOK_CLIENT_SECRET", ""),
-			FacebookRedirectURL:  getEnv("FACEBOOK_REDIRECT_URL", ""),
-		},
+		OAuth: loadOAuthProviders(),
 		CORS: CORSConfig{
 			AllowedOrigins:   getSliceEnv("CORS_ALLOWED_ORIGINS", []string{"http://localhost:3000"}),
 			AllowedMethods:   getSliceEnv("CORS_ALLOWED_METHODS", []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"}),
@@ -166,10 +168,12 @@ func Load() (*Config, error) {
 			Duration: getDurationEnv("RATE_LIMIT_DURATION", 1*time.Minute),
 		},
 		App: AppConfig{
-			Env:      getEnv("APP_ENV", "development"),
-			Name:     getEnv("APP_NAME", "NewPay"),
-			Version:  getEnv("APP_VERSION", "1.0.0"),
-			LogLevel: getEnv("LOG_LEVEL", "info"),
+			Env:                     getEnv("APP_ENV", "development"),
+			Name:                    getEnv("APP_NAME", "NewPay"),
+			Version:                 getEnv("APP_VERSION", "1.0.0"),
+			LogLevel:                getEnv("LOG_LEVEL", "info"),
+			EnableRegistration:      getBoolEnv("ENABLE_REGISTRATION", false),
+			EnableOAuthRegistration: getBoolEnv("ENABLE_OAUTH_REGISTRATION", false),
 		},
 	}
 
@@ -179,6 +183,48 @@ func Load() (*Config, error) {
 	}
 
 	return cfg, nil
+}
+
+// loadOAuthProviders loads all OAuth provider configurations from environment variables
+func loadOAuthProviders() OAuthProvidersConfig {
+	redirectURL := getEnv("OAUTH_REDIRECT_URL", "http://localhost:8080/api/v1/auth/oauth/callback")
+
+	var providers []OAuthProviderConfig
+
+	// Scan up to 50 providers (reasonable maximum)
+	for i := 1; i <= 50; i++ {
+		prefix := fmt.Sprintf("OAUTH_%d_", i)
+
+		// Check if this provider is configured (at minimum needs a name)
+		name := getEnv(prefix+"NAME", "")
+		if name == "" {
+			continue
+		}
+
+		enabled := getBoolEnv(prefix+"ENABLED", true)
+
+		provider := OAuthProviderConfig{
+			Name:         name,
+			Enabled:      enabled,
+			ClientID:     getEnv(prefix+"CLIENT_ID", ""),
+			ClientSecret: getEnv(prefix+"CLIENT_SECRET", ""),
+			AuthURL:      getEnv(prefix+"AUTH_URL", ""),
+			TokenURL:     getEnv(prefix+"TOKEN_URL", ""),
+			UserInfoURL:  getEnv(prefix+"USER_INFO_URL", ""),
+		}
+
+		// Only add provider if it has all required fields
+		if provider.ClientID != "" && provider.ClientSecret != "" &&
+			provider.AuthURL != "" && provider.TokenURL != "" &&
+			provider.UserInfoURL != "" {
+			providers = append(providers, provider)
+		}
+	}
+
+	return OAuthProvidersConfig{
+		RedirectURL: redirectURL,
+		Providers:   providers,
+	}
 }
 
 // Validate validates the configuration

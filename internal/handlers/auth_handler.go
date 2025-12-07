@@ -1,11 +1,16 @@
 package handlers
 
 import (
+	"crypto/rand"
+	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
+	"net/url"
 	"time"
 
+	"github.com/pwannenmacher/New-Pay/internal/config"
 	"github.com/pwannenmacher/New-Pay/internal/middleware"
 	"github.com/pwannenmacher/New-Pay/internal/service"
 	"github.com/pwannenmacher/New-Pay/pkg/validator"
@@ -15,13 +20,15 @@ import (
 type AuthHandler struct {
 	authService *service.AuthService
 	auditMw     *middleware.AuditMiddleware
+	config      *config.Config
 }
 
 // NewAuthHandler creates a new auth handler
-func NewAuthHandler(authService *service.AuthService, auditMw *middleware.AuditMiddleware) *AuthHandler {
+func NewAuthHandler(authService *service.AuthService, auditMw *middleware.AuditMiddleware, cfg *config.Config) *AuthHandler {
 	return &AuthHandler{
 		authService: authService,
 		auditMw:     auditMw,
+		config:      cfg,
 	}
 }
 
@@ -71,6 +78,12 @@ type RefreshTokenRequest struct {
 // @Failure 400 {object} map[string]string "Invalid request"
 // @Router /auth/register [post]
 func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
+	// Check if registration is enabled
+	if !h.config.App.EnableRegistration {
+		respondWithError(w, http.StatusForbidden, "Registration is disabled")
+		return
+	}
+
 	var req RegisterRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respondWithError(w, http.StatusBadRequest, "Invalid request body")
@@ -86,20 +99,73 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	// Register user
 	user, err := h.authService.Register(req.Email, req.Password, req.FirstName, req.LastName)
 	if err != nil {
+		_ = h.auditMw.LogAction(nil, "user.register.error", "users", "Registration failed for "+req.Email+": "+err.Error(), getIP(r), r.UserAgent())
 		respondWithError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	// Log audit event
 	_ = h.auditMw.LogAction(&user.ID, "user.register", "users", "User registered", getIP(r), r.UserAgent())
+	// Log verification email send
+	_ = h.auditMw.LogAction(&user.ID, "email.verification.sent", "emails", "Verification email sent to "+user.Email, getIP(r), r.UserAgent())
+
+	// Auto-login after registration: generate JWT tokens
+	accessToken, refreshToken, accessJTI, refreshJTI, err := h.authService.GenerateTokensForUser(user)
+	if err != nil {
+		_ = h.auditMw.LogAction(&user.ID, "user.register.token.error", "users", "Token generation failed after registration", getIP(r), r.UserAgent())
+		respondWithError(w, http.StatusInternalServerError, "Failed to generate tokens")
+		return
+	}
+
+	// Generate a session ID that links the access and refresh tokens
+	sessionID, err := h.authService.GenerateSessionID()
+	if err != nil {
+		_ = h.auditMw.LogAction(&user.ID, "user.register.session.error", "users", "Session ID generation failed", getIP(r), r.UserAgent())
+		respondWithError(w, http.StatusInternalServerError, "Failed to generate session ID")
+		return
+	}
+
+	// Create session for refresh token
+	if err := h.authService.CreateSession(user.ID, sessionID, refreshJTI, "refresh", getIP(r), r.UserAgent(), time.Now().Add(7*24*time.Hour)); err != nil {
+		_ = h.auditMw.LogAction(&user.ID, "user.register.session.error", "users", "Session creation failed", getIP(r), r.UserAgent())
+		respondWithError(w, http.StatusInternalServerError, "Failed to create session")
+		return
+	}
+
+	// Create session for access token (linked via same sessionID)
+	_ = h.authService.CreateSession(user.ID, sessionID, accessJTI, "access", getIP(r), r.UserAgent(), time.Now().Add(24*time.Hour))
+
+	// Set refresh token as HTTP-only cookie
+	http.SetCookie(w, &http.Cookie{
+		Name:     "refresh_token",
+		Value:    refreshToken,
+		Path:     "/api/v1/auth",
+		MaxAge:   7 * 24 * 60 * 60, // 7 days
+		HttpOnly: true,
+		Secure:   r.TLS != nil, // Only send over HTTPS in production
+		SameSite: http.SameSiteStrictMode,
+	})
+
+	// Get user roles
+	roles, _ := h.authService.GetUserRoles(user.ID)
 
 	respondWithJSON(w, http.StatusCreated, map[string]interface{}{
-		"message": "Registration successful. Please check your email to verify your account.",
+		"access_token":  accessToken,
+		"refresh_token": refreshToken,
+		"token_type":    "Bearer",
+		"expires_in":    86400, // 24 hours in seconds
 		"user": map[string]interface{}{
-			"id":         user.ID,
-			"email":      user.Email,
-			"first_name": user.FirstName,
-			"last_name":  user.LastName,
+			"id":                user.ID,
+			"email":             user.Email,
+			"first_name":        user.FirstName,
+			"last_name":         user.LastName,
+			"email_verified":    user.EmailVerified,
+			"email_verified_at": user.EmailVerifiedAt,
+			"is_active":         user.IsActive,
+			"last_login_at":     user.LastLoginAt,
+			"created_at":        user.CreatedAt,
+			"updated_at":        user.UpdatedAt,
+			"roles":             roles,
 		},
 	})
 }
@@ -143,12 +209,14 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	// Generate a session ID that links the access and refresh tokens
 	sessionID, err := h.authService.GenerateSessionID()
 	if err != nil {
+		_ = h.auditMw.LogAction(&user.ID, "user.login.session.error", "users", "Session ID generation failed during login", getIP(r), r.UserAgent())
 		respondWithError(w, http.StatusInternalServerError, "Failed to generate session ID")
 		return
 	}
 
 	// Create session for refresh token
 	if err := h.authService.CreateSession(user.ID, sessionID, refreshJTI, "refresh", getIP(r), r.UserAgent(), time.Now().Add(7*24*time.Hour)); err != nil {
+		_ = h.auditMw.LogAction(&user.ID, "user.login.session.error", "users", "Session creation failed during login", getIP(r), r.UserAgent())
 		respondWithError(w, http.StatusInternalServerError, "Failed to create session")
 		return
 	}
@@ -167,13 +235,26 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		SameSite: http.SameSiteStrictMode,
 	})
 
+	// Get user roles
+	roles, _ := h.authService.GetUserRoles(user.ID)
+
 	respondWithJSON(w, http.StatusOK, map[string]interface{}{
-		"access_token": accessToken,
+		"access_token":  accessToken,
+		"refresh_token": refreshToken,
+		"token_type":    "Bearer",
+		"expires_in":    86400, // 24 hours in seconds
 		"user": map[string]interface{}{
-			"id":         user.ID,
-			"email":      user.Email,
-			"first_name": user.FirstName,
-			"last_name":  user.LastName,
+			"id":                user.ID,
+			"email":             user.Email,
+			"first_name":        user.FirstName,
+			"last_name":         user.LastName,
+			"email_verified":    user.EmailVerified,
+			"email_verified_at": user.EmailVerifiedAt,
+			"is_active":         user.IsActive,
+			"last_login_at":     user.LastLoginAt,
+			"created_at":        user.CreatedAt,
+			"updated_at":        user.UpdatedAt,
+			"roles":             roles,
 		},
 	})
 }
@@ -202,9 +283,14 @@ func (h *AuthHandler) VerifyEmail(w http.ResponseWriter, r *http.Request) {
 
 	// Verify email
 	if err := h.authService.VerifyEmail(token); err != nil {
+		_ = h.auditMw.LogAction(nil, "user.email.verify.error", "users", "Email verification failed: "+err.Error(), getIP(r), r.UserAgent())
 		respondWithError(w, http.StatusBadRequest, err.Error())
 		return
 	}
+
+	// Log email verification and welcome email send
+	_ = h.auditMw.LogAction(nil, "user.email.verified", "users", "Email verified", getIP(r), r.UserAgent())
+	_ = h.auditMw.LogAction(nil, "email.welcome.sent", "emails", "Welcome email sent", getIP(r), r.UserAgent())
 
 	respondWithJSON(w, http.StatusOK, map[string]string{
 		"message": "Email verified successfully",
@@ -236,12 +322,15 @@ func (h *AuthHandler) RequestPasswordReset(w http.ResponseWriter, r *http.Reques
 
 	// Request password reset
 	if err := h.authService.RequestPasswordReset(req.Email); err != nil {
+		_ = h.auditMw.LogAction(nil, "user.password.reset.error", "users", "Password reset request failed for "+req.Email+": "+err.Error(), getIP(r), r.UserAgent())
 		respondWithError(w, http.StatusInternalServerError, "Failed to process request")
 		return
 	}
 
 	// Log audit event
 	_ = h.auditMw.LogAction(nil, "user.password.reset.request", "users", "Password reset requested for "+req.Email, getIP(r), r.UserAgent())
+	// Log password reset email send
+	_ = h.auditMw.LogAction(nil, "email.password_reset.sent", "emails", "Password reset email sent to "+req.Email, getIP(r), r.UserAgent())
 
 	respondWithJSON(w, http.StatusOK, map[string]string{
 		"message": "If the email exists, a password reset link has been sent",
@@ -273,6 +362,7 @@ func (h *AuthHandler) ResetPassword(w http.ResponseWriter, r *http.Request) {
 
 	// Reset password
 	if err := h.authService.ResetPassword(req.Token, req.NewPassword); err != nil {
+		_ = h.auditMw.LogAction(nil, "user.password.reset.error", "users", "Password reset failed: "+err.Error(), getIP(r), r.UserAgent())
 		respondWithError(w, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -303,8 +393,10 @@ func (h *AuthHandler) RefreshToken(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Refresh token
-	accessToken, newRefreshToken, err := h.authService.RefreshToken(cookie.Value, getIP(r), r.UserAgent())
+	accessToken, newRefreshToken, user, err := h.authService.RefreshToken(cookie.Value, getIP(r), r.UserAgent())
 	if err != nil {
+		// Log refresh token failure
+		_ = h.auditMw.LogAction(nil, "user.token.refresh.error", "users", "Token refresh failed: "+err.Error(), getIP(r), r.UserAgent())
 		// Clear invalid cookie
 		http.SetCookie(w, &http.Cookie{
 			Name:     "refresh_token",
@@ -328,8 +420,27 @@ func (h *AuthHandler) RefreshToken(w http.ResponseWriter, r *http.Request) {
 		SameSite: http.SameSiteStrictMode,
 	})
 
-	respondWithJSON(w, http.StatusOK, map[string]string{
-		"access_token": accessToken,
+	// Get user roles
+	roles, _ := h.authService.GetUserRoles(user.ID)
+
+	respondWithJSON(w, http.StatusOK, map[string]interface{}{
+		"access_token":  accessToken,
+		"refresh_token": newRefreshToken,
+		"token_type":    "Bearer",
+		"expires_in":    86400, // 24 hours in seconds
+		"user": map[string]interface{}{
+			"id":                user.ID,
+			"email":             user.Email,
+			"first_name":        user.FirstName,
+			"last_name":         user.LastName,
+			"email_verified":    user.EmailVerified,
+			"email_verified_at": user.EmailVerifiedAt,
+			"is_active":         user.IsActive,
+			"last_login_at":     user.LastLoginAt,
+			"created_at":        user.CreatedAt,
+			"updated_at":        user.UpdatedAt,
+			"roles":             roles,
+		},
 	})
 }
 
@@ -342,13 +453,25 @@ func (h *AuthHandler) RefreshToken(w http.ResponseWriter, r *http.Request) {
 // @Success 200 {object} map[string]string "Logout successful"
 // @Router /auth/logout [post]
 func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
+	// Get user ID from context for audit logging
+	userID, hasUserID := middleware.GetUserID(r)
+
 	// Get refresh token from cookie
 	cookie, err := r.Cookie("refresh_token")
 	if err == nil && cookie.Value != "" {
 		// Invalidate only the current session (access + refresh tokens from this login)
 		if err := h.authService.InvalidateCurrentSession(cookie.Value); err != nil {
 			log.Printf("Logout: Failed to invalidate session: %v", err)
+			// Log error in audit
+			if hasUserID {
+				_ = h.auditMw.LogAction(&userID, "user.logout.error", "users", "Failed to invalidate session: "+err.Error(), getIP(r), r.UserAgent())
+			}
 		}
+	}
+
+	// Log successful logout
+	if hasUserID {
+		_ = h.auditMw.LogAction(&userID, "user.logout", "users", "User logged out", getIP(r), r.UserAgent())
 	}
 
 	// Clear refresh token cookie
@@ -397,4 +520,334 @@ func getIP(r *http.Request) string {
 		return realIP
 	}
 	return r.RemoteAddr
+}
+
+// OAuthLogin initiates the OAuth login flow
+// @Summary Initiate OAuth login
+// @Description Redirects to the OAuth provider for authentication
+// @Tags Authentication
+// @Param provider query string true "Provider name"
+// @Success 302 {string} string "Redirect to OAuth provider"
+// @Router /auth/oauth/login [get]
+func (h *AuthHandler) OAuthLogin(w http.ResponseWriter, r *http.Request) {
+	providerName := r.URL.Query().Get("provider")
+	if providerName == "" {
+		http.Error(w, "Provider parameter is required", http.StatusBadRequest)
+		return
+	}
+
+	// Find the provider configuration
+	var providerConfig *config.OAuthProviderConfig
+	for i := range h.config.OAuth.Providers {
+		if h.config.OAuth.Providers[i].Name == providerName && h.config.OAuth.Providers[i].Enabled {
+			providerConfig = &h.config.OAuth.Providers[i]
+			break
+		}
+	}
+
+	if providerConfig == nil {
+		http.Error(w, "Provider not found or not enabled", http.StatusNotFound)
+		return
+	}
+
+	// Generate state for CSRF protection
+	state := generateRandomState()
+
+	// Store state and provider in session/cookie
+	http.SetCookie(w, &http.Cookie{
+		Name:     "oauth_state",
+		Value:    state,
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   false, // Set to true in production with HTTPS
+		SameSite: http.SameSiteLaxMode,
+		MaxAge:   300, // 5 minutes
+	})
+
+	http.SetCookie(w, &http.Cookie{
+		Name:     "oauth_provider",
+		Value:    providerName,
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   false,
+		SameSite: http.SameSiteLaxMode,
+		MaxAge:   300, // 5 minutes
+	})
+
+	// Build authorization URL
+	authURL := h.buildAuthorizationURL(state, providerConfig)
+
+	log.Printf("Redirecting to OAuth provider %s: %s", providerName, authURL)
+	http.Redirect(w, r, authURL, http.StatusTemporaryRedirect)
+}
+
+// OAuthCallback handles the OAuth callback
+// @Summary Handle OAuth callback
+// @Description Processes the OAuth callback and creates/logs in user
+// @Tags Authentication
+// @Param code query string true "Authorization code"
+// @Param state query string true "State parameter"
+// @Success 302 {string} string "Redirect to frontend"
+// @Router /auth/oauth/callback [get]
+func (h *AuthHandler) OAuthCallback(w http.ResponseWriter, r *http.Request) {
+	// Get provider from cookie
+	providerCookie, err := r.Cookie("oauth_provider")
+	if err != nil {
+		log.Printf("OAuth callback: provider cookie not found: %v", err)
+		http.Redirect(w, r, "http://localhost:5173/login?error=invalid_provider", http.StatusTemporaryRedirect)
+		return
+	}
+
+	// Find the provider configuration
+	var providerConfig *config.OAuthProviderConfig
+	for i := range h.config.OAuth.Providers {
+		if h.config.OAuth.Providers[i].Name == providerCookie.Value && h.config.OAuth.Providers[i].Enabled {
+			providerConfig = &h.config.OAuth.Providers[i]
+			break
+		}
+	}
+
+	if providerConfig == nil {
+		log.Printf("OAuth callback: provider %s not found or not enabled", providerCookie.Value)
+		http.Redirect(w, r, "http://localhost:5173/login?error=invalid_provider", http.StatusTemporaryRedirect)
+		return
+	}
+
+	// Verify state
+	stateCookie, err := r.Cookie("oauth_state")
+	if err != nil {
+		log.Printf("OAuth callback: state cookie not found: %v", err)
+		http.Redirect(w, r, "http://localhost:5173/login?error=invalid_state", http.StatusTemporaryRedirect)
+		return
+	}
+
+	state := r.URL.Query().Get("state")
+	if state == "" || state != stateCookie.Value {
+		log.Printf("OAuth callback: state mismatch")
+		http.Redirect(w, r, "http://localhost:5173/login?error=invalid_state", http.StatusTemporaryRedirect)
+		return
+	}
+
+	// Clear cookies
+	http.SetCookie(w, &http.Cookie{
+		Name:   "oauth_state",
+		Value:  "",
+		Path:   "/",
+		MaxAge: -1,
+	})
+	http.SetCookie(w, &http.Cookie{
+		Name:   "oauth_provider",
+		Value:  "",
+		Path:   "/",
+		MaxAge: -1,
+	})
+	http.SetCookie(w, &http.Cookie{
+		Name:   "oauth_state",
+		Value:  "",
+		Path:   "/",
+		MaxAge: -1,
+	})
+
+	code := r.URL.Query().Get("code")
+	if code == "" {
+		log.Printf("OAuth callback: authorization code not provided")
+		http.Redirect(w, r, "http://localhost:5173/login?error=no_code", http.StatusTemporaryRedirect)
+		return
+	}
+
+	// Exchange code for token
+	token, err := h.exchangeCodeForToken(code, providerConfig)
+	if err != nil {
+		log.Printf("OAuth callback: failed to exchange code: %v", err)
+		http.Redirect(w, r, "http://localhost:5173/login?error=token_exchange_failed", http.StatusTemporaryRedirect)
+		return
+	}
+
+	// Get user info
+	userInfo, err := h.getUserInfo(token, providerConfig)
+	if err != nil {
+		log.Printf("OAuth callback: failed to get user info: %v", err)
+		http.Redirect(w, r, "http://localhost:5173/login?error=userinfo_failed", http.StatusTemporaryRedirect)
+		return
+	}
+
+	// Extract email from user info
+	email, ok := userInfo["email"].(string)
+	if !ok || email == "" {
+		log.Printf("OAuth callback: email not found in user info")
+		http.Redirect(w, r, "http://localhost:5173/login?error=no_email", http.StatusTemporaryRedirect)
+		return
+	}
+
+	// Extract name (optional, try different fields)
+	var firstName, lastName string
+	if name, ok := userInfo["name"].(string); ok {
+		firstName = name
+	}
+	if preferredUsername, ok := userInfo["preferred_username"].(string); ok && firstName == "" {
+		firstName = preferredUsername
+	}
+	if givenName, ok := userInfo["given_name"].(string); ok {
+		firstName = givenName
+	}
+	if familyName, ok := userInfo["family_name"].(string); ok {
+		lastName = familyName
+	}
+
+	// Extract OAuth provider user ID (sub claim is standard in OAuth 2.0/OIDC)
+	var oauthProviderID string
+	if sub, ok := userInfo["sub"].(string); ok {
+		oauthProviderID = sub
+	}
+	// Fallback to other possible ID fields
+	if oauthProviderID == "" {
+		if id, ok := userInfo["id"].(string); ok {
+			oauthProviderID = id
+		}
+	}
+
+	// Try to find or create user
+	user, isNewUser, err := h.authService.FindOrCreateOAuthUser(email, firstName, lastName, providerConfig.Name, oauthProviderID)
+	if err != nil {
+		log.Printf("OAuth callback: failed to find/create user: %v", err)
+		_ = h.auditMw.LogAction(nil, "user.oauth.error", "users", fmt.Sprintf("OAuth user creation failed for %s via %s: %v", email, providerConfig.Name, err), getIP(r), r.UserAgent())
+		http.Redirect(w, r, "http://localhost:5173/login?error=user_creation_failed", http.StatusTemporaryRedirect)
+		return
+	}
+
+	// If it's a new user and OAuth registration is disabled, deny access
+	if isNewUser && !h.config.App.EnableOAuthRegistration {
+		log.Printf("OAuth callback: registration disabled, rejecting new user %s", email)
+		_ = h.auditMw.LogAction(nil, "user.oauth.registration.disabled", "users", fmt.Sprintf("OAuth registration blocked for %s via %s (registration disabled)", email, providerConfig.Name), getIP(r), r.UserAgent())
+		http.Redirect(w, r, "http://localhost:5173/login?error=registration_disabled", http.StatusTemporaryRedirect)
+		return
+	}
+
+	if isNewUser {
+		log.Printf("Created new OAuth user: id=%d, email=%s, provider=%s", user.ID, user.Email, providerConfig.Name)
+		_ = h.auditMw.LogAction(&user.ID, "user.oauth.register", "users", fmt.Sprintf("New user registered via OAuth (%s)", providerConfig.Name), getIP(r), r.UserAgent())
+	} else {
+		log.Printf("Existing user logged in via OAuth: id=%d, email=%s, provider=%s", user.ID, user.Email, providerConfig.Name)
+	}
+
+	// Generate JWT tokens
+	accessToken, refreshToken, accessJTI, refreshJTI, err := h.authService.GenerateTokensForUser(user)
+	if err != nil {
+		log.Printf("OAuth callback: failed to generate tokens: %v", err)
+		_ = h.auditMw.LogAction(&user.ID, "user.oauth.error", "users", "Token generation failed: "+err.Error(), getIP(r), r.UserAgent())
+		http.Redirect(w, r, "http://localhost:5173/login?error=token_generation_failed", http.StatusTemporaryRedirect)
+		return
+	}
+
+	// Generate session ID
+	sessionID, err := h.authService.GenerateSessionID()
+	if err != nil {
+		log.Printf("OAuth callback: failed to generate session ID: %v", err)
+		_ = h.auditMw.LogAction(&user.ID, "user.oauth.error", "users", "Session ID generation failed: "+err.Error(), getIP(r), r.UserAgent())
+		http.Redirect(w, r, "http://localhost:5173/login?error=session_failed", http.StatusTemporaryRedirect)
+		return
+	}
+
+	// Create sessions
+	if err := h.authService.CreateSession(user.ID, sessionID, refreshJTI, "refresh", getIP(r), r.UserAgent(), time.Now().Add(7*24*time.Hour)); err != nil {
+		log.Printf("OAuth callback: failed to create refresh session: %v", err)
+		http.Redirect(w, r, "http://localhost:5173/login?error=session_failed", http.StatusTemporaryRedirect)
+		return
+	}
+
+	_ = h.authService.CreateSession(user.ID, sessionID, accessJTI, "access", getIP(r), r.UserAgent(), time.Now().Add(24*time.Hour))
+
+	// Set refresh token as HTTP-only cookie
+	http.SetCookie(w, &http.Cookie{
+		Name:     "refresh_token",
+		Value:    refreshToken,
+		Path:     "/api/v1/auth",
+		MaxAge:   7 * 24 * 60 * 60, // 7 days
+		HttpOnly: true,
+		Secure:   r.TLS != nil,
+		SameSite: http.SameSiteStrictMode,
+	})
+
+	// Log successful OAuth login
+	_ = h.auditMw.LogAction(&user.ID, "user.oauth.login", "users", fmt.Sprintf("OAuth login successful via %s", providerConfig.Name), getIP(r), r.UserAgent())
+
+	log.Printf("OAuth callback successful: user %s logged in", email)
+
+	// Redirect to frontend with access token in URL (will be stored in localStorage by frontend)
+	redirectURL := fmt.Sprintf("http://localhost:5173/oauth/callback?access_token=%s", accessToken)
+	http.Redirect(w, r, redirectURL, http.StatusTemporaryRedirect)
+}
+
+func (h *AuthHandler) buildAuthorizationURL(state string, providerConfig *config.OAuthProviderConfig) string {
+	params := url.Values{}
+	params.Set("client_id", providerConfig.ClientID)
+	params.Set("redirect_uri", h.config.OAuth.RedirectURL)
+	params.Set("response_type", "code")
+	params.Set("scope", "openid profile email")
+	params.Set("state", state)
+
+	return fmt.Sprintf("%s?%s", providerConfig.AuthURL, params.Encode())
+}
+
+func (h *AuthHandler) exchangeCodeForToken(code string, providerConfig *config.OAuthProviderConfig) (string, error) {
+	data := url.Values{}
+	data.Set("grant_type", "authorization_code")
+	data.Set("code", code)
+	data.Set("redirect_uri", h.config.OAuth.RedirectURL)
+	data.Set("client_id", providerConfig.ClientID)
+	data.Set("client_secret", providerConfig.ClientSecret)
+
+	resp, err := http.PostForm(providerConfig.TokenURL, data)
+	if err != nil {
+		return "", fmt.Errorf("failed to exchange code: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("token endpoint returned status %d", resp.StatusCode)
+	}
+
+	var result map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return "", fmt.Errorf("failed to decode token response: %w", err)
+	}
+
+	accessToken, ok := result["access_token"].(string)
+	if !ok {
+		return "", fmt.Errorf("access_token not found in response")
+	}
+
+	return accessToken, nil
+}
+
+func (h *AuthHandler) getUserInfo(accessToken string, providerConfig *config.OAuthProviderConfig) (map[string]interface{}, error) {
+	req, err := http.NewRequest("GET", providerConfig.UserInfoURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user info: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("userinfo endpoint returned status %d", resp.StatusCode)
+	}
+
+	var userInfo map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&userInfo); err != nil {
+		return nil, fmt.Errorf("failed to decode user info: %w", err)
+	}
+
+	return userInfo, nil
+}
+
+func generateRandomState() string {
+	b := make([]byte, 32)
+	rand.Read(b)
+	return base64.URLEncoding.EncodeToString(b)
 }

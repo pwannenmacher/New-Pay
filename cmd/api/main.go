@@ -69,11 +69,12 @@ func main() {
 	tokenRepo := repository.NewTokenRepository(db.DB)
 	sessionRepo := repository.NewSessionRepository(db.DB)
 	auditRepo := repository.NewAuditRepository(db.DB)
+	oauthConnRepo := repository.NewOAuthConnectionRepository(db.DB)
 
 	// Initialize services
 	authService := auth.NewService(&cfg.JWT)
 	emailService := email.NewService(&cfg.Email)
-	authSvc := service.NewAuthService(userRepo, tokenRepo, roleRepo, sessionRepo, authService, emailService)
+	authSvc := service.NewAuthService(userRepo, tokenRepo, roleRepo, sessionRepo, oauthConnRepo, authService, emailService)
 
 	// Initialize middleware
 	authMw := middleware.NewAuthMiddleware(authService, sessionRepo)
@@ -83,9 +84,11 @@ func main() {
 	auditMw := middleware.NewAuditMiddleware(db.DB)
 
 	// Initialize handlers
-	authHandler := handlers.NewAuthHandler(authSvc, auditMw)
-	userHandler := handlers.NewUserHandler(userRepo, roleRepo, auditMw)
+	authHandler := handlers.NewAuthHandler(authSvc, auditMw, cfg)
+	userHandler := handlers.NewUserHandler(userRepo, roleRepo, auditMw, authSvc)
 	auditHandler := handlers.NewAuditHandler(auditRepo)
+	sessionHandler := handlers.NewSessionHandler(sessionRepo, authSvc, auditMw, db.DB)
+	configHandler := handlers.NewConfigHandler(cfg)
 
 	// Setup router
 	mux := http.NewServeMux()
@@ -99,9 +102,20 @@ func main() {
 	mux.HandleFunc("/api/v1/auth/password-reset/confirm", authHandler.ResetPassword)
 	mux.HandleFunc("/api/v1/auth/refresh", authHandler.RefreshToken)
 
+	// OAuth routes
+	mux.HandleFunc("/api/v1/auth/oauth/login", authHandler.OAuthLogin)
+	mux.HandleFunc("/api/v1/auth/oauth/callback", authHandler.OAuthCallback)
+
+	// Config routes (public)
+	mux.HandleFunc("/api/v1/config/oauth", configHandler.GetOAuthConfig)
+	mux.HandleFunc("/api/v1/config/app", configHandler.GetAppConfig)
+
 	// Protected routes
 	mux.Handle("/api/v1/users/profile", authMw.Authenticate(http.HandlerFunc(userHandler.GetProfile)))
 	mux.Handle("/api/v1/users/profile/update", authMw.Authenticate(http.HandlerFunc(userHandler.UpdateProfile)))
+	mux.Handle("/api/v1/users/sessions", authMw.Authenticate(http.HandlerFunc(sessionHandler.GetMySessions)))
+	mux.Handle("/api/v1/users/sessions/delete", authMw.Authenticate(http.HandlerFunc(sessionHandler.DeleteMySession)))
+	mux.Handle("/api/v1/users/sessions/delete-all", authMw.Authenticate(http.HandlerFunc(sessionHandler.DeleteAllMySessions)))
 
 	// Admin routes
 	mux.Handle("/api/v1/admin/users/get",
@@ -132,6 +146,34 @@ func main() {
 			),
 		),
 	)
+	mux.Handle("/api/v1/admin/users/update-status",
+		authMw.Authenticate(
+			rbacMw.RequireRole("admin")(
+				http.HandlerFunc(userHandler.UpdateUserActiveStatus),
+			),
+		),
+	)
+	mux.Handle("/api/v1/admin/users/update",
+		authMw.Authenticate(
+			rbacMw.RequireRole("admin")(
+				http.HandlerFunc(userHandler.UpdateUser),
+			),
+		),
+	)
+	mux.Handle("/api/v1/admin/users/set-password",
+		authMw.Authenticate(
+			rbacMw.RequireRole("admin")(
+				http.HandlerFunc(userHandler.SetUserPassword),
+			),
+		),
+	)
+	mux.Handle("/api/v1/admin/users/delete",
+		authMw.Authenticate(
+			rbacMw.RequireRole("admin")(
+				http.HandlerFunc(userHandler.DeleteUser),
+			),
+		),
+	)
 	mux.Handle("/api/v1/admin/roles/list",
 		authMw.Authenticate(
 			rbacMw.RequireRole("admin")(
@@ -143,6 +185,27 @@ func main() {
 		authMw.Authenticate(
 			rbacMw.RequireRole("admin")(
 				http.HandlerFunc(auditHandler.ListAuditLogs),
+			),
+		),
+	)
+	mux.Handle("/api/v1/admin/sessions",
+		authMw.Authenticate(
+			rbacMw.RequireRole("admin")(
+				http.HandlerFunc(sessionHandler.GetAllSessions),
+			),
+		),
+	)
+	mux.Handle("/api/v1/admin/sessions/delete",
+		authMw.Authenticate(
+			rbacMw.RequireRole("admin")(
+				http.HandlerFunc(sessionHandler.DeleteUserSession),
+			),
+		),
+	)
+	mux.Handle("/api/v1/admin/sessions/delete-all",
+		authMw.Authenticate(
+			rbacMw.RequireRole("admin")(
+				http.HandlerFunc(sessionHandler.DeleteAllUserSessions),
 			),
 		),
 	)

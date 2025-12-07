@@ -22,8 +22,9 @@ func SecurityHeaders(next http.Handler) http.Handler {
 		// Control referrer information
 		w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
 
-		// Content Security Policy
-		w.Header().Set("Content-Security-Policy", "default-src 'self'")
+		// Content Security Policy - Allow inline styles and scripts for development
+		// TODO: Tighten in production with nonces or hashes
+		w.Header().Set("Content-Security-Policy", "default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; img-src 'self' data:; font-src 'self' data:")
 
 		next.ServeHTTP(w, r)
 	})

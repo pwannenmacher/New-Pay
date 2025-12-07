@@ -6,6 +6,7 @@ import type {
   PasswordResetConfirm,
   RefreshTokenRequest,
   ApiError,
+  Session,
 } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api/v1';
@@ -71,18 +72,12 @@ class ApiClient {
   }
 
   private async refreshToken(): Promise<string> {
-    const refreshToken = tokenService.getRefreshToken();
-    
-    if (!refreshToken) {
-      throw new Error('No refresh token available');
-    }
-
     const response = await fetch(`${this.baseUrl}/auth/refresh`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ refresh_token: refreshToken }),
+      credentials: 'include', // Important: Include cookies in the request
     });
 
     if (!response.ok) {
@@ -125,6 +120,7 @@ class ApiClient {
       const response = await fetch(url, {
         ...options,
         headers,
+        credentials: 'include', // Always include cookies
       });
 
       // If unauthorized and we have a refresh token, try to refresh
@@ -142,6 +138,7 @@ class ApiClient {
             const retryResponse = await fetch(url, {
               ...options,
               headers,
+              credentials: 'include',
             });
             
             return this.handleResponse<T>(retryResponse);
@@ -154,7 +151,11 @@ class ApiClient {
           return new Promise((resolve, reject) => {
             this.addRefreshSubscriber((token: string) => {
               headers['Authorization'] = `Bearer ${token}`;
-              fetch(url, { ...options, headers })
+              fetch(url, { 
+                ...options, 
+                headers,
+                credentials: 'include',
+              })
                 .then(res => this.handleResponse<T>(res))
                 .then(resolve)
                 .catch(reject);
@@ -174,6 +175,19 @@ class ApiClient {
       ...options,
       method: 'GET',
     });
+  }
+
+  async getPublic<T>(endpoint: string, options?: RequestInit): Promise<T> {
+    const url = `${this.baseUrl}${endpoint}`;
+    const response = await fetch(url, {
+      ...options,
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(options?.headers as Record<string, string>),
+      },
+    });
+    return this.handleResponse<T>(response);
   }
 
   async post<T>(endpoint: string, data?: unknown, options?: RequestInit): Promise<T> {
@@ -225,6 +239,27 @@ export const authApi = {
   
   refreshToken: (data: RefreshTokenRequest) =>
     apiClient.post<AuthResponse>('/auth/refresh', data),
+};
+
+// Session API
+export const sessionApi = {
+  getMySessions: () =>
+    apiClient.get<Session[]>('/users/sessions'),
+  
+  deleteMySession: (sessionId: string) =>
+    apiClient.delete<{ message: string }>(`/users/sessions/delete?session_id=${sessionId}`),
+  
+  deleteAllMySessions: () =>
+    apiClient.delete<{ message: string }>('/users/sessions/delete-all'),
+};
+
+// Config API
+export const configApi = {
+  getAppConfig: () =>
+    apiClient.getPublic<{ enable_registration: boolean; enable_oauth_registration: boolean }>('/config/app'),
+  
+  getOAuthConfig: () =>
+    apiClient.getPublic<{ enabled: boolean; providers: { name: string }[] }>('/config/oauth'),
 };
 
 export default apiClient;
