@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/joho/godotenv"
@@ -229,10 +230,11 @@ func getDurationEnv(key string, defaultValue time.Duration) time.Duration {
 
 func getSliceEnv(key string, defaultValue []string) []string {
 	if value := os.Getenv(key); value != "" {
-		// Simple split by comma
+		// Split by comma and trim whitespace
+		parts := strings.Split(value, ",")
 		var result []string
-		for _, v := range splitByComma(value) {
-			if trimmed := trimSpace(v); trimmed != "" {
+		for _, v := range parts {
+			if trimmed := strings.TrimSpace(v); trimmed != "" {
 				result = append(result, trimmed)
 			}
 		}
@@ -241,33 +243,4 @@ func getSliceEnv(key string, defaultValue []string) []string {
 		}
 	}
 	return defaultValue
-}
-
-func splitByComma(s string) []string {
-	var result []string
-	current := ""
-	for _, char := range s {
-		if char == ',' {
-			result = append(result, current)
-			current = ""
-		} else {
-			current += string(char)
-		}
-	}
-	if current != "" {
-		result = append(result, current)
-	}
-	return result
-}
-
-func trimSpace(s string) string {
-	start := 0
-	end := len(s)
-	for start < end && (s[start] == ' ' || s[start] == '\t' || s[start] == '\n' || s[start] == '\r') {
-		start++
-	}
-	for end > start && (s[end-1] == ' ' || s[end-1] == '\t' || s[end-1] == '\n' || s[end-1] == '\r') {
-		end--
-	}
-	return s[start:end]
 }

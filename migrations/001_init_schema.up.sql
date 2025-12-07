@@ -144,14 +144,16 @@ ON CONFLICT (name) DO NOTHING;
 -- Assign permissions to admin role
 INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.id, p.id
-FROM roles r, permissions p
+FROM roles r
+CROSS JOIN permissions p
 WHERE r.name = 'admin'
 ON CONFLICT DO NOTHING;
 
 -- Assign basic permissions to reviewer role
 INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.id, p.id
-FROM roles r, permissions p
+FROM roles r
+CROSS JOIN permissions p
 WHERE r.name = 'reviewer' AND p.name IN (
     'users.read',
     'reviews.create',
@@ -163,7 +165,8 @@ ON CONFLICT DO NOTHING;
 -- Assign basic permissions to user role
 INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.id, p.id
-FROM roles r, permissions p
+FROM roles r
+CROSS JOIN permissions p
 WHERE r.name = 'user' AND p.name IN (
     'users.read',
     'reviews.read'

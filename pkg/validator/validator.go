@@ -64,7 +64,9 @@ func validateField(fieldName string, value reflect.Value, rule string) error {
 		if strings.HasPrefix(rule, "min=") {
 			minStr := strings.TrimPrefix(rule, "min=")
 			var minVal int
-			fmt.Sscanf(minStr, "%d", &minVal)
+			if _, err := fmt.Sscanf(minStr, "%d", &minVal); err != nil {
+				return fmt.Errorf("invalid min value for %s", fieldName)
+			}
 			if value.Kind() == reflect.String && len(value.String()) < minVal {
 				return fmt.Errorf("%s must be at least %d characters", fieldName, minVal)
 			}

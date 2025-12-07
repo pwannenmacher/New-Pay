@@ -119,9 +119,10 @@ func (s *AuthService) Login(email, password string) (accessToken, refreshToken s
 		return "", "", nil, ErrUserInactive
 	}
 
-	// Check if email is verified (optional - can be enforced or not)
-	// Uncomment to enforce email verification
-	// if !user.EmailVerified {
+	// Note: Email verification is not enforced by default for better user experience.
+	// To enforce email verification, set REQUIRE_EMAIL_VERIFICATION=true in config
+	// and uncomment the check below.
+	// if cfg.RequireEmailVerification && !user.EmailVerified {
 	// 	return "", "", nil, ErrEmailNotVerified
 	// }
 
