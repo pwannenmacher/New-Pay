@@ -3,6 +3,7 @@ import { useDisclosure } from '@mantine/hooks';
 import { Link, useNavigate } from 'react-router-dom';
 import { IconUser, IconLogout, IconSettings, IconShieldLock, IconAlertCircle, IconMail } from '@tabler/icons-react';
 import { useAuth } from '../../contexts/AuthContext';
+import { useAppConfig } from '../../contexts/AppConfigContext';
 import { useState } from 'react';
 import { apiClient } from '../../services/api';
 import { notifications } from '@mantine/notifications';
@@ -14,6 +15,7 @@ interface MainLayoutProps {
 export const MainLayout = ({ children }: MainLayoutProps) => {
   const [opened, { toggle }] = useDisclosure();
   const { user, logout, isAuthenticated } = useAuth();
+  const { enableRegistration } = useAppConfig();
   const navigate = useNavigate();
   const [isResendingVerification, setIsResendingVerification] = useState(false);
 
@@ -107,9 +109,11 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
               <Button variant="subtle" component={Link} to="/login">
                 Login
               </Button>
-              <Button component={Link} to="/register">
-                Sign Up
-              </Button>
+              {enableRegistration && (
+                <Button component={Link} to="/register">
+                  Sign Up
+                </Button>
+              )}
             </Group>
           )}
         </Group>

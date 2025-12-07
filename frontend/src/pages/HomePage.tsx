@@ -1,9 +1,11 @@
 import { Container, Title, Text, Button, Stack, Paper } from '@mantine/core';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useAppConfig } from '../contexts/AppConfigContext';
 
 export const HomePage = () => {
   const { isAuthenticated, user } = useAuth();
+  const { enableRegistration } = useAppConfig();
 
   return (
     <Container size="md" my={40}>
@@ -26,13 +28,17 @@ export const HomePage = () => {
                 A modern platform for salary estimates and peer reviews.
               </Text>
               <Text size="md" ta="center">
-                Sign up today to get started with salary insights and professional peer reviews.
+                {enableRegistration 
+                  ? 'Sign up today to get started with salary insights and professional peer reviews.'
+                  : 'Sign in to access salary insights and professional peer reviews.'}
               </Text>
               <Button.Group>
-                <Button component={Link} to="/register" size="lg">
-                  Get Started
-                </Button>
-                <Button component={Link} to="/login" variant="outline" size="lg">
+                {enableRegistration && (
+                  <Button component={Link} to="/register" size="lg">
+                    Get Started
+                  </Button>
+                )}
+                <Button component={Link} to="/login" variant={enableRegistration ? "outline" : "filled"} size="lg">
                   Sign In
                 </Button>
               </Button.Group>
