@@ -4,6 +4,68 @@ import (
 	"testing"
 )
 
+func TestValidateStruct(t *testing.T) {
+	type TestStruct struct {
+		Email    string `validate:"required,email"`
+		Password string `validate:"required,min=8"`
+		Name     string `validate:"required"`
+	}
+
+	tests := []struct {
+		name     string
+		input    TestStruct
+		expected bool
+	}{
+		{
+			name: "valid struct",
+			input: TestStruct{
+				Email:    "test@example.com",
+				Password: "password123",
+				Name:     "John Doe",
+			},
+			expected: true,
+		},
+		{
+			name: "missing required field",
+			input: TestStruct{
+				Email:    "test@example.com",
+				Password: "password123",
+				Name:     "",
+			},
+			expected: false,
+		},
+		{
+			name: "invalid email",
+			input: TestStruct{
+				Email:    "invalid-email",
+				Password: "password123",
+				Name:     "John Doe",
+			},
+			expected: false,
+		},
+		{
+			name: "password too short",
+			input: TestStruct{
+				Email:    "test@example.com",
+				Password: "short",
+				Name:     "John Doe",
+			},
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateStruct(&tt.input)
+			isValid := err == nil
+
+			if isValid != tt.expected {
+				t.Errorf("ValidateStruct() = %v, expected %v, error: %v", isValid, tt.expected, err)
+			}
+		})
+	}
+}
+
 func TestValidateEmail(t *testing.T) {
 	tests := []struct {
 		email    string

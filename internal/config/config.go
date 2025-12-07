@@ -121,7 +121,7 @@ func Load() (*Config, error) {
 			User:            getEnv("DB_USER", "newpay"),
 			Password:        getEnv("DB_PASSWORD", ""),
 			Name:            getEnv("DB_NAME", "newpay_db"),
-			SSLMode:         getEnv("DB_SSLMODE", "disable"),
+			SSLMode:         getEnv("DB_SSLMODE", "prefer"),
 			MaxOpenConns:    getIntEnv("DB_MAX_OPEN_CONNS", 25),
 			MaxIdleConns:    getIntEnv("DB_MAX_IDLE_CONNS", 5),
 			ConnMaxLifetime: getDurationEnv("DB_CONN_MAX_LIFETIME", 5*time.Minute),

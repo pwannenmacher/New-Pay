@@ -54,13 +54,13 @@ func (s *Service) VerifyPassword(hashedPassword, password string) error {
 	return bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(password))
 }
 
-// GenerateToken generates a JWT token for a user
-func (s *Service) GenerateToken(userID uint, email string) (string, error) {
+// generateTokenWithExpiration generates a JWT token with the specified expiration
+func (s *Service) generateTokenWithExpiration(userID uint, email string, expiration time.Duration) (string, error) {
 	claims := JWTClaims{
 		UserID: userID,
 		Email:  email,
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(s.jwtExpiration)),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(expiration)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 			NotBefore: jwt.NewNumericDate(time.Now()),
 		},
@@ -75,25 +75,14 @@ func (s *Service) GenerateToken(userID uint, email string) (string, error) {
 	return tokenString, nil
 }
 
+// GenerateToken generates a JWT token for a user
+func (s *Service) GenerateToken(userID uint, email string) (string, error) {
+	return s.generateTokenWithExpiration(userID, email, s.jwtExpiration)
+}
+
 // GenerateRefreshToken generates a refresh token for a user
 func (s *Service) GenerateRefreshToken(userID uint, email string) (string, error) {
-	claims := JWTClaims{
-		UserID: userID,
-		Email:  email,
-		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(s.refreshExpiration)),
-			IssuedAt:  jwt.NewNumericDate(time.Now()),
-			NotBefore: jwt.NewNumericDate(time.Now()),
-		},
-	}
-
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	tokenString, err := token.SignedString(s.jwtSecret)
-	if err != nil {
-		return "", fmt.Errorf("failed to sign refresh token: %w", err)
-	}
-
-	return tokenString, nil
+	return s.generateTokenWithExpiration(userID, email, s.refreshExpiration)
 }
 
 // ValidateToken validates a JWT token and returns the claims
