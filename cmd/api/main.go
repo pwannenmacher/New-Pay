@@ -9,6 +9,7 @@ import (
 	"syscall"
 	"time"
 
+	httpSwagger "github.com/swaggo/http-swagger"
 	"github.com/pwannenmacher/New-Pay/internal/auth"
 	"github.com/pwannenmacher/New-Pay/internal/config"
 	"github.com/pwannenmacher/New-Pay/internal/database"
@@ -17,7 +18,27 @@ import (
 	"github.com/pwannenmacher/New-Pay/internal/middleware"
 	"github.com/pwannenmacher/New-Pay/internal/repository"
 	"github.com/pwannenmacher/New-Pay/internal/service"
+	_ "github.com/pwannenmacher/New-Pay/docs" // This is for Swagger
 )
+
+// @title New Pay API
+// @version 1.0
+// @description Backend API for New Pay salary estimation and peer review platform
+// @termsOfService http://swagger.io/terms/
+
+// @contact.name API Support
+// @contact.email support@newpay.com
+
+// @license.name MIT
+// @license.url https://opensource.org/licenses/MIT
+
+// @host localhost:8080
+// @BasePath /api/v1
+
+// @securityDefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
+// @description Type "Bearer" followed by a space and JWT token.
 
 func main() {
 	// Load configuration
@@ -35,10 +56,18 @@ func main() {
 
 	log.Println("Database connection established")
 
+	// Run database migrations
+	migrator := database.NewMigrationExecutor(db.DB)
+	if err := migrator.RunMigrations("./migrations"); err != nil {
+		log.Fatalf("Failed to run migrations: %v", err)
+	}
+	log.Println("Database migrations completed")
+
 	// Initialize repositories
 	userRepo := repository.NewUserRepository(db.DB)
 	roleRepo := repository.NewRoleRepository(db.DB)
 	tokenRepo := repository.NewTokenRepository(db.DB)
+	_ = repository.NewSessionRepository(db.DB)
 	_ = repository.NewAuditRepository(db.DB)
 
 	// Initialize services
@@ -105,6 +134,9 @@ func main() {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte(`{"status":"healthy","version":"` + cfg.App.Version + `"}`))
 	})
+
+	// Swagger documentation
+	mux.Handle("/swagger/", httpSwagger.WrapHandler)
 
 	// Apply global middleware
 	handler := middleware.SecurityHeaders(

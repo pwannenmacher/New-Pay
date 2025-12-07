@@ -30,6 +30,15 @@ func NewUserHandler(
 }
 
 // GetProfile gets the current user's profile
+// @Summary Get user profile
+// @Description Get authenticated user's profile information
+// @Tags Users
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} map[string]interface{} "User profile with roles"
+// @Failure 401 {object} map[string]string "Unauthorized"
+// @Failure 404 {object} map[string]string "User not found"
+// @Router /users/profile [get]
 func (h *UserHandler) GetProfile(w http.ResponseWriter, r *http.Request) {
 	userID, ok := middleware.GetUserID(r)
 	if !ok {
@@ -61,6 +70,17 @@ func (h *UserHandler) GetProfile(w http.ResponseWriter, r *http.Request) {
 }
 
 // UpdateProfile updates the current user's profile
+// @Summary Update user profile
+// @Description Update authenticated user's profile information
+// @Tags Users
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body object true "Profile update (first_name, last_name)"
+// @Success 200 {object} map[string]interface{} "Profile updated successfully"
+// @Failure 400 {object} map[string]string "Invalid request"
+// @Failure 401 {object} map[string]string "Unauthorized"
+// @Router /users/profile/update [post]
 func (h *UserHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 	userID, ok := middleware.GetUserID(r)
 	if !ok {
@@ -107,6 +127,18 @@ func (h *UserHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 }
 
 // GetUser gets a user by ID (admin only)
+// @Summary Get user by ID
+// @Description Get any user's information by ID (admin only)
+// @Tags Admin
+// @Produce json
+// @Security BearerAuth
+// @Param id query int true "User ID"
+// @Success 200 {object} map[string]interface{} "User information with roles"
+// @Failure 400 {object} map[string]string "Invalid user ID"
+// @Failure 401 {object} map[string]string "Unauthorized"
+// @Failure 403 {object} map[string]string "Forbidden - admin only"
+// @Failure 404 {object} map[string]string "User not found"
+// @Router /admin/users/get [get]
 func (h *UserHandler) GetUser(w http.ResponseWriter, r *http.Request) {
 	// Get user ID from URL parameter
 	idStr := r.URL.Query().Get("id")
@@ -140,6 +172,19 @@ func (h *UserHandler) GetUser(w http.ResponseWriter, r *http.Request) {
 }
 
 // AssignRole assigns a role to a user (admin only)
+// @Summary Assign role to user
+// @Description Assign a role to a user (admin only)
+// @Tags Admin
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body object true "user_id and role_id"
+// @Success 200 {object} map[string]string "Role assigned successfully"
+// @Failure 400 {object} map[string]string "Invalid request"
+// @Failure 401 {object} map[string]string "Unauthorized"
+// @Failure 403 {object} map[string]string "Forbidden - admin only"
+// @Failure 404 {object} map[string]string "User or role not found"
+// @Router /admin/users/assign-role [post]
 func (h *UserHandler) AssignRole(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		UserID uint `json:"user_id"`
@@ -181,6 +226,18 @@ func (h *UserHandler) AssignRole(w http.ResponseWriter, r *http.Request) {
 }
 
 // RemoveRole removes a role from a user (admin only)
+// @Summary Remove role from user
+// @Description Remove a role from a user (admin only)
+// @Tags Admin
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body object true "user_id and role_id"
+// @Success 200 {object} map[string]string "Role removed successfully"
+// @Failure 400 {object} map[string]string "Invalid request"
+// @Failure 401 {object} map[string]string "Unauthorized"
+// @Failure 403 {object} map[string]string "Forbidden - admin only"
+// @Router /admin/users/remove-role [post]
 func (h *UserHandler) RemoveRole(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		UserID uint `json:"user_id"`

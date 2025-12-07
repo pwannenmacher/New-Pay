@@ -59,6 +59,15 @@ type RefreshTokenRequest struct {
 }
 
 // Register handles user registration
+// @Summary Register a new user
+// @Description Create a new user account with email verification
+// @Tags Authentication
+// @Accept json
+// @Produce json
+// @Param request body RegisterRequest true "Registration details"
+// @Success 201 {object} map[string]interface{} "Registration successful"
+// @Failure 400 {object} map[string]string "Invalid request"
+// @Router /auth/register [post]
 func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	var req RegisterRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -94,6 +103,16 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 }
 
 // Login handles user login
+// @Summary User login
+// @Description Authenticate user and return JWT tokens
+// @Tags Authentication
+// @Accept json
+// @Produce json
+// @Param request body LoginRequest true "Login credentials"
+// @Success 200 {object} map[string]interface{} "Login successful with tokens"
+// @Failure 400 {object} map[string]string "Invalid request"
+// @Failure 401 {object} map[string]string "Invalid credentials"
+// @Router /auth/login [post]
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	var req LoginRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -132,6 +151,15 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 }
 
 // VerifyEmail handles email verification
+// @Summary Verify email address
+// @Description Verify user's email address using token from email
+// @Tags Authentication
+// @Accept json
+// @Produce json
+// @Param token query string true "Verification token"
+// @Success 200 {object} map[string]string "Email verified successfully"
+// @Failure 400 {object} map[string]string "Invalid or expired token"
+// @Router /auth/verify-email [get]
 func (h *AuthHandler) VerifyEmail(w http.ResponseWriter, r *http.Request) {
 	// Get token from query parameter
 	token := r.URL.Query().Get("token")
@@ -156,6 +184,15 @@ func (h *AuthHandler) VerifyEmail(w http.ResponseWriter, r *http.Request) {
 }
 
 // RequestPasswordReset handles password reset requests
+// @Summary Request password reset
+// @Description Send password reset email to user
+// @Tags Authentication
+// @Accept json
+// @Produce json
+// @Param request body PasswordResetRequest true "Email address"
+// @Success 200 {object} map[string]string "Reset email sent if user exists"
+// @Failure 400 {object} map[string]string "Invalid request"
+// @Router /auth/password-reset/request [post]
 func (h *AuthHandler) RequestPasswordReset(w http.ResponseWriter, r *http.Request) {
 	var req PasswordResetRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -184,6 +221,15 @@ func (h *AuthHandler) RequestPasswordReset(w http.ResponseWriter, r *http.Reques
 }
 
 // ResetPassword handles password reset confirmation
+// @Summary Reset password
+// @Description Reset user password using token from email
+// @Tags Authentication
+// @Accept json
+// @Produce json
+// @Param request body ResetPasswordRequest true "Reset token and new password"
+// @Success 200 {object} map[string]string "Password reset successful"
+// @Failure 400 {object} map[string]string "Invalid or expired token"
+// @Router /auth/password-reset/confirm [post]
 func (h *AuthHandler) ResetPassword(w http.ResponseWriter, r *http.Request) {
 	var req ResetPasswordRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -212,6 +258,15 @@ func (h *AuthHandler) ResetPassword(w http.ResponseWriter, r *http.Request) {
 }
 
 // RefreshToken handles token refresh requests
+// @Summary Refresh access token
+// @Description Get a new access token using refresh token
+// @Tags Authentication
+// @Accept json
+// @Produce json
+// @Param request body RefreshTokenRequest true "Refresh token"
+// @Success 200 {object} map[string]string "New access token"
+// @Failure 401 {object} map[string]string "Invalid refresh token"
+// @Router /auth/refresh [post]
 func (h *AuthHandler) RefreshToken(w http.ResponseWriter, r *http.Request) {
 	var req RefreshTokenRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {

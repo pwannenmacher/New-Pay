@@ -71,14 +71,14 @@ See [Docker Documentation](docs/DOCKER.md) for more details.
 
 ### Option 2: Local Development
 
-### 1. Clone the repository
+#### 1. Clone the repository
 
 ```bash
 git clone https://github.com/pwannenmacher/New-Pay.git
 cd New-Pay
 ```
 
-### 2. Set up environment variables
+#### 2. Set up environment variables
 
 ```bash
 cp .env.example .env
@@ -86,7 +86,7 @@ cp .env.example .env
 
 Edit `.env` and configure your database and email settings.
 
-### 3. Start PostgreSQL (using Docker)
+#### 3. Start PostgreSQL
 
 ```bash
 docker-compose up -d postgres
@@ -94,33 +94,29 @@ docker-compose up -d postgres
 
 Or use your own PostgreSQL instance.
 
-### 4. Run database migrations
+#### 4. Install Go dependencies
 
 ```bash
-make migrate-up
+go mod download
 ```
 
-Or manually:
+#### 5. Run the application
 
 ```bash
-psql -U newpay -d newpay_db -f migrations/001_init_schema.up.sql
+go run cmd/api/*.go
 ```
 
-### 5. Install dependencies
+The application will automatically run database migrations on startup.
 
-```bash
-make deps
-```
+#### 6. Access the API
 
-### 6. Run the application
-
-```bash
-make run
-```
-
-The server will start on `http://localhost:8080`
+- API: `http://localhost:8080`
+- Health Check: `http://localhost:8080/health`
+- **Swagger Documentation**: `http://localhost:8080/swagger/index.html`
 
 ## API Endpoints
+
+For comprehensive API documentation with request/response examples, visit the Swagger UI at `http://localhost:8080/swagger/index.html` when the server is running.
 
 ### Public Endpoints
 
@@ -235,50 +231,84 @@ The application uses the following main tables:
 ### Build
 
 ```bash
-make build
+go build -o bin/api cmd/api/*.go
 ```
 
 ### Run tests
 
 ```bash
-make test
+go test ./...
 ```
 
 ### Run with coverage
 
 ```bash
-make test-coverage
+go test -v -coverprofile=coverage.out ./...
+go tool cover -html=coverage.out -o coverage.html
 ```
 
 ### Format code
 
 ```bash
-make fmt
+go fmt ./...
 ```
 
-### Lint
+### Vet code
 
 ```bash
-make lint
+go vet ./...
 ```
 
-### Clean build artifacts
+### Using Docker Compose for Development
 
 ```bash
-make clean
+# Start all services in detached mode
+docker-compose up -d
+
+# View logs
+docker-compose logs -f api
+
+# Stop all services
+docker-compose down
+
+# Rebuild and restart
+docker-compose up -d --build
 ```
+
 
 ## Security Features
 
 1. **Password Security**: Passwords are hashed using bcrypt with default cost
 2. **JWT Tokens**: Secure token-based authentication with configurable expiration
-3. **Rate Limiting**: Prevents abuse with configurable request limits
-4. **CORS**: Properly configured cross-origin resource sharing
-5. **Security Headers**: X-Content-Type-Options, X-XSS-Protection, X-Frame-Options, etc.
-6. **Input Validation**: All user inputs are validated and sanitized
-7. **Audit Logging**: All security-related actions are logged
-8. **Email Verification**: Optional email verification before account activation
-9. **Password Recovery**: Secure password reset with time-limited tokens
+3. **Session Management**: JWT sessions can be invalidated (logout from all devices, password change)
+4. **Rate Limiting**: Prevents abuse with configurable request limits
+5. **CORS**: Properly configured cross-origin resource sharing
+6. **Security Headers**: X-Content-Type-Options, X-XSS-Protection, X-Frame-Options, etc.
+7. **Input Validation**: All user inputs are validated and sanitized
+8. **Audit Logging**: All security-related actions are logged
+9. **Email Verification**: Optional email verification before account activation
+10. **Password Recovery**: Secure password reset with time-limited tokens
+
+## API Documentation
+
+The API is fully documented using Swagger/OpenAPI. Once the server is running, you can access:
+
+- **Swagger UI**: `http://localhost:8080/swagger/index.html`
+- **Swagger JSON**: `http://localhost:8080/swagger/doc.json`
+
+The Swagger documentation includes:
+- All available endpoints
+- Request/response schemas
+- Authentication requirements
+- Example requests and responses
+- Try-it-out functionality
+
+To regenerate Swagger documentation after changes:
+
+```bash
+go install github.com/swaggo/swag/cmd/swag@latest
+swag init -g cmd/api/main.go -o docs
+```
 
 ## Default Roles and Permissions
 
@@ -299,7 +329,7 @@ New-Pay/
 ├── internal/
 │   ├── auth/          # Authentication logic
 │   ├── config/        # Configuration management
-│   ├── database/      # Database connection
+│   ├── database/      # Database connection & migrations
 │   ├── email/         # Email service
 │   ├── handlers/      # HTTP handlers
 │   ├── middleware/    # HTTP middleware
@@ -310,10 +340,10 @@ New-Pay/
 │   ├── logger/        # Logging utilities
 │   └── validator/     # Input validation
 ├── migrations/        # Database migrations
-├── docs/              # Documentation
+├── docs/              # Documentation & Swagger files
 ├── .env.example       # Environment variables template
 ├── docker-compose.yml # Docker configuration
-├── Makefile           # Build commands
+├── Dockerfile         # Multi-stage Docker build
 └── README.md          # This file
 ```
 

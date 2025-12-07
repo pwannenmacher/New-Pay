@@ -12,12 +12,12 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./migrations:/docker-entrypoint-initdb.d
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U newpay"]
-      interval: 10s
-      timeout: 5s
+      test: ["CMD-SHELL", "pg_isready -U newpay -d newpay_db"]
+      interval: 5s
+      timeout: 3s
       retries: 5
+      start_period: 10s
     networks:
       - newpay-network
 
@@ -61,6 +61,12 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
     networks:
       - newpay-network
     restart: unless-stopped
