@@ -67,13 +67,13 @@ func main() {
 	userRepo := repository.NewUserRepository(db.DB)
 	roleRepo := repository.NewRoleRepository(db.DB)
 	tokenRepo := repository.NewTokenRepository(db.DB)
-	_ = repository.NewSessionRepository(db.DB)
+	sessionRepo := repository.NewSessionRepository(db.DB)
 	_ = repository.NewAuditRepository(db.DB)
 
 	// Initialize services
 	authService := auth.NewService(&cfg.JWT)
 	emailService := email.NewService(&cfg.Email)
-	authSvc := service.NewAuthService(userRepo, tokenRepo, roleRepo, authService, emailService)
+	authSvc := service.NewAuthService(userRepo, tokenRepo, roleRepo, sessionRepo, authService, emailService)
 
 	// Initialize middleware
 	authMw := middleware.NewAuthMiddleware(authService)

@@ -138,6 +138,12 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	// Log successful login
 	_ = h.auditMw.LogAction(&user.ID, "user.login", "users", "User logged in", getIP(r), r.UserAgent())
 
+	// Create session for refresh token
+	if err := h.authService.CreateSession(user.ID, refreshToken, getIP(r), r.UserAgent()); err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Failed to create session")
+		return
+	}
+
 	// Set refresh token as HTTP-only cookie
 	http.SetCookie(w, &http.Cookie{
 		Name:     "refresh_token",
@@ -285,7 +291,7 @@ func (h *AuthHandler) RefreshToken(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Refresh token
-	accessToken, newRefreshToken, err := h.authService.RefreshToken(cookie.Value)
+	accessToken, newRefreshToken, err := h.authService.RefreshToken(cookie.Value, getIP(r), r.UserAgent())
 	if err != nil {
 		// Clear invalid cookie
 		http.SetCookie(w, &http.Cookie{
@@ -317,13 +323,20 @@ func (h *AuthHandler) RefreshToken(w http.ResponseWriter, r *http.Request) {
 
 // Logout handles user logout
 // @Summary User logout
-// @Description Clear refresh token cookie
+// @Description Clear refresh token cookie and invalidate session
 // @Tags Authentication
 // @Accept json
 // @Produce json
 // @Success 200 {object} map[string]string "Logout successful"
 // @Router /auth/logout [post]
 func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
+	// Get refresh token from cookie
+	cookie, err := r.Cookie("refresh_token")
+	if err == nil && cookie.Value != "" {
+		// Invalidate session in database
+		_ = h.authService.InvalidateSession(cookie.Value)
+	}
+
 	// Clear refresh token cookie
 	http.SetCookie(w, &http.Cookie{
 		Name:     "refresh_token",

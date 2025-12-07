@@ -19,11 +19,12 @@ var (
 
 // AuthService handles authentication business logic
 type AuthService struct {
-	userRepo  *repository.UserRepository
-	tokenRepo *repository.TokenRepository
-	roleRepo  *repository.RoleRepository
-	authSvc   *auth.Service
-	emailSvc  *email.Service
+	userRepo    *repository.UserRepository
+	tokenRepo   *repository.TokenRepository
+	roleRepo    *repository.RoleRepository
+	sessionRepo *repository.SessionRepository
+	authSvc     *auth.Service
+	emailSvc    *email.Service
 }
 
 // NewAuthService creates a new authentication service
@@ -31,15 +32,17 @@ func NewAuthService(
 	userRepo *repository.UserRepository,
 	tokenRepo *repository.TokenRepository,
 	roleRepo *repository.RoleRepository,
+	sessionRepo *repository.SessionRepository,
 	authSvc *auth.Service,
 	emailSvc *email.Service,
 ) *AuthService {
 	return &AuthService{
-		userRepo:  userRepo,
-		tokenRepo: tokenRepo,
-		roleRepo:  roleRepo,
-		authSvc:   authSvc,
-		emailSvc:  emailSvc,
+		userRepo:    userRepo,
+		tokenRepo:   tokenRepo,
+		roleRepo:    roleRepo,
+		sessionRepo: sessionRepo,
+		authSvc:     authSvc,
+		emailSvc:    emailSvc,
 	}
 }
 
@@ -141,6 +144,28 @@ func (s *AuthService) Login(email, password string) (accessToken, refreshToken s
 	_ = s.userRepo.UpdateLastLogin(user.ID)
 
 	return accessToken, refreshToken, user, nil
+}
+
+// CreateSession creates a session for a refresh token
+func (s *AuthService) CreateSession(userID uint, refreshToken, ipAddress, userAgent string) error {
+	// Generate unique session ID
+	sessionID, err := auth.GenerateRandomToken(16)
+	if err != nil {
+		return fmt.Errorf("failed to generate session ID: %w", err)
+	}
+
+	session := &models.Session{
+		ID:             sessionID,
+		UserID:         userID,
+		Token:          refreshToken,
+		ExpiresAt:      time.Now().Add(7 * 24 * time.Hour), // 7 days
+		LastActivityAt: time.Now(),
+		CreatedAt:      time.Now(),
+		IPAddress:      ipAddress,
+		UserAgent:      userAgent,
+	}
+
+	return s.sessionRepo.Create(session)
 }
 
 // VerifyEmail verifies a user's email address
@@ -256,12 +281,26 @@ func (s *AuthService) ResetPassword(tokenString, newPassword string) error {
 }
 
 // RefreshToken refreshes an access token using a refresh token and returns a new refresh token
-func (s *AuthService) RefreshToken(refreshToken string) (string, string, error) {
+func (s *AuthService) RefreshToken(refreshToken, ipAddress, userAgent string) (string, string, error) {
 	// Validate refresh token
 	claims, err := s.authSvc.ValidateToken(refreshToken)
 	if err != nil {
 		return "", "", fmt.Errorf("invalid refresh token: %w", err)
 	}
+
+	// Check if session exists and is valid
+	session, err := s.sessionRepo.GetByToken(refreshToken)
+	if err != nil {
+		return "", "", fmt.Errorf("session not found or expired: %w", err)
+	}
+
+	// Verify session belongs to the user from the token
+	if session.UserID != claims.UserID {
+		return "", "", errors.New("session user mismatch")
+	}
+
+	// Delete old session (token rotation)
+	_ = s.sessionRepo.DeleteByToken(refreshToken)
 
 	// Generate new access token
 	accessToken, err := s.authSvc.GenerateToken(claims.UserID, claims.Email)
@@ -275,5 +314,20 @@ func (s *AuthService) RefreshToken(refreshToken string) (string, string, error) 
 		return "", "", fmt.Errorf("failed to generate refresh token: %w", err)
 	}
 
+	// Create new session for the new refresh token
+	if err := s.CreateSession(claims.UserID, newRefreshToken, ipAddress, userAgent); err != nil {
+		return "", "", fmt.Errorf("failed to create session: %w", err)
+	}
+
 	return accessToken, newRefreshToken, nil
+}
+
+// InvalidateSession invalidates a session by token
+func (s *AuthService) InvalidateSession(refreshToken string) error {
+	return s.sessionRepo.DeleteByToken(refreshToken)
+}
+
+// InvalidateAllUserSessions invalidates all sessions for a user
+func (s *AuthService) InvalidateAllUserSessions(userID uint) error {
+	return s.sessionRepo.DeleteAllUserSessions(userID)
 }
