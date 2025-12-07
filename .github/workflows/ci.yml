@@ -153,6 +153,48 @@ jobs:
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
     
+    - name: Create .env file for Docker Compose validation
+      run: |
+        cat > .env << EOF
+        # Server Configuration
+        SERVER_HOST=localhost
+        SERVER_PORT=8080
+        
+        # Database Configuration
+        DB_HOST=postgres
+        DB_PORT=5432
+        DB_USER=newpay
+        DB_PASSWORD=newpay_password
+        DB_NAME=newpay_db
+        DB_SSLMODE=disable
+        
+        # JWT Configuration
+        JWT_SECRET=test-secret-key
+        JWT_EXPIRATION=24h
+        JWT_REFRESH_EXPIRATION=168h
+        
+        # Session Configuration
+        SESSION_TIMEOUT=30m
+        
+        # Email Configuration
+        SMTP_HOST=mailpit
+        SMTP_PORT=1025
+        SMTP_USERNAME=
+        SMTP_PASSWORD=
+        SMTP_FROM=noreply@newpay.local
+        EMAIL_VERIFICATION_URL=http://localhost:3001/verify-email
+        PASSWORD_RESET_URL=http://localhost:3001/reset-password
+        
+        # OAuth Configuration
+        OAUTH_REDIRECT_URL=http://localhost:8080/api/v1/auth/oauth/callback
+        OAUTH_FRONTEND_CALLBACK_URL=http://localhost:3001/oauth/callback
+        
+        # Application
+        APP_ENV=test
+        ENABLE_REGISTRATION=true
+        ENABLE_OAUTH_REGISTRATION=true
+        EOF
+    
     - name: Build Backend Docker Image
       uses: docker/build-push-action@v6
       with:
