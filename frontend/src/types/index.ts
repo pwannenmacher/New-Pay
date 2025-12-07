@@ -11,6 +11,7 @@ export interface User {
   created_at: string;
   updated_at: string;
   oauth_provider?: string;
+  roles?: Role[];
 }
 
 export interface UserWithRoles extends User {

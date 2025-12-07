@@ -1,0 +1,154 @@
+import { AppShell, Burger, Group, Button, Menu, Avatar, Text } from '@mantine/core';
+import { useDisclosure } from '@mantine/hooks';
+import { Link, useNavigate } from 'react-router-dom';
+import { IconUser, IconLogout, IconSettings, IconShieldLock } from '@tabler/icons-react';
+import { useAuth } from '../../contexts/AuthContext';
+
+interface MainLayoutProps {
+  children: React.ReactNode;
+}
+
+export const MainLayout = ({ children }: MainLayoutProps) => {
+  const [opened, { toggle }] = useDisclosure();
+  const { user, logout, isAuthenticated } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    await logout();
+    navigate('/login');
+  };
+
+  const isAdmin = user?.roles?.some((role) => role.name === 'admin');
+
+  return (
+    <AppShell
+      header={{ height: 60 }}
+      navbar={{
+        width: 300,
+        breakpoint: 'sm',
+        collapsed: { mobile: !opened },
+      }}
+      padding="md"
+    >
+      <AppShell.Header>
+        <Group h="100%" px="md" justify="space-between">
+          <Group>
+            <Burger opened={opened} onClick={toggle} hiddenFrom="sm" size="sm" />
+            <Text size="xl" fw={700} component={Link} to="/" style={{ textDecoration: 'none', color: 'inherit' }}>
+              New Pay
+            </Text>
+          </Group>
+
+          {isAuthenticated ? (
+            <Menu shadow="md" width={200}>
+              <Menu.Target>
+                <Button variant="subtle" leftSection={<Avatar size="sm" radius="xl" />}>
+                  {user?.first_name}
+                </Button>
+              </Menu.Target>
+
+              <Menu.Dropdown>
+                <Menu.Label>{user?.email}</Menu.Label>
+                <Menu.Item
+                  leftSection={<IconUser size={14} />}
+                  component={Link}
+                  to="/profile"
+                >
+                  Profile
+                </Menu.Item>
+                {isAdmin && (
+                  <Menu.Item
+                    leftSection={<IconShieldLock size={14} />}
+                    component={Link}
+                    to="/admin"
+                  >
+                    Admin Dashboard
+                  </Menu.Item>
+                )}
+                <Menu.Item leftSection={<IconSettings size={14} />}>
+                  Settings
+                </Menu.Item>
+                <Menu.Divider />
+                <Menu.Item
+                  color="red"
+                  leftSection={<IconLogout size={14} />}
+                  onClick={handleLogout}
+                >
+                  Logout
+                </Menu.Item>
+              </Menu.Dropdown>
+            </Menu>
+          ) : (
+            <Group>
+              <Button variant="subtle" component={Link} to="/login">
+                Login
+              </Button>
+              <Button component={Link} to="/register">
+                Sign Up
+              </Button>
+            </Group>
+          )}
+        </Group>
+      </AppShell.Header>
+
+      <AppShell.Navbar p="md">
+        <Text size="sm" fw={500} mb="md">
+          Navigation
+        </Text>
+        {isAuthenticated && (
+          <>
+            <Button
+              variant="subtle"
+              component={Link}
+              to="/profile"
+              fullWidth
+              justify="flex-start"
+              mb="xs"
+            >
+              My Profile
+            </Button>
+            {isAdmin && (
+              <>
+                <Text size="sm" fw={500} mt="md" mb="md">
+                  Admin
+                </Text>
+                <Button
+                  variant="subtle"
+                  component={Link}
+                  to="/admin"
+                  fullWidth
+                  justify="flex-start"
+                  mb="xs"
+                >
+                  Dashboard
+                </Button>
+                <Button
+                  variant="subtle"
+                  component={Link}
+                  to="/admin/users"
+                  fullWidth
+                  justify="flex-start"
+                  mb="xs"
+                >
+                  Users
+                </Button>
+                <Button
+                  variant="subtle"
+                  component={Link}
+                  to="/admin/audit-logs"
+                  fullWidth
+                  justify="flex-start"
+                  mb="xs"
+                >
+                  Audit Logs
+                </Button>
+              </>
+            )}
+          </>
+        )}
+      </AppShell.Navbar>
+
+      <AppShell.Main>{children}</AppShell.Main>
+    </AppShell>
+  );
+};

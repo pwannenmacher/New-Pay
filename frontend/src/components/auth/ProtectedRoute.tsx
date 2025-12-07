@@ -1,6 +1,7 @@
 import { Navigate } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../../contexts/AuthContext';
 import { Loader, Center } from '@mantine/core';
+import type { Role } from '../../types';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -22,7 +23,7 @@ export const ProtectedRoute = ({ children, requireAdmin = false }: ProtectedRout
     return <Navigate to="/login" replace />;
   }
 
-  if (requireAdmin && user && !user.roles?.some((role: any) => role.name === 'admin')) {
+  if (requireAdmin && user && !user.roles?.some((role: Role) => role.name === 'admin')) {
     return <Navigate to="/" replace />;
   }
 
