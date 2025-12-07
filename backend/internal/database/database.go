@@ -6,7 +6,7 @@ import (
 	"time"
 
 	_ "github.com/lib/pq"
-	"github.com/pwannenmacher/New-Pay/internal/config"
+	"new-pay/internal/config"
 )
 
 // Database wraps the SQL database connection

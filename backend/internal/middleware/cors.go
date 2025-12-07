@@ -3,7 +3,7 @@ package middleware
 import (
 	"net/http"
 
-	"github.com/pwannenmacher/New-Pay/internal/config"
+	"new-pay/internal/config"
 )
 
 // CORSMiddleware handles CORS

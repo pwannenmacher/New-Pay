@@ -9,10 +9,10 @@ import (
 
 	"golang.org/x/crypto/bcrypt"
 
-	"github.com/pwannenmacher/New-Pay/internal/middleware"
-	"github.com/pwannenmacher/New-Pay/internal/models"
-	"github.com/pwannenmacher/New-Pay/internal/repository"
-	"github.com/pwannenmacher/New-Pay/internal/service"
+	"new-pay/internal/middleware"
+	"new-pay/internal/models"
+	"new-pay/internal/repository"
+	"new-pay/internal/service"
 )
 
 // UserHandler handles user management requests

@@ -6,10 +6,10 @@ import (
 	"log"
 	"time"
 
-	"github.com/pwannenmacher/New-Pay/internal/auth"
-	"github.com/pwannenmacher/New-Pay/internal/email"
-	"github.com/pwannenmacher/New-Pay/internal/models"
-	"github.com/pwannenmacher/New-Pay/internal/repository"
+	"new-pay/internal/auth"
+	"new-pay/internal/email"
+	"new-pay/internal/models"
+	"new-pay/internal/repository"
 )
 
 var (

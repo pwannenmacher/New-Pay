@@ -4,8 +4,8 @@ import (
 	"database/sql"
 	"net/http"
 
-	"github.com/pwannenmacher/New-Pay/internal/models"
-	"github.com/pwannenmacher/New-Pay/internal/repository"
+	"new-pay/internal/models"
+	"new-pay/internal/repository"
 )
 
 // AuditMiddleware logs security-related actions

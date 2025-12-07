@@ -4,7 +4,7 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/pwannenmacher/New-Pay/internal/config"
+	"new-pay/internal/config"
 )
 
 // ConfigHandler handles configuration requests

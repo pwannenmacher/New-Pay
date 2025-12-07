@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 
-	"github.com/pwannenmacher/New-Pay/internal/models"
+	"new-pay/internal/models"
 )
 
 // OAuthConnectionRepository handles OAuth connection data access

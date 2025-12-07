@@ -1,4 +1,4 @@
-module github.com/pwannenmacher/New-Pay
+module new-pay
 
 go 1.25.5
 

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/pwannenmacher/New-Pay/internal/models"
+	"new-pay/internal/models"
 )
 
 // SessionRepository handles session database operations

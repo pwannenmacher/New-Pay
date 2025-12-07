@@ -6,9 +6,9 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/pwannenmacher/New-Pay/internal/middleware"
-	"github.com/pwannenmacher/New-Pay/internal/repository"
-	"github.com/pwannenmacher/New-Pay/internal/service"
+	"new-pay/internal/middleware"
+	"new-pay/internal/repository"
+	"new-pay/internal/service"
 )
 
 // SessionHandler handles session management requests

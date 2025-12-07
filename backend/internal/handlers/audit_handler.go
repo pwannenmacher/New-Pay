@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/pwannenmacher/New-Pay/internal/repository"
+	"new-pay/internal/repository"
 )
 
 // AuditHandler handles audit log requests

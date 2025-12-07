@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pwannenmacher/New-Pay/internal/config"
+	"new-pay/internal/config"
 )
 
 // RateLimiter implements a simple token bucket rate limiter

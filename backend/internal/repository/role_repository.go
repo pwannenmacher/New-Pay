@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/pwannenmacher/New-Pay/internal/models"
+	"new-pay/internal/models"
 )
 
 // RoleRepository handles role database operations

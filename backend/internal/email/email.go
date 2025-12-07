@@ -7,7 +7,7 @@ import (
 	"net"
 	"net/smtp"
 
-	"github.com/pwannenmacher/New-Pay/internal/config"
+	"new-pay/internal/config"
 )
 
 // Service handles email operations

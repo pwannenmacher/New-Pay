@@ -9,15 +9,15 @@ import (
 	"syscall"
 	"time"
 
-	_ "github.com/pwannenmacher/New-Pay/docs" // This is for Swagger
-	"github.com/pwannenmacher/New-Pay/internal/auth"
-	"github.com/pwannenmacher/New-Pay/internal/config"
-	"github.com/pwannenmacher/New-Pay/internal/database"
-	"github.com/pwannenmacher/New-Pay/internal/email"
-	"github.com/pwannenmacher/New-Pay/internal/handlers"
-	"github.com/pwannenmacher/New-Pay/internal/middleware"
-	"github.com/pwannenmacher/New-Pay/internal/repository"
-	"github.com/pwannenmacher/New-Pay/internal/service"
+	_ "new-pay/docs" // This is for Swagger
+	"new-pay/internal/auth"
+	"new-pay/internal/config"
+	"new-pay/internal/database"
+	"new-pay/internal/email"
+	"new-pay/internal/handlers"
+	"new-pay/internal/middleware"
+	"new-pay/internal/repository"
+	"new-pay/internal/service"
 	httpSwagger "github.com/swaggo/http-swagger"
 )
 

@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/pwannenmacher/New-Pay/internal/config"
+	"new-pay/internal/config"
 	"golang.org/x/crypto/bcrypt"
 )
 

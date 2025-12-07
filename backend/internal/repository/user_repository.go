@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/lib/pq"
-	"github.com/pwannenmacher/New-Pay/internal/models"
+	"new-pay/internal/models"
 )
 
 var (

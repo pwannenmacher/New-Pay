@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pwannenmacher/New-Pay/internal/config"
+	"new-pay/internal/config"
 )
 
 func TestHashPassword(t *testing.T) {

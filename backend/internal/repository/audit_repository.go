@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/pwannenmacher/New-Pay/internal/models"
+	"new-pay/internal/models"
 )
 
 // AuditRepository handles audit log database operations

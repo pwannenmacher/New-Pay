@@ -10,10 +10,10 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/pwannenmacher/New-Pay/internal/config"
-	"github.com/pwannenmacher/New-Pay/internal/middleware"
-	"github.com/pwannenmacher/New-Pay/internal/service"
-	"github.com/pwannenmacher/New-Pay/pkg/validator"
+	"new-pay/internal/config"
+	"new-pay/internal/middleware"
+	"new-pay/internal/service"
+	"new-pay/pkg/validator"
 )
 
 // AuthHandler handles authentication requests

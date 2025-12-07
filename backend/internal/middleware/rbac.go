@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"net/http"
 
-	"github.com/pwannenmacher/New-Pay/internal/repository"
+	"new-pay/internal/repository"
 )
 
 // RBACMiddleware handles role-based access control

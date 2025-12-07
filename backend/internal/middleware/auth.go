@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/pwannenmacher/New-Pay/internal/auth"
-	"github.com/pwannenmacher/New-Pay/internal/repository"
+	"new-pay/internal/auth"
+	"new-pay/internal/repository"
 )
 
 type contextKey string
