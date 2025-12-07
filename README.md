@@ -37,6 +37,8 @@ New Pay is a modern platform for salary estimates and peer reviews with a robust
 ## Tech Stack
 
 - **Backend**: Go 1.24+
+- **Frontend**: React 19 + TypeScript 5.9
+- **UI Library**: Mantine 7
 - **Database**: PostgreSQL 16+
 - **Authentication**: JWT
 - **Email**: SMTP
@@ -44,6 +46,7 @@ New Pay is a modern platform for salary estimates and peer reviews with a robust
 ## Prerequisites
 
 - Go 1.24 or higher
+- Node.js 20 or higher
 - PostgreSQL 16 or higher
 - SMTP server credentials (for email functionality)
 
@@ -113,6 +116,18 @@ The application will automatically run database migrations on startup.
 - API: `http://localhost:8080`
 - Health Check: `http://localhost:8080/health`
 - **Swagger Documentation**: `http://localhost:8080/swagger/index.html`
+
+#### 7. Start the Frontend (Optional)
+
+In a new terminal:
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+- Frontend: `http://localhost:5173`
 
 ## API Endpoints
 
@@ -325,26 +340,34 @@ Permissions are grouped by resource and action (e.g., `users.read`, `reviews.cre
 ```
 New-Pay/
 ├── cmd/
-│   └── api/           # Application entry point
+│   └── api/              # Application entry point
 ├── internal/
-│   ├── auth/          # Authentication logic
-│   ├── config/        # Configuration management
-│   ├── database/      # Database connection & migrations
-│   ├── email/         # Email service
-│   ├── handlers/      # HTTP handlers
-│   ├── middleware/    # HTTP middleware
-│   ├── models/        # Data models
-│   ├── repository/    # Data access layer
-│   └── service/       # Business logic
+│   ├── auth/             # Authentication logic
+│   ├── config/           # Configuration management
+│   ├── database/         # Database connection & migrations
+│   ├── email/            # Email service
+│   ├── handlers/         # HTTP handlers
+│   ├── middleware/       # HTTP middleware
+│   ├── models/           # Data models
+│   ├── repository/       # Data access layer
+│   └── service/          # Business logic
 ├── pkg/
-│   ├── logger/        # Logging utilities
-│   └── validator/     # Input validation
-├── migrations/        # Database migrations
-├── docs/              # Documentation & Swagger files
-├── .env.example       # Environment variables template
-├── docker-compose.yml # Docker configuration
-├── Dockerfile         # Multi-stage Docker build
-└── README.md          # This file
+│   ├── logger/           # Logging utilities
+│   └── validator/        # Input validation
+├── frontend/             # React frontend application
+│   ├── src/
+│   │   ├── components/   # React components
+│   │   ├── pages/        # Page components
+│   │   ├── contexts/     # React contexts
+│   │   ├── services/     # API services
+│   │   └── types/        # TypeScript types
+│   └── public/           # Static assets
+├── migrations/           # Database migrations
+├── docs/                 # Documentation & Swagger files
+├── .env.example          # Environment variables template
+├── docker-compose.yml    # Docker configuration
+├── Dockerfile            # Multi-stage Docker build
+└── README.md             # This file
 ```
 
 ## OAuth 2.0 Integration
@@ -362,14 +385,12 @@ OAuth handlers will be implemented in future updates.
 
 ## Future Development
 
-- OAuth 2.0 implementation for Google and Facebook
-- Swagger/OpenAPI documentation
-- Additional business logic for salary estimates
+- OAuth 2.0 callback handler implementation
+- Business logic for salary estimates
 - Review system implementation
-- Frontend integration
-- Enhanced search and filtering
 - Real-time notifications
 - Analytics and reporting
+- Enhanced search and filtering
 
 ## Contributing
 

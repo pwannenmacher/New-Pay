@@ -125,7 +125,7 @@ export const AuditLogsPage = () => {
           <Pagination
             value={currentPage}
             onChange={setCurrentPage}
-            total={10}
+            total={10} // TODO: Get actual total from backend
           />
         </Group>
       </Paper>

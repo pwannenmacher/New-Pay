@@ -305,7 +305,11 @@ func (h *UserHandler) ListUsers(w http.ResponseWriter, r *http.Request) {
 	// Build response with user roles
 	var response []map[string]interface{}
 	for _, user := range users {
-		roles, _ := h.userRepo.GetUserRoles(user.ID)
+		roles, err := h.userRepo.GetUserRoles(user.ID)
+		if err != nil {
+			// Log error but continue with empty roles array
+			roles = []models.Role{}
+		}
 		response = append(response, map[string]interface{}{
 			"id":                user.ID,
 			"email":             user.Email,

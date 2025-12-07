@@ -1,73 +1,112 @@
-# React + TypeScript + Vite
+# New Pay Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Modern React frontend for the New Pay salary estimation and peer review platform.
 
-Currently, two official plugins are available:
+## Tech Stack
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- **React 19** - Latest React with improved performance
+- **TypeScript 5.9** - Type-safe JavaScript
+- **Vite** - Fast build tool and dev server
+- **Mantine 7** - Comprehensive component library
+- **React Router 7** - Client-side routing
+- **Tabler Icons** - Icon library
 
-## React Compiler
+## Features
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+### Authentication & Security
+- ✅ JWT-based authentication with automatic token refresh
+- ✅ Login and registration pages with form validation
+- ✅ Email verification flow
+- ✅ Password reset functionality
+- ✅ OAuth 2.0 integration (Google, Facebook)
+- ✅ Protected routes with role-based access control
 
-## Expanding the ESLint configuration
+### User Management
+- ✅ User profile viewing and editing
+- ✅ Admin dashboard for user management
+- ✅ Role assignment interface
+- ✅ Audit log viewer
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+### Design
+- ✅ Responsive design (mobile and desktop)
+- ✅ Full-width layout on desktop
+- ✅ Mobile navigation drawer
+- ✅ Dark/light mode support
+- ✅ Modern, accessible UI components
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+## Quick Start
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+### 1. Install Dependencies
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm install
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+### 2. Configure Environment
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+Copy the example environment file:
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+cp .env.example .env
 ```
+
+### 3. Start Development Server
+
+```bash
+npm run dev
+```
+
+The application will be available at `http://localhost:5173`
+
+### 4. Build for Production
+
+```bash
+npm run build
+```
+
+## Project Structure
+
+```
+src/
+├── components/          # Reusable UI components
+│   ├── auth/           # Authentication components
+│   ├── layout/         # Layout components
+│   └── admin/          # Admin-specific components
+├── pages/              # Page components
+│   ├── auth/           # Authentication pages
+│   ├── profile/        # Profile pages
+│   └── admin/          # Admin pages
+├── contexts/           # React contexts
+├── services/           # API services
+├── types/              # TypeScript type definitions
+└── utils/              # Utility functions
+```
+
+## Available Scripts
+
+- `npm run dev` - Start development server
+- `npm run build` - Build for production
+- `npm run preview` - Preview production build
+- `npm run lint` - Run ESLint
+
+## Pages & Routes
+
+### Public Routes
+- `/` - Home page
+- `/login` - User login
+- `/register` - User registration
+- `/verify-email` - Email verification
+- `/password-reset` - Password reset request
+- `/reset-password` - Password reset confirmation
+
+### Protected Routes
+- `/profile` - User profile
+
+### Admin Routes
+- `/admin` - Admin dashboard
+- `/admin/users` - User management
+- `/admin/audit-logs` - Audit logs
+
+## License
+
+MIT License
