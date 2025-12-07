@@ -7,10 +7,15 @@
 .env.local
 .env.*.local
 
-# Documentation
+# Documentation markdown files (keep docs/ directory for Swagger files)
 README.md
-docs/
-*.md
+docs/API.md
+docs/DEVELOPMENT.md
+docs/DOCKER.md
+docs/IMPLEMENTATION_SUMMARY.md
+docs/MIGRATIONS.md
+docs/OAUTH.md
+docs/SESSION_MANAGEMENT.md
 
 # Build artifacts
 bin/
