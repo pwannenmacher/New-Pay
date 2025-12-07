@@ -22,6 +22,13 @@ go.work
 .env.local
 .env.*.local
 
+# Secret keys
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+
 # IDEs
 .idea/
 .vscode/
@@ -34,7 +41,9 @@ go.work
 Thumbs.db
 
 # Build artifacts
-/bin/
+backend/bin/
+frontend/dist/
+frontend/build/
 /dist/
 /tmp/
 
@@ -53,3 +62,9 @@ logs/
 
 # Copilot stuff
 /prompts/
+
+# Frontend
+node_modules/
+/frontend/dist/
+/frontend/.vite/
+/frontend/coverage/

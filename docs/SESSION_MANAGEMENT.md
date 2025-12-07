@@ -1,21 +1,15 @@
-# Session Management Guide
-
-## Overview
-
-The New Pay backend includes comprehensive session management with JWT Token Identifier (JTI) based tracking. This enables granular session control including per-device logout and secure session invalidation.
+# Session Management
 
 ## Architecture
 
-### Session Storage
-
-Sessions are stored in the `sessions` table in PostgreSQL with the following schema:
+Sessions track JWT tokens in PostgreSQL using JTI (JWT Token Identifier).
 
 ```sql
 CREATE TABLE sessions (
     id VARCHAR(255) PRIMARY KEY,
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    session_id VARCHAR(255) NOT NULL,  -- Groups access + refresh tokens from same login
-    jti VARCHAR(255) NOT NULL UNIQUE,  -- JWT Token Identifier
+    session_id VARCHAR(255) NOT NULL,
+    jti VARCHAR(255) NOT NULL UNIQUE,
     token_type VARCHAR(20) DEFAULT 'refresh',
     expires_at TIMESTAMP NOT NULL,
     last_activity_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -25,79 +19,34 @@ CREATE TABLE sessions (
 );
 ```
 
-### Key Concepts
+## Concepts
 
-- **JTI (JWT ID)**: Unique identifier for each individual token (access or refresh)
-- **Session ID**: Groups access and refresh tokens issued together during a single login
-- **Token Type**: Distinguishes between `access` and `refresh` tokens
-- **Multi-Device Support**: Each login creates a new session_id, enabling independent sessions across devices
+- **JTI**: Unique identifier for each token
+- **Session ID**: Groups access and refresh tokens from same login
+- **Token Type**: `access` or `refresh`
 
-### Session Repository
+## API
 
-The `SessionRepository` provides the following methods:
+### User Endpoints
 
-- `Create(userID, sessionID, jti, tokenType, expiresAt, ipAddress, userAgent)` - Create a new session entry
-- `GetByJTI(jti)` - Retrieve session by JWT Token Identifier
-- `GetByUserID(userID)` - Get all active sessions for a user
-- `DeleteBySessionID(sessionID)` - Delete all tokens from a specific login session (current device logout)
-- `DeleteAllUserSessions(userID)` - Invalidate all user sessions (logout from all devices)
-- `DeleteExpiredSessions()` - Cleanup expired sessions
+- `GET /api/v1/users/sessions` - List active sessions
+- `DELETE /api/v1/users/sessions/delete` - Logout current device
+- `DELETE /api/v1/users/sessions/delete-all` - Logout all devices
 
-## Usage
+### Admin Endpoints
 
-### Creating Sessions on Login
+- `GET /api/v1/admin/sessions/user?user_id=ID` - List user sessions
+- `DELETE /api/v1/admin/sessions/delete` - Delete specific session
+- `DELETE /api/v1/admin/sessions/delete-all?user_id=ID` - Delete all user sessions
 
-When a user logs in, two session entries are created (one for access token, one for refresh token):
+## Invalidation
 
-```go
-// Generate a unique session ID for this login
-sessionID := GenerateSessionID() // e.g., base64-encoded random bytes
+Sessions are invalidated on:
 
-// Create access token with JTI
-accessToken, accessJTI, err := authService.GenerateToken(user)
-
-// Create refresh token with JTI
-refreshToken, refreshJTI, err := authService.GenerateRefreshToken(user)
-
-// Store both in database with same session_id
-sessionRepo.Create(user.ID, sessionID, accessJTI, "access", accessExpiry, ip, userAgent)
-sessionRepo.Create(user.ID, sessionID, refreshJTI, "refresh", refreshExpiry, ip, userAgent)
-```
-
-### Validating a Token
-
-On each authenticated request, validate the JTI exists in the sessions table:
-
-```go
-// Extract JTI from JWT claims
-jti := claims.ID
-
-// Check if session exists
-session, err := sessionRepo.GetByJTI(jti)
-if err != nil {
-    // Token has been invalidated
-    return unauthorized
-}
-
-// Token is valid
-```
-
-### Logout (Current Device Only)
-
-When a user logs out from one browser/device:
-
-```go
-// Extract JTI from refresh token cookie
-jti, _ := authService.ExtractJTI(refreshToken)
-
-// Get session to find session_id
-session, _ := sessionRepo.GetByJTI(jti)
-
-// Delete all tokens (access + refresh) from this login session
-sessionRepo.DeleteBySessionID(session.SessionID)
-```
-
-**Result**: Only the current browser/device is logged out. Other devices remain logged in.
+- User logout
+- Password change
+- Admin action
+- Token expiration
 
 ### Logout from All Devices
 
@@ -166,7 +115,6 @@ err := sessionRepo.DeleteAllUserSessions(userID)
 ✅ Multi-device support tested and working  
 ⏳ Automatic session cleanup job (to be implemented)  
 ⏳ Session listing endpoint for users (to be implemented)
-
 
 ## Future Enhancements
 
