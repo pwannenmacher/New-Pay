@@ -83,11 +83,11 @@ func (s *AuthService) Register(email, password, firstName, lastName string) (*mo
 		log.Printf("Failed to count users: %v", err)
 	}
 
-	// Assign role: first user gets Admin, others get user role
+	// Assign role: first user gets admin, others get user role
 	var roleName string
 	if userCount == 1 {
-		roleName = "Admin"
-		log.Printf("Assigning Admin role to first user: %s", email)
+		roleName = "admin"
+		log.Printf("Assigning admin role to first user: %s", email)
 	} else {
 		roleName = "user"
 	}
@@ -166,6 +166,16 @@ func (s *AuthService) Login(email, password string) (accessToken, refreshToken, 
 	_ = s.userRepo.UpdateLastLogin(user.ID)
 
 	return accessToken, refreshToken, accessJTI, refreshJTI, user, nil
+}
+
+// UpdateLastLogin updates the last login timestamp for a user
+func (s *AuthService) UpdateLastLogin(userID uint) error {
+	return s.userRepo.UpdateLastLogin(userID)
+}
+
+// GetUserByID retrieves a user by their ID
+func (s *AuthService) GetUserByID(userID uint) (*models.User, error) {
+	return s.userRepo.GetByID(userID)
 }
 
 // CreateSession creates a session for a token JTI
@@ -569,11 +579,11 @@ func (s *AuthService) FindOrCreateOAuthUser(email, firstName, lastName, oauthPro
 		log.Printf("Failed to count users: %v", err)
 	}
 
-	// Assign role: first user gets Admin, others get user role
+	// Assign role: first user gets admin, others get user role
 	var roleName string
 	if userCount == 1 {
-		roleName = "Admin"
-		log.Printf("Assigning Admin role to first OAuth user: %s", email)
+		roleName = "admin"
+		log.Printf("Assigning admin role to first OAuth user: %s", email)
 	} else {
 		roleName = "user"
 	}
@@ -594,6 +604,11 @@ func (s *AuthService) FindOrCreateOAuthUser(email, firstName, lastName, oauthPro
 // GetUserOAuthConnections gets all OAuth connections for a user
 func (s *AuthService) GetUserOAuthConnections(userID uint) ([]models.OAuthConnection, error) {
 	return s.oauthConnRepo.GetByUserID(userID)
+}
+
+// CountAllUsers returns the total number of users in the database
+func (s *AuthService) CountAllUsers() (int, error) {
+	return s.userRepo.CountAll()
 }
 
 func timePtr(t time.Time) *time.Time {

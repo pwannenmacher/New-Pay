@@ -78,10 +78,14 @@ type RefreshTokenRequest struct {
 // @Failure 400 {object} map[string]string "Invalid request"
 // @Router /auth/register [post]
 func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
-	// Check if registration is enabled
+	// Check if registration is enabled (allow if no users exist)
 	if !h.config.App.EnableRegistration {
-		respondWithError(w, http.StatusForbidden, "Registration is disabled")
-		return
+		// Check if any users exist - allow registration if database is empty
+		userCount, err := h.authService.CountAllUsers()
+		if err != nil || userCount > 0 {
+			respondWithError(w, http.StatusForbidden, "Registration is disabled")
+			return
+		}
 	}
 
 	var req RegisterRequest
@@ -116,6 +120,12 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		respondWithError(w, http.StatusInternalServerError, "Failed to generate tokens")
 		return
 	}
+
+	// Update last login time for auto-login after registration
+	_ = h.authService.UpdateLastLogin(user.ID)
+
+	// Reload user to get updated last_login_at timestamp
+	user, _ = h.authService.GetUserByID(user.ID)
 
 	// Generate a session ID that links the access and refresh tokens
 	sessionID, err := h.authService.GenerateSessionID()
@@ -594,7 +604,8 @@ func (h *AuthHandler) OAuthCallback(w http.ResponseWriter, r *http.Request) {
 	providerCookie, err := r.Cookie("oauth_provider")
 	if err != nil {
 		log.Printf("OAuth callback: provider cookie not found: %v", err)
-		http.Redirect(w, r, "http://localhost:5173/login?error=invalid_provider", http.StatusTemporaryRedirect)
+		redirectURL := fmt.Sprintf("%s/login?error=invalid_provider", h.getBaseLoginURL())
+		http.Redirect(w, r, redirectURL, http.StatusTemporaryRedirect)
 		return
 	}
 
@@ -609,7 +620,8 @@ func (h *AuthHandler) OAuthCallback(w http.ResponseWriter, r *http.Request) {
 
 	if providerConfig == nil {
 		log.Printf("OAuth callback: provider %s not found or not enabled", providerCookie.Value)
-		http.Redirect(w, r, "http://localhost:5173/login?error=invalid_provider", http.StatusTemporaryRedirect)
+		redirectURL := fmt.Sprintf("%s/login?error=invalid_provider", h.getBaseLoginURL())
+		http.Redirect(w, r, redirectURL, http.StatusTemporaryRedirect)
 		return
 	}
 
@@ -617,14 +629,16 @@ func (h *AuthHandler) OAuthCallback(w http.ResponseWriter, r *http.Request) {
 	stateCookie, err := r.Cookie("oauth_state")
 	if err != nil {
 		log.Printf("OAuth callback: state cookie not found: %v", err)
-		http.Redirect(w, r, "http://localhost:5173/login?error=invalid_state", http.StatusTemporaryRedirect)
+		redirectURL := fmt.Sprintf("%s/login?error=invalid_state", h.getBaseLoginURL())
+		http.Redirect(w, r, redirectURL, http.StatusTemporaryRedirect)
 		return
 	}
 
 	state := r.URL.Query().Get("state")
 	if state == "" || state != stateCookie.Value {
 		log.Printf("OAuth callback: state mismatch")
-		http.Redirect(w, r, "http://localhost:5173/login?error=invalid_state", http.StatusTemporaryRedirect)
+		redirectURL := fmt.Sprintf("%s/login?error=invalid_state", h.getBaseLoginURL())
+		http.Redirect(w, r, redirectURL, http.StatusTemporaryRedirect)
 		return
 	}
 
@@ -651,7 +665,8 @@ func (h *AuthHandler) OAuthCallback(w http.ResponseWriter, r *http.Request) {
 	code := r.URL.Query().Get("code")
 	if code == "" {
 		log.Printf("OAuth callback: authorization code not provided")
-		http.Redirect(w, r, "http://localhost:5173/login?error=no_code", http.StatusTemporaryRedirect)
+		redirectURL := fmt.Sprintf("%s/login?error=no_code", h.getBaseLoginURL())
+		http.Redirect(w, r, redirectURL, http.StatusTemporaryRedirect)
 		return
 	}
 
@@ -659,7 +674,8 @@ func (h *AuthHandler) OAuthCallback(w http.ResponseWriter, r *http.Request) {
 	token, err := h.exchangeCodeForToken(code, providerConfig)
 	if err != nil {
 		log.Printf("OAuth callback: failed to exchange code: %v", err)
-		http.Redirect(w, r, "http://localhost:5173/login?error=token_exchange_failed", http.StatusTemporaryRedirect)
+		redirectURL := fmt.Sprintf("%s/login?error=token_exchange_failed", h.getBaseLoginURL())
+		http.Redirect(w, r, redirectURL, http.StatusTemporaryRedirect)
 		return
 	}
 
@@ -667,7 +683,8 @@ func (h *AuthHandler) OAuthCallback(w http.ResponseWriter, r *http.Request) {
 	userInfo, err := h.getUserInfo(token, providerConfig)
 	if err != nil {
 		log.Printf("OAuth callback: failed to get user info: %v", err)
-		http.Redirect(w, r, "http://localhost:5173/login?error=userinfo_failed", http.StatusTemporaryRedirect)
+		redirectURL := fmt.Sprintf("%s/login?error=userinfo_failed", h.getBaseLoginURL())
+		http.Redirect(w, r, redirectURL, http.StatusTemporaryRedirect)
 		return
 	}
 
@@ -675,7 +692,8 @@ func (h *AuthHandler) OAuthCallback(w http.ResponseWriter, r *http.Request) {
 	email, ok := userInfo["email"].(string)
 	if !ok || email == "" {
 		log.Printf("OAuth callback: email not found in user info")
-		http.Redirect(w, r, "http://localhost:5173/login?error=no_email", http.StatusTemporaryRedirect)
+		redirectURL := fmt.Sprintf("%s/login?error=no_email", h.getBaseLoginURL())
+		http.Redirect(w, r, redirectURL, http.StatusTemporaryRedirect)
 		return
 	}
 
@@ -711,16 +729,22 @@ func (h *AuthHandler) OAuthCallback(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Printf("OAuth callback: failed to find/create user: %v", err)
 		_ = h.auditMw.LogAction(nil, "user.oauth.error", "users", fmt.Sprintf("OAuth user creation failed for %s via %s: %v", email, providerConfig.Name, err), getIP(r), r.UserAgent())
-		http.Redirect(w, r, "http://localhost:5173/login?error=user_creation_failed", http.StatusTemporaryRedirect)
+		redirectURL := fmt.Sprintf("%s/login?error=user_creation_failed", h.getBaseLoginURL())
+		http.Redirect(w, r, redirectURL, http.StatusTemporaryRedirect)
 		return
 	}
 
-	// If it's a new user and OAuth registration is disabled, deny access
+	// If it's a new user and OAuth registration is disabled, deny access (unless it's the first user)
 	if isNewUser && !h.config.App.EnableOAuthRegistration {
-		log.Printf("OAuth callback: registration disabled, rejecting new user %s", email)
-		_ = h.auditMw.LogAction(nil, "user.oauth.registration.disabled", "users", fmt.Sprintf("OAuth registration blocked for %s via %s (registration disabled)", email, providerConfig.Name), getIP(r), r.UserAgent())
-		http.Redirect(w, r, "http://localhost:5173/login?error=registration_disabled", http.StatusTemporaryRedirect)
-		return
+		// Check if any users exist - allow registration if database is empty
+		userCount, err := h.authService.CountAllUsers()
+		if err != nil || userCount > 1 { // userCount > 1 because the user was just created
+			log.Printf("OAuth callback: registration disabled, rejecting new user %s", email)
+			_ = h.auditMw.LogAction(nil, "user.oauth.registration.disabled", "users", fmt.Sprintf("OAuth registration blocked for %s via %s (registration disabled)", email, providerConfig.Name), getIP(r), r.UserAgent())
+			redirectURL := fmt.Sprintf("%s/login?error=registration_disabled", h.getBaseLoginURL())
+			http.Redirect(w, r, redirectURL, http.StatusTemporaryRedirect)
+			return
+		}
 	}
 
 	if isNewUser {
@@ -729,6 +753,12 @@ func (h *AuthHandler) OAuthCallback(w http.ResponseWriter, r *http.Request) {
 	} else {
 		log.Printf("Existing user logged in via OAuth: id=%d, email=%s, provider=%s", user.ID, user.Email, providerConfig.Name)
 	}
+
+	// Update last login time for OAuth login
+	_ = h.authService.UpdateLastLogin(user.ID)
+
+	// Reload user to get updated last_login_at timestamp
+	user, _ = h.authService.GetUserByID(user.ID)
 
 	// Generate JWT tokens
 	accessToken, refreshToken, accessJTI, refreshJTI, err := h.authService.GenerateTokensForUser(user)
@@ -850,4 +880,22 @@ func generateRandomState() string {
 	b := make([]byte, 32)
 	rand.Read(b)
 	return base64.URLEncoding.EncodeToString(b)
+}
+
+// getBaseLoginURL returns the base frontend URL for login/error redirects
+// Uses the configured frontend callback URL and extracts the base URL
+func (h *AuthHandler) getBaseLoginURL() string {
+	// The frontend callback URL is something like "http://localhost:3001/oauth/callback"
+	// We need to extract just "http://localhost:3001"
+	callbackURL := h.config.OAuth.FrontendCallbackURL
+
+	// Parse the URL to extract scheme and host
+	parsedURL, err := url.Parse(callbackURL)
+	if err != nil {
+		// Fallback to a default if parsing fails
+		log.Printf("Failed to parse frontend callback URL: %v, using default", err)
+		return "http://localhost:3001"
+	}
+
+	return fmt.Sprintf("%s://%s", parsedURL.Scheme, parsedURL.Host)
 }

@@ -113,6 +113,7 @@ func main() {
 	// Protected routes
 	mux.Handle("/api/v1/users/profile", authMw.Authenticate(http.HandlerFunc(userHandler.GetProfile)))
 	mux.Handle("/api/v1/users/profile/update", authMw.Authenticate(http.HandlerFunc(userHandler.UpdateProfile)))
+	mux.Handle("/api/v1/users/password/change", authMw.Authenticate(http.HandlerFunc(userHandler.ChangePassword)))
 	mux.Handle("/api/v1/users/sessions", authMw.Authenticate(http.HandlerFunc(sessionHandler.GetMySessions)))
 	mux.Handle("/api/v1/users/sessions/delete", authMw.Authenticate(http.HandlerFunc(sessionHandler.DeleteMySession)))
 	mux.Handle("/api/v1/users/sessions/delete-all", authMw.Authenticate(http.HandlerFunc(sessionHandler.DeleteAllMySessions)))

@@ -158,6 +158,86 @@ func (h *UserHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// ChangePassword allows a user to change their own password
+// @Summary Change password
+// @Description Change the authenticated user's password
+// @Tags Users
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body object true "Current and new password"
+// @Success 200 {object} map[string]string "Password changed successfully"
+// @Failure 400 {object} map[string]string "Invalid request or password too short"
+// @Failure 401 {object} map[string]string "Unauthorized or incorrect current password"
+// @Failure 404 {object} map[string]string "User not found"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Router /users/password/change [post]
+func (h *UserHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
+	userID, ok := middleware.GetUserID(r)
+	if !ok {
+		respondWithError(w, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+
+	var req struct {
+		CurrentPassword string `json:"current_password"`
+		NewPassword     string `json:"new_password"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondWithError(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+
+	// Validate new password
+	if len(req.NewPassword) < 8 {
+		respondWithError(w, http.StatusBadRequest, "New password must be at least 8 characters long")
+		return
+	}
+
+	// Get current user
+	user, err := h.userRepo.GetByID(userID)
+	if err != nil {
+		respondWithError(w, http.StatusNotFound, "User not found")
+		return
+	}
+
+	// Check if user has a local password
+	if user.PasswordHash == "" {
+		respondWithError(w, http.StatusBadRequest, "User has no local password set. Please set a password first.")
+		return
+	}
+
+	// Verify current password
+	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.CurrentPassword)); err != nil {
+		_ = h.auditMw.LogAction(&userID, "user.password.change.failed", "users", "Incorrect current password", getIP(r), r.UserAgent())
+		respondWithError(w, http.StatusUnauthorized, "Current password is incorrect")
+		return
+	}
+
+	// Hash the new password
+	hashedBytes, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
+	if err != nil {
+		_ = h.auditMw.LogAction(&userID, "user.password.change.error", "users", "Password hash failed: "+err.Error(), getIP(r), r.UserAgent())
+		respondWithError(w, http.StatusInternalServerError, "Failed to hash password")
+		return
+	}
+
+	// Update password
+	if err := h.userRepo.UpdatePassword(userID, string(hashedBytes)); err != nil {
+		_ = h.auditMw.LogAction(&userID, "user.password.change.error", "users", "Password update failed: "+err.Error(), getIP(r), r.UserAgent())
+		respondWithError(w, http.StatusInternalServerError, "Failed to update password")
+		return
+	}
+
+	// Log successful password change
+	_ = h.auditMw.LogAction(&userID, "user.password.change", "users", "Password changed successfully", getIP(r), r.UserAgent())
+
+	respondWithJSON(w, http.StatusOK, map[string]string{
+		"message": "Password changed successfully",
+	})
+}
+
 // UpdateUserActiveStatus toggles a user's active status (admin only)
 // @Summary Update user active status
 // @Description Toggle a user's active/inactive status (admin only)

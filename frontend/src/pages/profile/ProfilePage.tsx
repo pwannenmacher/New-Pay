@@ -10,6 +10,8 @@ import {
   Badge,
   TextInput,
   Modal,
+  PasswordInput,
+  Divider,
 } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { notifications } from '@mantine/notifications';
@@ -18,10 +20,18 @@ import { apiClient } from '../../services/api';
 import { SessionManagement } from '../../components/sessions/SessionManagement';
 import type { ProfileUpdateRequest, User, ApiError } from '../../types';
 
+interface PasswordChangeRequest {
+  current_password: string;
+  new_password: string;
+  confirm_password: string;
+}
+
 export const ProfilePage = () => {
   const { user, updateUser } = useAuth();
   const [editModalOpened, setEditModalOpened] = useState(false);
+  const [passwordModalOpened, setPasswordModalOpened] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isPasswordLoading, setIsPasswordLoading] = useState(false);
 
   const form = useForm<ProfileUpdateRequest>({
     initialValues: {
@@ -31,6 +41,29 @@ export const ProfilePage = () => {
     validate: {
       first_name: (value) => (value.trim().length > 0 ? null : 'First name is required'),
       last_name: (value) => (value.trim().length > 0 ? null : 'Last name is required'),
+    },
+  });
+
+  const passwordForm = useForm<PasswordChangeRequest>({
+    initialValues: {
+      current_password: '',
+      new_password: '',
+      confirm_password: '',
+    },
+    validate: {
+      current_password: (value) => (value.length > 0 ? null : 'Current password is required'),
+      new_password: (value) => {
+        if (value.length < 8) {
+          return 'Password must be at least 8 characters long';
+        }
+        return null;
+      },
+      confirm_password: (value, values) => {
+        if (value !== values.new_password) {
+          return 'Passwords do not match';
+        }
+        return null;
+      },
     },
   });
 
@@ -55,6 +88,35 @@ export const ProfilePage = () => {
       });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handlePasswordChange = async (values: PasswordChangeRequest) => {
+    setIsPasswordLoading(true);
+    
+    try {
+      await apiClient.post('/users/password/change', {
+        current_password: values.current_password,
+        new_password: values.new_password,
+      });
+      
+      setPasswordModalOpened(false);
+      passwordForm.reset();
+      
+      notifications.show({
+        title: 'Success',
+        message: 'Password changed successfully',
+        color: 'green',
+      });
+    } catch (error) {
+      const apiError = error as ApiError;
+      notifications.show({
+        title: 'Error',
+        message: apiError.error || 'Failed to change password',
+        color: 'red',
+      });
+    } finally {
+      setIsPasswordLoading(false);
     }
   };
 
@@ -174,6 +236,24 @@ export const ProfilePage = () => {
         </Stack>
       </Paper>
 
+      {user.has_local_password && (
+        <Paper withBorder shadow="md" p={30} radius="md" mt="xl">
+          <Group justify="space-between" mb="xl">
+            <div>
+              <Title order={2}>Security</Title>
+              <Text size="sm" c="dimmed" mt={4}>Manage your password</Text>
+            </div>
+            <Button onClick={() => setPasswordModalOpened(true)}>
+              Change Password
+            </Button>
+          </Group>
+
+          <Text size="sm" c="dimmed">
+            Last updated: {user.updated_at ? new Date(user.updated_at).toLocaleDateString() : 'Never'}
+          </Text>
+        </Paper>
+      )}
+
       <Modal
         opened={editModalOpened}
         onClose={() => setEditModalOpened(false)}
@@ -196,6 +276,43 @@ export const ProfilePage = () => {
             />
             <Button type="submit" loading={isLoading} fullWidth>
               Save Changes
+            </Button>
+          </Stack>
+        </form>
+      </Modal>
+
+      <Modal
+        opened={passwordModalOpened}
+        onClose={() => {
+          setPasswordModalOpened(false);
+          passwordForm.reset();
+        }}
+        title="Change Password"
+        centered
+      >
+        <form onSubmit={passwordForm.onSubmit(handlePasswordChange)}>
+          <Stack>
+            <PasswordInput
+              label="Current Password"
+              placeholder="Enter your current password"
+              required
+              {...passwordForm.getInputProps('current_password')}
+            />
+            <Divider />
+            <PasswordInput
+              label="New Password"
+              placeholder="Enter new password (min. 8 characters)"
+              required
+              {...passwordForm.getInputProps('new_password')}
+            />
+            <PasswordInput
+              label="Confirm New Password"
+              placeholder="Re-enter new password"
+              required
+              {...passwordForm.getInputProps('confirm_password')}
+            />
+            <Button type="submit" loading={isPasswordLoading} fullWidth>
+              Change Password
             </Button>
           </Stack>
         </form>
