@@ -2,7 +2,9 @@ package handlers
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
+	"time"
 
 	"github.com/pwannenmacher/New-Pay/internal/middleware"
 	"github.com/pwannenmacher/New-Pay/internal/service"
@@ -127,7 +129,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Login user
-	accessToken, refreshToken, user, err := h.authService.Login(req.Email, req.Password)
+	accessToken, refreshToken, accessJTI, refreshJTI, user, err := h.authService.Login(req.Email, req.Password)
 	if err != nil {
 		respondWithError(w, http.StatusUnauthorized, "Invalid credentials")
 		// Log failed login attempt
@@ -138,17 +140,27 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	// Log successful login
 	_ = h.auditMw.LogAction(&user.ID, "user.login", "users", "User logged in", getIP(r), r.UserAgent())
 
+	// Generate a session ID that links the access and refresh tokens
+	sessionID, err := h.authService.GenerateSessionID()
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Failed to generate session ID")
+		return
+	}
+
 	// Create session for refresh token
-	if err := h.authService.CreateSession(user.ID, refreshToken, getIP(r), r.UserAgent()); err != nil {
+	if err := h.authService.CreateSession(user.ID, sessionID, refreshJTI, "refresh", getIP(r), r.UserAgent(), time.Now().Add(7*24*time.Hour)); err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Failed to create session")
 		return
 	}
+
+	// Create session for access token (linked via same sessionID)
+	_ = h.authService.CreateSession(user.ID, sessionID, accessJTI, "access", getIP(r), r.UserAgent(), time.Now().Add(24*time.Hour))
 
 	// Set refresh token as HTTP-only cookie
 	http.SetCookie(w, &http.Cookie{
 		Name:     "refresh_token",
 		Value:    refreshToken,
-		Path:     "/api/v1/auth/refresh",
+		Path:     "/api/v1/auth",
 		MaxAge:   7 * 24 * 60 * 60, // 7 days
 		HttpOnly: true,
 		Secure:   r.TLS != nil, // Only send over HTTPS in production
@@ -309,7 +321,7 @@ func (h *AuthHandler) RefreshToken(w http.ResponseWriter, r *http.Request) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     "refresh_token",
 		Value:    newRefreshToken,
-		Path:     "/api/v1/auth/refresh",
+		Path:     "/api/v1/auth",
 		MaxAge:   7 * 24 * 60 * 60, // 7 days
 		HttpOnly: true,
 		Secure:   r.TLS != nil,
@@ -333,15 +345,17 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 	// Get refresh token from cookie
 	cookie, err := r.Cookie("refresh_token")
 	if err == nil && cookie.Value != "" {
-		// Invalidate session in database
-		_ = h.authService.InvalidateSession(cookie.Value)
+		// Invalidate only the current session (access + refresh tokens from this login)
+		if err := h.authService.InvalidateCurrentSession(cookie.Value); err != nil {
+			log.Printf("Logout: Failed to invalidate session: %v", err)
+		}
 	}
 
 	// Clear refresh token cookie
 	http.SetCookie(w, &http.Cookie{
 		Name:     "refresh_token",
 		Value:    "",
-		Path:     "/api/v1/auth/refresh",
+		Path:     "/api/v1/auth",
 		MaxAge:   -1,
 		HttpOnly: true,
 		Secure:   r.TLS != nil,

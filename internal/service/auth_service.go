@@ -3,6 +3,7 @@ package service
 import (
 	"errors"
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/pwannenmacher/New-Pay/internal/auth"
@@ -104,61 +105,63 @@ func (s *AuthService) Register(email, password, firstName, lastName string) (*mo
 	return user, nil
 }
 
-// Login authenticates a user and returns JWT tokens
-func (s *AuthService) Login(email, password string) (accessToken, refreshToken string, user *models.User, err error) {
+// Login authenticates a user and returns JWT tokens with their JTIs
+func (s *AuthService) Login(email, password string) (accessToken, refreshToken, accessJTI, refreshJTI string, user *models.User, err error) {
 	// Get user by email
 	user, err = s.userRepo.GetByEmail(email)
 	if err != nil {
-		return "", "", nil, ErrInvalidCredentials
+		return "", "", "", "", nil, ErrInvalidCredentials
 	}
 
 	// Verify password
 	if err := s.authSvc.VerifyPassword(user.PasswordHash, password); err != nil {
-		return "", "", nil, ErrInvalidCredentials
+		return "", "", "", "", nil, ErrInvalidCredentials
 	}
 
 	// Check if user is active
 	if !user.IsActive {
-		return "", "", nil, ErrUserInactive
+		return "", "", "", "", nil, ErrUserInactive
 	}
 
 	// Note: Email verification is not enforced by default for better user experience.
 	// To enforce email verification, set REQUIRE_EMAIL_VERIFICATION=true in config
 	// and uncomment the check below.
 	// if cfg.RequireEmailVerification && !user.EmailVerified {
-	// 	return "", "", nil, ErrEmailNotVerified
+	// 	return "", "", "", "", nil, ErrEmailNotVerified
 	// }
 
 	// Generate JWT tokens
-	accessToken, err = s.authSvc.GenerateToken(user.ID, user.Email)
+	accessToken, accessJTI, err = s.authSvc.GenerateToken(user.ID, user.Email)
 	if err != nil {
-		return "", "", nil, fmt.Errorf("failed to generate access token: %w", err)
+		return "", "", "", "", nil, fmt.Errorf("failed to generate access token: %w", err)
 	}
 
-	refreshToken, err = s.authSvc.GenerateRefreshToken(user.ID, user.Email)
+	refreshToken, refreshJTI, err = s.authSvc.GenerateRefreshToken(user.ID, user.Email)
 	if err != nil {
-		return "", "", nil, fmt.Errorf("failed to generate refresh token: %w", err)
+		return "", "", "", "", nil, fmt.Errorf("failed to generate refresh token: %w", err)
 	}
 
 	// Update last login
 	_ = s.userRepo.UpdateLastLogin(user.ID)
 
-	return accessToken, refreshToken, user, nil
+	return accessToken, refreshToken, accessJTI, refreshJTI, user, nil
 }
 
-// CreateSession creates a session for a refresh token
-func (s *AuthService) CreateSession(userID uint, refreshToken, ipAddress, userAgent string) error {
-	// Generate unique session ID
-	sessionID, err := auth.GenerateRandomToken(16)
+// CreateSession creates a session for a token JTI
+func (s *AuthService) CreateSession(userID uint, sessionID, jti, tokenType, ipAddress, userAgent string, expiresAt time.Time) error {
+	// Generate unique ID for this specific token session entry
+	id, err := auth.GenerateRandomToken(16)
 	if err != nil {
-		return fmt.Errorf("failed to generate session ID: %w", err)
+		return fmt.Errorf("failed to generate session entry ID: %w", err)
 	}
 
 	session := &models.Session{
-		ID:             sessionID,
+		ID:             id,
 		UserID:         userID,
-		Token:          refreshToken,
-		ExpiresAt:      time.Now().Add(7 * 24 * time.Hour), // 7 days
+		SessionID:      sessionID, // Links access and refresh tokens from same login
+		JTI:            jti,
+		TokenType:      tokenType,
+		ExpiresAt:      expiresAt,
 		LastActivityAt: time.Now(),
 		CreatedAt:      time.Now(),
 		IPAddress:      ipAddress,
@@ -166,6 +169,18 @@ func (s *AuthService) CreateSession(userID uint, refreshToken, ipAddress, userAg
 	}
 
 	return s.sessionRepo.Create(session)
+}
+
+// GenerateSessionID generates a unique session identifier
+func (s *AuthService) GenerateSessionID() (string, error) {
+	return auth.GenerateRandomToken(16)
+}
+
+// GetAccessAndRefreshJTI returns both access and refresh token JTIs from login
+func (s *AuthService) GetAccessAndRefreshJTI(email, password string) (accessJTI, refreshJTI string, user *models.User, err error) {
+	// This is a helper to get JTIs after token generation in Login
+	// We need to refactor Login to return JTIs
+	return "", "", nil, errors.New("not implemented - use Login instead")
 }
 
 // VerifyEmail verifies a user's email address
@@ -288,8 +303,12 @@ func (s *AuthService) RefreshToken(refreshToken, ipAddress, userAgent string) (s
 		return "", "", fmt.Errorf("invalid refresh token: %w", err)
 	}
 
-	// Check if session exists and is valid
-	session, err := s.sessionRepo.GetByToken(refreshToken)
+	// Check if JTI exists in session (validates token hasn't been revoked)
+	if claims.ID == "" {
+		return "", "", errors.New("token missing JTI")
+	}
+
+	session, err := s.sessionRepo.GetByJTI(claims.ID)
 	if err != nil {
 		return "", "", fmt.Errorf("session not found or expired: %w", err)
 	}
@@ -299,32 +318,90 @@ func (s *AuthService) RefreshToken(refreshToken, ipAddress, userAgent string) (s
 		return "", "", errors.New("session user mismatch")
 	}
 
-	// Delete old session (token rotation)
-	_ = s.sessionRepo.DeleteByToken(refreshToken)
+	// Verify it's a refresh token session
+	if session.TokenType != "refresh" {
+		return "", "", errors.New("invalid token type")
+	}
+
+	// Delete old session (all tokens from this session - access + refresh)
+	_ = s.sessionRepo.DeleteBySessionID(session.SessionID)
+
+	// Generate new session ID for the new token pair
+	newSessionID, err := auth.GenerateRandomToken(16)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to generate session ID: %w", err)
+	}
 
 	// Generate new access token
-	accessToken, err := s.authSvc.GenerateToken(claims.UserID, claims.Email)
+	accessToken, accessJTI, err := s.authSvc.GenerateToken(claims.UserID, claims.Email)
 	if err != nil {
 		return "", "", fmt.Errorf("failed to generate access token: %w", err)
 	}
 
 	// Generate new refresh token (token rotation for security)
-	newRefreshToken, err := s.authSvc.GenerateRefreshToken(claims.UserID, claims.Email)
+	newRefreshToken, refreshJTI, err := s.authSvc.GenerateRefreshToken(claims.UserID, claims.Email)
 	if err != nil {
 		return "", "", fmt.Errorf("failed to generate refresh token: %w", err)
 	}
 
-	// Create new session for the new refresh token
-	if err := s.CreateSession(claims.UserID, newRefreshToken, ipAddress, userAgent); err != nil {
-		return "", "", fmt.Errorf("failed to create session: %w", err)
+	// Create new refresh session with new session ID
+	if err := s.CreateSession(claims.UserID, newSessionID, refreshJTI, "refresh", ipAddress, userAgent, time.Now().Add(7*24*time.Hour)); err != nil {
+		return "", "", fmt.Errorf("failed to create refresh session: %w", err)
+	}
+
+	// Create access token session for tracking (same session ID)
+	if err := s.CreateSession(claims.UserID, newSessionID, accessJTI, "access", ipAddress, userAgent, time.Now().Add(24*time.Hour)); err != nil {
+		// Log but don't fail - access tokens can still work without session tracking
+		fmt.Printf("Warning: failed to create access token session: %v\n", err)
 	}
 
 	return accessToken, newRefreshToken, nil
 }
 
-// InvalidateSession invalidates a session by token
-func (s *AuthService) InvalidateSession(refreshToken string) error {
-	return s.sessionRepo.DeleteByToken(refreshToken)
+// InvalidateSession invalidates a session by JTI
+func (s *AuthService) InvalidateSession(jti string) error {
+	return s.sessionRepo.DeleteByJTI(jti)
+}
+
+// InvalidateSessionByToken invalidates a session by extracting JTI from token
+// Note: We extract JTI without validation to allow logout even with expired tokens
+func (s *AuthService) InvalidateSessionByToken(token string) error {
+	// Parse token without validation to extract JTI
+	jti, err := s.authSvc.ExtractJTI(token)
+	if err != nil {
+		log.Printf("Failed to extract JTI: %v", err)
+		return err
+	}
+	if jti == "" {
+		log.Printf("Token missing JTI")
+		return errors.New("token missing JTI")
+	}
+	log.Printf("Deleting session with JTI: %s", jti)
+	err = s.sessionRepo.DeleteByJTI(jti)
+	if err != nil {
+		log.Printf("Failed to delete session: %v", err)
+	}
+	return err
+}
+
+// InvalidateCurrentSession invalidates only the current login session
+// This deletes both the access and refresh tokens from the same login
+func (s *AuthService) InvalidateCurrentSession(token string) error {
+	// Extract JTI without validation (works with expired tokens)
+	jti, err := s.authSvc.ExtractJTI(token)
+	if err != nil {
+		return fmt.Errorf("failed to extract JTI: %w", err)
+	}
+
+	// Get session to find session_id
+	session, err := s.sessionRepo.GetByJTI(jti)
+	if err != nil {
+		return fmt.Errorf("failed to get session: %w", err)
+	}
+
+	// Delete all tokens with the same session_id (access + refresh from this login)
+	log.Printf("Deleting session %s for user ID: %d", session.SessionID, session.UserID)
+	return s.sessionRepo.DeleteBySessionID(session.SessionID)
 }
 
 // InvalidateAllUserSessions invalidates all sessions for a user

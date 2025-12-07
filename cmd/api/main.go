@@ -76,7 +76,7 @@ func main() {
 	authSvc := service.NewAuthService(userRepo, tokenRepo, roleRepo, sessionRepo, authService, emailService)
 
 	// Initialize middleware
-	authMw := middleware.NewAuthMiddleware(authService)
+	authMw := middleware.NewAuthMiddleware(authService, sessionRepo)
 	rbacMw := middleware.NewRBACMiddleware(db.DB)
 	corsMw := middleware.NewCORSMiddleware(&cfg.CORS)
 	rateLimiter := middleware.NewRateLimiter(&cfg.RateLimit)

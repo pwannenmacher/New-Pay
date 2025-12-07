@@ -61,12 +61,13 @@ func (s *Service) VerifyPassword(hashedPassword, password string) error {
 	return bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(password))
 }
 
-// generateTokenWithExpiration generates a JWT token with the specified expiration
-func (s *Service) generateTokenWithExpiration(userID uint, email string, expiration time.Duration) (string, error) {
+// generateTokenWithExpiration generates a JWT token with the specified expiration and JTI
+func (s *Service) generateTokenWithExpiration(userID uint, email, jti string, expiration time.Duration) (string, error) {
 	claims := JWTClaims{
 		UserID: userID,
 		Email:  email,
 		RegisteredClaims: jwt.RegisteredClaims{
+			ID:        jti,
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(expiration)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 			NotBefore: jwt.NewNumericDate(time.Now()),
@@ -82,14 +83,26 @@ func (s *Service) generateTokenWithExpiration(userID uint, email string, expirat
 	return tokenString, nil
 }
 
-// GenerateToken generates a JWT token for a user
-func (s *Service) GenerateToken(userID uint, email string) (string, error) {
-	return s.generateTokenWithExpiration(userID, email, s.jwtExpiration)
+// GenerateToken generates a JWT access token for a user
+func (s *Service) GenerateToken(userID uint, email string) (string, string, error) {
+	// Generate JTI for access token
+	jti, err := GenerateRandomToken(16)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to generate JTI: %w", err)
+	}
+	token, err := s.generateTokenWithExpiration(userID, email, jti, s.jwtExpiration)
+	return token, jti, err
 }
 
-// GenerateRefreshToken generates a refresh token for a user
-func (s *Service) GenerateRefreshToken(userID uint, email string) (string, error) {
-	return s.generateTokenWithExpiration(userID, email, s.refreshExpiration)
+// GenerateRefreshToken generates a refresh token for a user with JTI
+func (s *Service) GenerateRefreshToken(userID uint, email string) (string, string, error) {
+	// Generate JTI for refresh token
+	jti, err := GenerateRandomToken(16)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to generate JTI: %w", err)
+	}
+	token, err := s.generateTokenWithExpiration(userID, email, jti, s.refreshExpiration)
+	return token, jti, err
 }
 
 // ValidateToken validates a JWT token and returns the claims
@@ -116,6 +129,24 @@ func (s *Service) ValidateToken(tokenString string) (*JWTClaims, error) {
 	}
 
 	return claims, nil
+}
+
+// ExtractJTI extracts the JTI from a token without validating signature or expiration
+// This is useful for logout where we want to invalidate even expired tokens
+func (s *Service) ExtractJTI(tokenString string) (string, error) {
+	// Parse token without validation
+	parser := jwt.NewParser(jwt.WithoutClaimsValidation())
+	token, _, err := parser.ParseUnverified(tokenString, &JWTClaims{})
+	if err != nil {
+		return "", fmt.Errorf("failed to parse token: %w", err)
+	}
+
+	claims, ok := token.Claims.(*JWTClaims)
+	if !ok {
+		return "", ErrInvalidToken
+	}
+
+	return claims.ID, nil
 }
 
 // GenerateRandomToken generates a random token for email verification or password reset

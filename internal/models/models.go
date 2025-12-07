@@ -79,7 +79,9 @@ type PasswordResetToken struct {
 type Session struct {
 	ID             string    `json:"id" db:"id"`
 	UserID         uint      `json:"user_id" db:"user_id"`
-	Token          string    `json:"token" db:"token"`
+	SessionID      string    `json:"session_id" db:"session_id"` // Groups access and refresh tokens from same login
+	JTI            string    `json:"jti" db:"jti"`
+	TokenType      string    `json:"token_type" db:"token_type"` // "access" or "refresh"
 	ExpiresAt      time.Time `json:"expires_at" db:"expires_at"`
 	LastActivityAt time.Time `json:"last_activity_at" db:"last_activity_at"`
 	CreatedAt      time.Time `json:"created_at" db:"created_at"`

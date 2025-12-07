@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/pwannenmacher/New-Pay/internal/auth"
+	"github.com/pwannenmacher/New-Pay/internal/repository"
 )
 
 type contextKey string
@@ -18,12 +19,14 @@ const (
 // AuthMiddleware validates JWT tokens
 type AuthMiddleware struct {
 	authService *auth.Service
+	sessionRepo *repository.SessionRepository
 }
 
 // NewAuthMiddleware creates a new auth middleware
-func NewAuthMiddleware(authService *auth.Service) *AuthMiddleware {
+func NewAuthMiddleware(authService *auth.Service, sessionRepo *repository.SessionRepository) *AuthMiddleware {
 	return &AuthMiddleware{
 		authService: authService,
+		sessionRepo: sessionRepo,
 	}
 }
 
@@ -51,6 +54,15 @@ func (m *AuthMiddleware) Authenticate(next http.Handler) http.Handler {
 		if err != nil {
 			respondWithError(w, http.StatusUnauthorized, "Invalid or expired token")
 			return
+		}
+
+		// Check if session exists (validates that token hasn't been invalidated)
+		if claims.ID != "" {
+			_, err := m.sessionRepo.GetByJTI(claims.ID)
+			if err != nil {
+				respondWithError(w, http.StatusUnauthorized, "Token has been invalidated")
+				return
+			}
 		}
 
 		// Add user info to context

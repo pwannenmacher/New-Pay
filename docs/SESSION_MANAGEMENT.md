@@ -2,7 +2,7 @@
 
 ## Overview
 
-The New Pay backend now includes comprehensive session management that allows for individual JWT token invalidation. This is crucial for security features like "logout from all devices" and invalidating sessions when users change their passwords.
+The New Pay backend includes comprehensive session management with JWT Token Identifier (JTI) based tracking. This enables granular session control including per-device logout and secure session invalidation.
 
 ## Architecture
 
@@ -14,78 +14,113 @@ Sessions are stored in the `sessions` table in PostgreSQL with the following sch
 CREATE TABLE sessions (
     id VARCHAR(255) PRIMARY KEY,
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    token TEXT NOT NULL,
+    session_id VARCHAR(255) NOT NULL,  -- Groups access + refresh tokens from same login
+    jti VARCHAR(255) NOT NULL UNIQUE,  -- JWT Token Identifier
+    token_type VARCHAR(20) DEFAULT 'refresh',
     expires_at TIMESTAMP NOT NULL,
-    last_activity_at TIMESTAMP NOT NULL,
+    last_activity_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     ip_address VARCHAR(45),
     user_agent TEXT
 );
 ```
 
+### Key Concepts
+
+- **JTI (JWT ID)**: Unique identifier for each individual token (access or refresh)
+- **Session ID**: Groups access and refresh tokens issued together during a single login
+- **Token Type**: Distinguishes between `access` and `refresh` tokens
+- **Multi-Device Support**: Each login creates a new session_id, enabling independent sessions across devices
+
 ### Session Repository
 
 The `SessionRepository` provides the following methods:
 
-- `Create(session)` - Create a new session
-- `GetByToken(token)` - Retrieve active session by token
+- `Create(userID, sessionID, jti, tokenType, expiresAt, ipAddress, userAgent)` - Create a new session entry
+- `GetByJTI(jti)` - Retrieve session by JWT Token Identifier
 - `GetByUserID(userID)` - Get all active sessions for a user
-- `UpdateLastActivity(sessionID)` - Update session activity timestamp
-- `Delete(sessionID)` - Delete specific session
-- `DeleteByToken(token)` - Delete session by token (logout)
+- `DeleteBySessionID(sessionID)` - Delete all tokens from a specific login session (current device logout)
 - `DeleteAllUserSessions(userID)` - Invalidate all user sessions (logout from all devices)
 - `DeleteExpiredSessions()` - Cleanup expired sessions
 
 ## Usage
 
-### Creating a Session
+### Creating Sessions on Login
 
-When a user logs in, create a session:
+When a user logs in, two session entries are created (one for access token, one for refresh token):
 
 ```go
-session := &models.Session{
-    ID:               generateUUID(),
-    UserID:           user.ID,
-    Token:            jwtToken,
-    ExpiresAt:        time.Now().Add(24 * time.Hour),
-    LastActivityAt:   time.Now(),
-    CreatedAt:        time.Now(),
-    IPAddress:        r.RemoteAddr,
-    UserAgent:        r.UserAgent(),
-}
+// Generate a unique session ID for this login
+sessionID := GenerateSessionID() // e.g., base64-encoded random bytes
 
-err := sessionRepo.Create(session)
+// Create access token with JTI
+accessToken, accessJTI, err := authService.GenerateToken(user)
+
+// Create refresh token with JTI
+refreshToken, refreshJTI, err := authService.GenerateRefreshToken(user)
+
+// Store both in database with same session_id
+sessionRepo.Create(user.ID, sessionID, accessJTI, "access", accessExpiry, ip, userAgent)
+sessionRepo.Create(user.ID, sessionID, refreshJTI, "refresh", refreshExpiry, ip, userAgent)
 ```
 
-### Validating a Session
+### Validating a Token
 
-On each authenticated request, validate the session exists and is active:
+On each authenticated request, validate the JTI exists in the sessions table:
 
 ```go
-session, err := sessionRepo.GetByToken(token)
+// Extract JTI from JWT claims
+jti := claims.ID
+
+// Check if session exists
+session, err := sessionRepo.GetByJTI(jti)
 if err != nil {
-    // Token is invalid or expired
+    // Token has been invalidated
     return unauthorized
 }
 
-// Update last activity
-sessionRepo.UpdateLastActivity(session.ID)
+// Token is valid
 ```
 
-### Logout (Single Device)
+### Logout (Current Device Only)
 
-When a user logs out:
+When a user logs out from one browser/device:
 
 ```go
-err := sessionRepo.DeleteByToken(token)
+// Extract JTI from refresh token cookie
+jti, _ := authService.ExtractJTI(refreshToken)
+
+// Get session to find session_id
+session, _ := sessionRepo.GetByJTI(jti)
+
+// Delete all tokens (access + refresh) from this login session
+sessionRepo.DeleteBySessionID(session.SessionID)
 ```
+
+**Result**: Only the current browser/device is logged out. Other devices remain logged in.
 
 ### Logout from All Devices
 
 When a user wants to logout from all devices:
 
 ```go
-err := sessionRepo.DeleteAllUserSessions(userID)
+sessionRepo.DeleteAllUserSessions(userID)
+```
+
+### Token Refresh
+
+When refreshing tokens, create a NEW session_id for security:
+
+```go
+// Validate old refresh token
+oldSession, err := sessionRepo.GetByJTI(oldJTI)
+
+// Generate new session_id
+newSessionID := GenerateSessionID()
+
+// Create new tokens with new session_id
+// Delete old tokens by old session_id
+sessionRepo.DeleteBySessionID(oldSession.SessionID)
 ```
 
 ### Password Change
@@ -99,27 +134,39 @@ err := changePassword(userID, newPassword)
 // Invalidate all sessions
 err := sessionRepo.DeleteAllUserSessions(userID)
 
-// Create new session for current device
-session := createNewSession(userID, newToken)
-err := sessionRepo.Create(session)
+// User must login again from all devices
 ```
 
 ## Security Considerations
 
-1. **Token Validation**: Always check both JWT validity AND session existence
+1. **Dual Validation**: Always check both JWT signature AND JTI existence in database
 2. **Expired Sessions**: Run periodic cleanup of expired sessions
-3. **IP Tracking**: Store IP addresses for security auditing
-4. **User Agent**: Track devices for multi-device management
-5. **Last Activity**: Update on each request for inactivity timeout
+3. **Session ID Rotation**: Generate new session_id on token refresh for enhanced security
+4. **IP Tracking**: Store IP addresses for security auditing
+5. **User Agent**: Track devices for multi-device management
+6. **Token Type Tracking**: Distinguish between access and refresh tokens for proper invalidation
+
+## Multi-Device Behavior
+
+| Action | Current Device | Other Devices |
+|--------|---------------|---------------|
+| Logout | ✅ Logged out | ✅ Stay logged in |
+| Logout from all devices | ✅ Logged out | ✅ Logged out |
+| Password change | ✅ Logged out | ✅ Logged out |
+| Token refresh | ✅ New tokens | ✅ Stay logged in |
 
 ## Implementation Status
 
-✅ Session repository created
-✅ Database schema includes sessions table
-✅ Basic CRUD operations implemented
-⏳ Integration with authentication handlers (to be implemented)
-⏳ Automatic session cleanup job (to be implemented)
+✅ Session repository with JTI-based tracking  
+✅ Database schema with session_id column  
+✅ Login creates linked access + refresh sessions  
+✅ Logout invalidates only current device  
+✅ Middleware validates JTI on every request  
+✅ Token refresh creates new session_id  
+✅ Multi-device support tested and working  
+⏳ Automatic session cleanup job (to be implemented)  
 ⏳ Session listing endpoint for users (to be implemented)
+
 
 ## Future Enhancements
 
