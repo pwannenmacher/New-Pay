@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -15,6 +15,7 @@ import (
 	"new-pay/internal/database"
 	"new-pay/internal/email"
 	"new-pay/internal/handlers"
+	"new-pay/internal/logger"
 	"new-pay/internal/middleware"
 	"new-pay/internal/repository"
 	"new-pay/internal/service"
@@ -45,24 +46,39 @@ func main() {
 	// Load configuration
 	cfg, err := config.Load()
 	if err != nil {
-		log.Fatalf("Failed to load configuration: %v", err)
+		slog.Error("Failed to load configuration", "error", err)
+		os.Exit(1)
 	}
+
+	// Setup structured logger
+	logger.Setup(logger.Config{
+		Level: cfg.Log.Level,
+	})
+
+	slog.Info("Starting application",
+		"name", cfg.App.Name,
+		"version", cfg.App.Version,
+		"env", cfg.App.Env,
+		"log_level", cfg.Log.Level,
+	)
 
 	// Initialize database
 	db, err := database.New(&cfg.Database)
 	if err != nil {
-		log.Fatalf("Failed to connect to database: %v", err)
+		slog.Error("Failed to connect to database", "error", err)
+		os.Exit(1)
 	}
 	defer db.Close()
 
-	log.Println("Database connection established")
+	slog.Info("Database connection established")
 
 	// Run database migrations
 	migrator := database.NewMigrationExecutor(db.DB)
 	if err := migrator.RunMigrations("./migrations"); err != nil {
-		log.Fatalf("Failed to run migrations: %v", err)
+		slog.Error("Failed to run migrations", "error", err)
+		os.Exit(1)
 	}
-	log.Println("Database migrations completed")
+	slog.Info("Database migrations completed")
 
 	// Initialize repositories
 	userRepo := repository.NewUserRepository(db.DB)
@@ -370,9 +386,11 @@ func main() {
 	mux.Handle("/swagger/", httpSwagger.WrapHandler)
 
 	// Apply global middleware
-	handler := middleware.SecurityHeaders(
-		corsMw.Handler(
-			rateLimiter.Limit(mux),
+	handler := middleware.LoggingMiddleware(
+		middleware.SecurityHeaders(
+			corsMw.Handler(
+				rateLimiter.Limit(mux),
+			),
 		),
 	)
 
@@ -388,9 +406,10 @@ func main() {
 
 	// Start server in a goroutine
 	go func() {
-		log.Printf("Server starting on %s", addr)
+		slog.Info("Server starting", "address", addr)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("Server failed to start: %v", err)
+			slog.Error("Server failed to start", "error", err)
+			os.Exit(1)
 		}
 	}()
 
@@ -399,15 +418,16 @@ func main() {
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 
-	log.Println("Server shutting down...")
+	slog.Info("Server shutting down...")
 
 	// Graceful shutdown with timeout
 	ctx, cancel := getContext(30 * time.Second)
 	defer cancel()
 
 	if err := server.Shutdown(ctx); err != nil {
-		log.Fatalf("Server forced to shutdown: %v", err)
+		slog.Error("Server forced to shutdown", "error", err)
+		os.Exit(1)
 	}
 
-	log.Println("Server stopped")
+	slog.Info("Server stopped")
 }

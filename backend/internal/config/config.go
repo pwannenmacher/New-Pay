@@ -21,6 +21,7 @@ type Config struct {
 	CORS      CORSConfig
 	RateLimit RateLimitConfig
 	App       AppConfig
+	Log       LogConfig
 }
 
 // ServerConfig holds server-related configuration
@@ -113,10 +114,19 @@ type AppConfig struct {
 	EnableOAuthRegistration bool
 }
 
+// LogConfig holds logging configuration
+type LogConfig struct {
+	Level string
+}
+
 // Load loads configuration from environment variables
 func Load() (*Config, error) {
 	// Load .env file if it exists (ignore error if not found)
-	_ = godotenv.Load()
+	// Try to load from most specific to least specific
+	// godotenv doesn't override already-set variables, so order matters
+	_ = godotenv.Load("backend/.env") // When running from project root (local dev)
+	_ = godotenv.Load(".env")         // When running from backend dir or Docker
+	_ = godotenv.Load("../.env")      // Fallback
 
 	cfg := &Config{
 		Server: ServerConfig{
@@ -175,6 +185,9 @@ func Load() (*Config, error) {
 			LogLevel:                getEnv("LOG_LEVEL", "info"),
 			EnableRegistration:      getBoolEnv("ENABLE_REGISTRATION", false),
 			EnableOAuthRegistration: getBoolEnv("ENABLE_OAUTH_REGISTRATION", false),
+		},
+		Log: LogConfig{
+			Level: getEnv("LOG_LEVEL", "INFO"),
 		},
 	}
 

@@ -204,13 +204,14 @@ func (r *CatalogRepository) UpdateCatalogPhase(id uint, phase string) error {
 	query := `UPDATE criteria_catalogs SET phase = $1`
 	args := []interface{}{phase, id}
 
-	if phase == "review" {
+	switch phase {
+	case "review":
 		query += `, published_at = $3 WHERE id = $2`
 		args = []interface{}{phase, id, time.Now()}
-	} else if phase == "archived" {
+	case "archived":
 		query += `, archived_at = $3 WHERE id = $2`
 		args = []interface{}{phase, id, time.Now()}
-	} else {
+	default:
 		query += ` WHERE id = $2`
 	}
 
