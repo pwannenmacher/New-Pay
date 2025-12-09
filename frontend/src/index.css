@@ -66,16 +66,3 @@ button:focus-visible {
     background-color: #f9f9f9;
   }
 }
-
-/* Fix oversized icons in Mantine DatePicker */
-.mantine-DatePickerInput-calendarIcon,
-.mantine-DateInput-calendarIcon {
-  width: 1rem !important;
-  height: 1rem !important;
-}
-
-.mantine-DatePickerInput-calendarIcon svg,
-.mantine-DateInput-calendarIcon svg {
-  width: 1rem !important;
-  height: 1rem !important;
-}
