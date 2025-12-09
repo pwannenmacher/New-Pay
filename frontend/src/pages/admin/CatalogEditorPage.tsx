@@ -199,9 +199,14 @@ export function CatalogEditorPage() {
       }
     } catch (err: any) {
       console.error('Error saving catalog:', err);
+      console.error('Error response:', err.response);
+      console.error('Error data:', err.response?.data);
+      
+      const errorMessage = err.response?.data?.error || err.response?.data?.message || err.message || 'Fehler beim Speichern';
+      
       notifications.show({
-        title: 'Fehler',
-        message: err.response?.data?.error || err.message || 'Fehler beim Speichern',
+        title: 'Fehler beim Speichern',
+        message: errorMessage,
         color: 'red',
       });
     } finally {
@@ -255,6 +260,9 @@ export function CatalogEditorPage() {
           message: 'Level erfolgreich hinzugefügt',
           color: 'green',
         });
+        
+        // Reload catalog to update progress
+        await loadCatalog(catalog.id);
       }
       setLevelModalOpened(false);
       setEditingLevel(null);
@@ -349,6 +357,9 @@ export function CatalogEditorPage() {
         message: 'Level erfolgreich gelöscht',
         color: 'green',
       });
+      
+      // Reload catalog to update progress
+      await loadCatalog(catalog.id);
     } catch (err: any) {
       notifications.show({
         title: 'Fehler',
@@ -534,19 +545,29 @@ export function CatalogEditorPage() {
             )}
             {!isNew && levels.length > 0 && categories.length > 0 && (
               <Stack gap="xs">
-                <Text size="sm" fw={500}>
-                  Level-Beschreibungen Fortschritt
-                </Text>
-                <Progress
-                  value={calculateCompletionStats().percentage}
-                  color={calculateCompletionStats().percentage === 100 ? 'green' : 'blue'}
-                  size="lg"
-                />
-                <Text size="xs" c="dimmed">
-                  {calculateCompletionStats().filledDescriptions} von{' '}
-                  {calculateCompletionStats().totalDescriptionsNeeded} Beschreibungen ausgefüllt (
-                  {calculateCompletionStats().percentage}%)
-                </Text>
+                {calculateCompletionStats().allCategoriesHavePaths ? (
+                  <>
+                    <Text size="sm" fw={500}>
+                      Level-Beschreibungen Fortschritt
+                    </Text>
+                    <Progress
+                      value={calculateCompletionStats().percentage}
+                      color={calculateCompletionStats().percentage === 100 ? 'green' : 'blue'}
+                      size="lg"
+                    />
+                    <Text size="xs" c="dimmed">
+                      {calculateCompletionStats().filledDescriptions} von{' '}
+                      {calculateCompletionStats().totalDescriptionsNeeded} Beschreibungen ausgefüllt (
+                      {calculateCompletionStats().percentage}%)
+                    </Text>
+                  </>
+                ) : (
+                  <Alert color="yellow" p="xs">
+                    <Text size="xs">
+                      Es gibt Kategorien ohne Pfade
+                    </Text>
+                  </Alert>
+                )}
               </Stack>
             )}
           </Stack>
@@ -620,7 +641,7 @@ export function CatalogEditorPage() {
                     onChange={(value) => setPhase(value || 'draft')}
                     data={[
                       { value: 'draft', label: 'Entwurf' },
-                      { value: 'active', label: 'Aktiv' },
+                      { value: 'review', label: 'Aktiv' },
                       { value: 'archived', label: 'Archiviert' },
                     ]}
                     disabled={!calculateCompletionStats().allCategoriesHavePaths}
@@ -645,7 +666,11 @@ export function CatalogEditorPage() {
               <Stack gap="md">
                 <Group justify="space-between">
                   <Title order={4}>Levels</Title>
-                  <Button leftSection={<IconPlus size={16} />} onClick={handleOpenLevelModal}>
+                  <Button 
+                    leftSection={<IconPlus size={16} />} 
+                    onClick={handleOpenLevelModal}
+                    disabled={phase !== 'draft'}
+                  >
                     Level hinzufügen
                   </Button>
                 </Group>
@@ -674,7 +699,7 @@ export function CatalogEditorPage() {
                                 variant="light"
                                 color="gray"
                                 onClick={() => handleMoveLevel(index, 'up')}
-                                disabled={index === 0}
+                                disabled={index === 0 || phase !== 'draft'}
                               >
                                 <IconArrowUp size={16} />
                               </ActionIcon>
@@ -682,7 +707,7 @@ export function CatalogEditorPage() {
                                 variant="light"
                                 color="gray"
                                 onClick={() => handleMoveLevel(index, 'down')}
-                                disabled={index === levels.length - 1}
+                                disabled={index === levels.length - 1 || phase !== 'draft'}
                               >
                                 <IconArrowDown size={16} />
                               </ActionIcon>
@@ -690,6 +715,7 @@ export function CatalogEditorPage() {
                                 variant="light"
                                 color="blue"
                                 onClick={() => handleOpenEditLevelModal(level)}
+                                disabled={phase !== 'draft'}
                               >
                                 <IconEdit size={16} />
                               </ActionIcon>
@@ -697,6 +723,7 @@ export function CatalogEditorPage() {
                                 variant="light"
                                 color="red"
                                 onClick={() => handleDeleteLevel(level.id)}
+                                disabled={phase !== 'draft'}
                               >
                                 <IconTrash size={16} />
                               </ActionIcon>
@@ -716,7 +743,11 @@ export function CatalogEditorPage() {
               <Stack gap="md">
                 <Group justify="space-between">
                   <Title order={4}>Kategorien</Title>
-                  <Button leftSection={<IconPlus size={16} />} onClick={handleOpenCategoryModal}>
+                  <Button 
+                    leftSection={<IconPlus size={16} />} 
+                    onClick={handleOpenCategoryModal}
+                    disabled={phase !== 'draft'}
+                  >
                     Kategorie hinzufügen
                   </Button>
                 </Group>
@@ -745,7 +776,7 @@ export function CatalogEditorPage() {
                                 variant="light"
                                 color="gray"
                                 onClick={() => handleMoveCategory(index, 'up')}
-                                disabled={index === 0}
+                                disabled={index === 0 || phase !== 'draft'}
                               >
                                 <IconArrowUp size={16} />
                               </ActionIcon>
@@ -753,7 +784,7 @@ export function CatalogEditorPage() {
                                 variant="light"
                                 color="gray"
                                 onClick={() => handleMoveCategory(index, 'down')}
-                                disabled={index === categories.length - 1}
+                                disabled={index === categories.length - 1 || phase !== 'draft'}
                               >
                                 <IconArrowDown size={16} />
                               </ActionIcon>
@@ -761,6 +792,7 @@ export function CatalogEditorPage() {
                                 variant="light"
                                 color="blue"
                                 onClick={() => handleOpenEditCategoryModal(category)}
+                                disabled={phase !== 'draft'}
                               >
                                 <IconEdit size={16} />
                               </ActionIcon>
@@ -768,6 +800,7 @@ export function CatalogEditorPage() {
                                 variant="light"
                                 color="red"
                                 onClick={() => handleDeleteCategory(category.id)}
+                                disabled={phase !== 'draft'}
                               >
                                 <IconTrash size={16} />
                               </ActionIcon>
@@ -787,6 +820,8 @@ export function CatalogEditorPage() {
               catalogId={parseInt(id!, 10)}
               categories={categories}
               levels={levels}
+              phase={phase}
+              onUpdate={() => loadCatalog(parseInt(id!, 10))}
             />
           </Tabs.Panel>
         </Tabs>

@@ -12,6 +12,7 @@ import {
   Title,
   Text,
   Alert,
+  Progress,
 } from '@mantine/core';
 import {
   IconPlus,
@@ -28,9 +29,11 @@ interface PathManagementProps {
   catalogId: number;
   categories: Category[];
   levels: Level[];
+  phase: string;
+  onUpdate?: () => void;
 }
 
-export function PathManagement({ catalogId, categories, levels }: PathManagementProps) {
+export function PathManagement({ catalogId, categories, levels, phase, onUpdate }: PathManagementProps) {
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
   const [paths, setPaths] = useState<Path[]>([]);
   const [pathModalOpened, setPathModalOpened] = useState(false);
@@ -126,6 +129,11 @@ export function PathManagement({ catalogId, categories, levels }: PathManagement
           message: 'Pfad erfolgreich hinzugefügt',
           color: 'green',
         });
+        
+        // Refresh catalog data to update progress
+        if (onUpdate) {
+          onUpdate();
+        }
       }
       setPathModalOpened(false);
       setEditingPath(null);
@@ -213,6 +221,11 @@ export function PathManagement({ catalogId, categories, levels }: PathManagement
         message: 'Pfad erfolgreich gelöscht',
         color: 'green',
       });
+      
+      // Refresh catalog data to update progress
+      if (onUpdate) {
+        onUpdate();
+      }
     } catch (err: any) {
       notifications.show({
         title: 'Fehler',
@@ -271,6 +284,11 @@ export function PathManagement({ catalogId, categories, levels }: PathManagement
         message: 'Beschreibungen erfolgreich gespeichert',
         color: 'green',
       });
+
+      // Refresh catalog data to update progress
+      if (onUpdate) {
+        onUpdate();
+      }
     } catch (err: any) {
       notifications.show({
         title: 'Fehler',
@@ -278,6 +296,15 @@ export function PathManagement({ catalogId, categories, levels }: PathManagement
         color: 'red',
       });
     }
+  };
+
+  const calculatePathProgress = (path: Path) => {
+    const totalDescriptions = levels.length;
+    const filledDescriptions = (path as any).descriptions?.filter(
+      (d: any) => d.description && d.description.trim()
+    ).length || 0;
+    const percentage = totalDescriptions > 0 ? Math.round((filledDescriptions / totalDescriptions) * 100) : 0;
+    return { filledDescriptions, totalDescriptions, percentage };
   };
 
   if (levels.length === 0) {
@@ -310,6 +337,7 @@ export function PathManagement({ catalogId, categories, levels }: PathManagement
                       leftSection={<IconPlus size={16} />}
                       onClick={handleOpenPathModal}
                       size="sm"
+                      disabled={phase !== 'draft'}
                     >
                       Pfad hinzufügen
                     </Button>
@@ -323,15 +351,30 @@ export function PathManagement({ catalogId, categories, levels }: PathManagement
                         <Table.Tr>
                           <Table.Th>Name</Table.Th>
                           <Table.Th>Beschreibung</Table.Th>
+                          <Table.Th>Fortschritt</Table.Th>
                           <Table.Th>Sortierung</Table.Th>
                           <Table.Th>Aktionen</Table.Th>
                         </Table.Tr>
                       </Table.Thead>
                       <Table.Tbody>
-                        {paths.map((path, index) => (
+                        {paths.map((path, index) => {
+                          const progress = calculatePathProgress(path);
+                          return (
                           <Table.Tr key={path.id}>
                             <Table.Td>{path.name}</Table.Td>
                             <Table.Td>{path.description || '-'}</Table.Td>
+                            <Table.Td>
+                              <Stack gap={4}>
+                                <Progress
+                                  value={progress.percentage}
+                                  color={progress.percentage === 100 ? 'green' : 'blue'}
+                                  size="sm"
+                                />
+                                <Text size="xs" c="dimmed">
+                                  {progress.filledDescriptions}/{progress.totalDescriptions} ({progress.percentage}%)
+                                </Text>
+                              </Stack>
+                            </Table.Td>
                             <Table.Td>{path.sort_order}</Table.Td>
                             <Table.Td>
                               <Group gap="xs">
@@ -339,7 +382,7 @@ export function PathManagement({ catalogId, categories, levels }: PathManagement
                                   variant="light"
                                   color="gray"
                                   onClick={() => handleMovePath(index, 'up')}
-                                  disabled={index === 0}
+                                  disabled={index === 0 || phase !== 'draft'}
                                 >
                                   <IconArrowUp size={16} />
                                 </ActionIcon>
@@ -347,7 +390,7 @@ export function PathManagement({ catalogId, categories, levels }: PathManagement
                                   variant="light"
                                   color="gray"
                                   onClick={() => handleMovePath(index, 'down')}
-                                  disabled={index === paths.length - 1}
+                                  disabled={index === paths.length - 1 || phase !== 'draft'}
                                 >
                                   <IconArrowDown size={16} />
                                 </ActionIcon>
@@ -363,6 +406,7 @@ export function PathManagement({ catalogId, categories, levels }: PathManagement
                                   variant="light"
                                   color="blue"
                                   onClick={() => handleOpenEditPathModal(path)}
+                                  disabled={phase !== 'draft'}
                                 >
                                   <IconEdit size={16} />
                                 </ActionIcon>
@@ -370,13 +414,15 @@ export function PathManagement({ catalogId, categories, levels }: PathManagement
                                   variant="light"
                                   color="red"
                                   onClick={() => handleDeletePath(path.id)}
+                                  disabled={phase !== 'draft'}
                                 >
                                   <IconTrash size={16} />
                                 </ActionIcon>
                               </Group>
                             </Table.Td>
                           </Table.Tr>
-                        ))}
+                          );
+                        })}
                       </Table.Tbody>
                     </Table>
                   )}

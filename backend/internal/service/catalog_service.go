@@ -103,6 +103,16 @@ func (s *CatalogService) UpdateCatalog(catalog *models.CriteriaCatalog, userID u
 		return fmt.Errorf("permission denied: cannot edit catalog in %s phase", existing.Phase)
 	}
 
+	// Handle phase transition
+	if catalog.Phase != "" && catalog.Phase != existing.Phase {
+		if err := s.validatePhaseTransition(catalog.ID, existing.Phase, catalog.Phase, userRoles); err != nil {
+			return err
+		}
+	} else {
+		// Keep existing phase if not changing
+		catalog.Phase = existing.Phase
+	}
+
 	// Validate dates
 	if catalog.ValidFrom.After(catalog.ValidUntil) || catalog.ValidFrom.Equal(catalog.ValidUntil) {
 		return fmt.Errorf("valid_from must be before valid_until")
@@ -223,8 +233,8 @@ func (s *CatalogService) CreateCategory(category *models.Category, userID uint, 
 		return fmt.Errorf("catalog not found")
 	}
 
-	if !canEditCatalog(catalog.Phase, userRoles) {
-		return fmt.Errorf("permission denied: cannot edit catalog in %s phase", catalog.Phase)
+	if !canEditStructure(catalog.Phase, userRoles) {
+		return fmt.Errorf("permission denied: cannot add categories in %s phase", catalog.Phase)
 	}
 
 	return s.catalogRepo.CreateCategory(category)
@@ -259,7 +269,7 @@ func (s *CatalogService) UpdateCategory(category *models.Category, userID uint, 
 		return fmt.Errorf("permission denied: cannot edit catalog in %s phase", catalog.Phase)
 	}
 
-	// Log changes if in review phase
+	// Log changes if in review phase (legacy code - review phase no longer used)
 	if catalog.Phase == "review" {
 		if err := s.logCategoryChanges(catalog.ID, oldCategory, category, userID); err != nil {
 			return fmt.Errorf("failed to log changes: %w", err)
@@ -279,8 +289,8 @@ func (s *CatalogService) DeleteCategory(categoryID, catalogID uint, userRoles []
 		return fmt.Errorf("catalog not found")
 	}
 
-	if !canEditCatalog(catalog.Phase, userRoles) {
-		return fmt.Errorf("permission denied: cannot edit catalog in %s phase", catalog.Phase)
+	if !canEditStructure(catalog.Phase, userRoles) {
+		return fmt.Errorf("permission denied: cannot delete categories in %s phase", catalog.Phase)
 	}
 
 	return s.catalogRepo.DeleteCategory(categoryID)
@@ -296,8 +306,8 @@ func (s *CatalogService) CreateLevel(level *models.Level, userID uint, userRoles
 		return fmt.Errorf("catalog not found")
 	}
 
-	if !canEditCatalog(catalog.Phase, userRoles) {
-		return fmt.Errorf("permission denied: cannot edit catalog in %s phase", catalog.Phase)
+	if !canEditStructure(catalog.Phase, userRoles) {
+		return fmt.Errorf("permission denied: cannot add levels in %s phase", catalog.Phase)
 	}
 
 	return s.catalogRepo.CreateLevel(level)
@@ -314,6 +324,10 @@ func (s *CatalogService) UpdateLevel(level *models.Level, userID uint, userRoles
 		return fmt.Errorf("permission denied: cannot edit catalog in %s phase", catalog.Phase)
 	}
 
+	// In active/archived phase, structural changes are not allowed
+	// We can't easily check if sort_order changed without querying, but
+	// the handler should prevent sort operations in active/archived phase
+
 	return s.catalogRepo.UpdateLevel(level)
 }
 
@@ -327,8 +341,8 @@ func (s *CatalogService) DeleteLevel(levelID, catalogID uint, userRoles []string
 		return fmt.Errorf("catalog not found")
 	}
 
-	if !canEditCatalog(catalog.Phase, userRoles) {
-		return fmt.Errorf("permission denied: cannot edit catalog in %s phase", catalog.Phase)
+	if !canEditStructure(catalog.Phase, userRoles) {
+		return fmt.Errorf("permission denied: cannot delete levels in %s phase", catalog.Phase)
 	}
 
 	return s.catalogRepo.DeleteLevel(levelID)
@@ -344,8 +358,8 @@ func (s *CatalogService) CreatePath(path *models.Path, userID uint, userRoles []
 		return fmt.Errorf("catalog not found")
 	}
 
-	if !canEditCatalog(catalog.Phase, userRoles) {
-		return fmt.Errorf("permission denied: cannot edit catalog in %s phase", catalog.Phase)
+	if !canEditStructure(catalog.Phase, userRoles) {
+		return fmt.Errorf("permission denied: cannot add paths in %s phase", catalog.Phase)
 	}
 
 	return s.catalogRepo.CreatePath(path)
@@ -375,8 +389,8 @@ func (s *CatalogService) DeletePath(pathID, catalogID uint, userRoles []string) 
 		return fmt.Errorf("catalog not found")
 	}
 
-	if !canEditCatalog(catalog.Phase, userRoles) {
-		return fmt.Errorf("permission denied: cannot edit catalog in %s phase", catalog.Phase)
+	if !canEditStructure(catalog.Phase, userRoles) {
+		return fmt.Errorf("permission denied: cannot delete paths in %s phase", catalog.Phase)
 	}
 
 	return s.catalogRepo.DeletePath(pathID)
@@ -466,13 +480,59 @@ func canEditCatalog(phase string, userRoles []string) bool {
 	isAdmin := contains(userRoles, "admin")
 
 	switch phase {
-	case "draft", "review":
+	case "draft":
 		return isAdmin
-	case "archived":
-		return false // Nobody can edit archived catalogs
+	case "review", "archived":
+		return false // Nobody can edit review or archived catalogs
 	default:
 		return false
 	}
+}
+
+func canEditStructure(phase string, userRoles []string) bool {
+	isAdmin := contains(userRoles, "admin")
+
+	// Structural changes (create/delete/sort levels, categories, paths) only allowed in draft
+	return phase == "draft" && isAdmin
+}
+
+func (s *CatalogService) validatePhaseTransition(catalogID uint, fromPhase, toPhase string, userRoles []string) error {
+	if !contains(userRoles, "admin") {
+		return fmt.Errorf("permission denied: only admins can change catalog phase")
+	}
+
+	// Define allowed transitions
+	allowedTransitions := map[string][]string{
+		"draft":    {"review"},
+		"review":   {"archived"},
+		"archived": {}, // No transitions from archived
+	}
+
+	allowed, ok := allowedTransitions[fromPhase]
+	if !ok {
+		return fmt.Errorf("invalid current phase: %s", fromPhase)
+	}
+
+	validTransition := false
+	for _, validPhase := range allowed {
+		if toPhase == validPhase {
+			validTransition = true
+			break
+		}
+	}
+
+	if !validTransition {
+		return fmt.Errorf("cannot transition from %s to %s phase", fromPhase, toPhase)
+	}
+
+	// Additional validation when transitioning to review
+	if toPhase == "review" {
+		if err := s.validateCatalogCompleteness(catalogID); err != nil {
+			return fmt.Errorf("cannot transition to review phase: %w", err)
+		}
+	}
+
+	return nil
 }
 
 func contains(slice []string, item string) bool {
@@ -507,10 +567,17 @@ func (s *CatalogService) validateCatalogCompleteness(catalogID uint) error {
 			return fmt.Errorf("category '%s' must have at least one path", category.Name)
 		}
 
-		// Each path should have descriptions for all levels
+		// Each path should have descriptions for all levels (and they should not be empty)
 		for _, path := range category.Paths {
 			if len(path.Descriptions) != len(catalogDetails.Levels) {
 				return fmt.Errorf("path '%s' is missing descriptions for some levels", path.Name)
+			}
+
+			// Check that all descriptions are filled
+			for _, desc := range path.Descriptions {
+				if desc.Description == "" {
+					return fmt.Errorf("path '%s' has empty descriptions", path.Name)
+				}
 			}
 		}
 	}

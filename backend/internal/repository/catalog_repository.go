@@ -182,8 +182,8 @@ func (r *CatalogRepository) CheckOverlappingCatalogs(validFrom, validUntil time.
 func (r *CatalogRepository) UpdateCatalog(catalog *models.CriteriaCatalog) error {
 	query := `
 		UPDATE criteria_catalogs
-		SET name = $1, description = $2, valid_from = $3, valid_until = $4
-		WHERE id = $5
+		SET name = $1, description = $2, valid_from = $3, valid_until = $4, phase = $5
+		WHERE id = $6
 		RETURNING updated_at
 	`
 
@@ -193,6 +193,7 @@ func (r *CatalogRepository) UpdateCatalog(catalog *models.CriteriaCatalog) error
 		catalog.Description,
 		catalog.ValidFrom,
 		catalog.ValidUntil,
+		catalog.Phase,
 		catalog.ID,
 	).Scan(&catalog.UpdatedAt)
 

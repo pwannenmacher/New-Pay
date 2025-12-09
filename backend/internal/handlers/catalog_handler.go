@@ -18,6 +18,7 @@ type CatalogRequest struct {
 	Description *string `json:"description,omitempty"`
 	ValidFrom   string  `json:"valid_from"`  // Date string in YYYY-MM-DD format
 	ValidUntil  string  `json:"valid_until"` // Date string in YYYY-MM-DD format
+	Phase       *string `json:"phase,omitempty"`
 }
 
 // CatalogHandler handles criteria catalog requests
@@ -215,6 +216,10 @@ func (h *CatalogHandler) UpdateCatalog(w http.ResponseWriter, r *http.Request) {
 		ValidUntil:  validUntil,
 	}
 
+	if req.Phase != nil {
+		catalog.Phase = *req.Phase
+	}
+
 	userID, ok := middleware.GetUserID(r)
 	if !ok {
 		http.Error(w, "User ID not found in context", http.StatusUnauthorized)
@@ -226,13 +231,18 @@ func (h *CatalogHandler) UpdateCatalog(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.catalogService.UpdateCatalog(&catalog, userID, userRoles); err != nil {
+		var statusCode int
 		if strings.Contains(err.Error(), "permission denied") {
-			http.Error(w, err.Error(), http.StatusForbidden)
+			statusCode = http.StatusForbidden
 		} else if strings.Contains(err.Error(), "overlaps") {
-			http.Error(w, err.Error(), http.StatusConflict)
+			statusCode = http.StatusConflict
 		} else {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			statusCode = http.StatusBadRequest
 		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(statusCode)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
 		return
 	}
 
