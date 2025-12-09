@@ -16,6 +16,9 @@ import {
   ActionIcon,
   Badge,
   Modal,
+  Select,
+  Progress,
+  Text,
 } from '@mantine/core';
 import {
   IconAlertCircle,
@@ -34,6 +37,7 @@ import { PathManagement } from '../../components/admin/PathManagement';
 import type {
   CatalogWithDetails,
   Category,
+  CategoryWithPaths,
   Level,
 } from '../../types';
 
@@ -51,10 +55,11 @@ export function CatalogEditorPage() {
   const [description, setDescription] = useState('');
   const [validFrom, setValidFrom] = useState<Date | null>(null);
   const [validUntil, setValidUntil] = useState<Date | null>(null);
+  const [phase, setPhase] = useState<string>('draft');
 
   // Nested entities
   const [catalog, setCatalog] = useState<CatalogWithDetails | null>(null);
-  const [categories, setCategories] = useState<Category[]>([]);
+  const [categories, setCategories] = useState<CategoryWithPaths[]>([]);
   const [levels, setLevels] = useState<Level[]>([]);
 
   // Active tab
@@ -92,6 +97,7 @@ export function CatalogEditorPage() {
       setDescription(data.description || '');
       setValidFrom(new Date(data.valid_from));
       setValidUntil(new Date(data.valid_until));
+      setPhase(data.phase || 'draft');
       setCategories(data.categories?.map((c) => c) || []);
       setLevels(data.levels || []);
     } catch (err: any) {
@@ -99,6 +105,33 @@ export function CatalogEditorPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const calculateCompletionStats = () => {
+    const totalPaths = categories.reduce((sum, cat) => sum + (cat.paths?.length || 0), 0);
+    const totalDescriptionsNeeded = totalPaths * levels.length;
+    
+    let filledDescriptions = 0;
+    categories.forEach(cat => {
+      cat.paths?.forEach(path => {
+        path.descriptions?.forEach(desc => {
+          if (desc.description && desc.description.trim()) {
+            filledDescriptions++;
+          }
+        });
+      });
+    });
+
+    const allCategoriesHavePaths = categories.length > 0 && categories.every(cat => (cat.paths?.length || 0) > 0);
+    const percentage = totalDescriptionsNeeded > 0 ? Math.round((filledDescriptions / totalDescriptionsNeeded) * 100) : 0;
+    
+    return {
+      totalPaths,
+      totalDescriptionsNeeded,
+      filledDescriptions,
+      percentage,
+      allCategoriesHavePaths,
+    };
   };
 
   const handleSaveBasic = async () => {
@@ -131,6 +164,7 @@ export function CatalogEditorPage() {
         description: description || undefined,
         valid_from: fromDate.toISOString().split('T')[0],
         valid_until: untilDate.toISOString().split('T')[0],
+        phase: phase as any,
       };
 
       if (isNew) {
@@ -492,11 +526,30 @@ export function CatalogEditorPage() {
               {isNew ? 'Neuer Kriterienkatalog' : `Katalog bearbeiten: ${name}`}
             </Title>
           </Group>
-          {catalog && (
-            <Badge color={catalog.phase === 'draft' ? 'gray' : catalog.phase === 'review' ? 'blue' : 'orange'}>
-              {catalog.phase === 'draft' ? 'Entwurf' : catalog.phase === 'review' ? 'Haupt' : 'Abschluss'}
-            </Badge>
-          )}
+          <Stack gap="xs" style={{ minWidth: 300 }}>
+            {catalog && (
+              <Badge color={catalog.phase === 'draft' ? 'gray' : catalog.phase === 'review' ? 'blue' : 'orange'} size="lg">
+                {catalog.phase === 'draft' ? 'Entwurf' : catalog.phase === 'review' ? 'Haupt' : 'Abschluss'}
+              </Badge>
+            )}
+            {!isNew && levels.length > 0 && categories.length > 0 && (
+              <Stack gap="xs">
+                <Text size="sm" fw={500}>
+                  Level-Beschreibungen Fortschritt
+                </Text>
+                <Progress
+                  value={calculateCompletionStats().percentage}
+                  color={calculateCompletionStats().percentage === 100 ? 'green' : 'blue'}
+                  size="lg"
+                />
+                <Text size="xs" c="dimmed">
+                  {calculateCompletionStats().filledDescriptions} von{' '}
+                  {calculateCompletionStats().totalDescriptionsNeeded} Beschreibungen ausgefüllt (
+                  {calculateCompletionStats().percentage}%)
+                </Text>
+              </Stack>
+            )}
+          </Stack>
         </Group>
 
         {error && (
@@ -554,6 +607,25 @@ export function CatalogEditorPage() {
                     style={{ flex: 1 }}
                   />
                 </Group>
+
+                {!isNew && (
+                  <Select
+                    label="Phase"
+                    description={
+                      !calculateCompletionStats().allCategoriesHavePaths
+                        ? 'Jede Kategorie muss mindestens einen Pfad haben, um die Phase zu ändern'
+                        : undefined
+                    }
+                    value={phase}
+                    onChange={(value) => setPhase(value || 'draft')}
+                    data={[
+                      { value: 'draft', label: 'Entwurf' },
+                      { value: 'active', label: 'Aktiv' },
+                      { value: 'archived', label: 'Archiviert' },
+                    ]}
+                    disabled={!calculateCompletionStats().allCategoriesHavePaths}
+                  />
+                )}
 
                 <Group justify="flex-end">
                   <Button

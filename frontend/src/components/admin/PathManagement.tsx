@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Stack,
   Group,
@@ -37,10 +37,30 @@ export function PathManagement({ catalogId, categories, levels }: PathManagement
   const [editingPath, setEditingPath] = useState<Path | null>(null);
   const [newPathName, setNewPathName] = useState('');
   const [newPathDescription, setNewPathDescription] = useState('');
+  const [categoryPathCounts, setCategoryPathCounts] = useState<Record<number, number>>({});
   
   const [descriptionModalOpened, setDescriptionModalOpened] = useState(false);
   const [editingPathForDescriptions, setEditingPathForDescriptions] = useState<Path | null>(null);
   const [descriptionTexts, setDescriptionTexts] = useState<Record<number, string>>({});
+
+  const loadAllPathCounts = async () => {
+    try {
+      const catalog = await adminApi.getCatalog(catalogId);
+      const counts: Record<number, number> = {};
+      catalog.categories?.forEach(cat => {
+        counts[cat.id] = cat.paths?.length || 0;
+      });
+      setCategoryPathCounts(counts);
+    } catch (err: any) {
+      // Silent fail for counts
+    }
+  };
+
+  useEffect(() => {
+    if (categories.length > 0) {
+      loadAllPathCounts();
+    }
+  }, [catalogId, categories.length]);
 
   const loadPathsForCategory = async (category: Category) => {
     try {
@@ -48,6 +68,7 @@ export function PathManagement({ catalogId, categories, levels }: PathManagement
       const cat = catalog.categories?.find(c => c.id === category.id);
       setPaths(cat?.paths || []);
       setSelectedCategory(category);
+      loadAllPathCounts(); // Refresh counts
     } catch (err: any) {
       notifications.show({
         title: 'Fehler',
@@ -276,7 +297,7 @@ export function PathManagement({ catalogId, categories, levels }: PathManagement
               <Group justify="space-between">
                 <Text fw={500}>{category.name}</Text>
                 <Text size="sm" c="dimmed">
-                  {selectedCategory?.id === category.id ? `${paths.length} Pfad(e)` : ''}
+                  {categoryPathCounts[category.id] ?? 0} Pfad(e)
                 </Text>
               </Group>
             </Accordion.Control>
