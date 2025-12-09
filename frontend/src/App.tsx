@@ -1,10 +1,14 @@
 import '@mantine/core/styles.css';
 import '@mantine/notifications/styles.css';
+import '@mantine/dates/styles.css';
+import './index.css';
 import { MantineProvider } from '@mantine/core';
 import { Notifications } from '@mantine/notifications';
+import { DatesProvider } from '@mantine/dates';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { AppConfigProvider } from './contexts/AppConfigContext';
+import { ThemeProvider } from './contexts/ThemeContext';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { MainLayout } from './components/layout/MainLayout';
 import { HomePage } from './pages/HomePage';
@@ -23,10 +27,14 @@ import { CatalogManagementPage } from './pages/admin/CatalogManagementPage';
 import { CatalogEditorPage } from './pages/admin/CatalogEditorPage';
 import { CatalogViewPage } from './pages/admin/CatalogViewPage';
 
+import 'dayjs/locale/de';
+
 function App() {
   return (
     <MantineProvider defaultColorScheme="auto">
-      <Notifications position="top-right" />
+      <ThemeProvider>
+        <DatesProvider settings={{ locale: 'de' }}>
+          <Notifications position="top-right" />
       <BrowserRouter>
         <AppConfigProvider>
           <AuthProvider>
@@ -116,6 +124,8 @@ function App() {
           </AuthProvider>
         </AppConfigProvider>
       </BrowserRouter>
+        </DatesProvider>
+      </ThemeProvider>
     </MantineProvider>
   );
 }

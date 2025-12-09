@@ -4,6 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { IconUser, IconLogout, IconSettings, IconShieldLock, IconAlertCircle, IconMail, IconBook } from '@tabler/icons-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useAppConfig } from '../../contexts/AppConfigContext';
+import { ThemeToggle } from './ThemeToggle';
 import { useState } from 'react';
 import { apiClient } from '../../services/api';
 import { notifications } from '@mantine/notifications';
@@ -66,7 +67,9 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
           </Group>
 
           {isAuthenticated ? (
-            <Menu shadow="md" width={200}>
+            <Group>
+              <ThemeToggle />
+              <Menu shadow="md" width={200}>
               <Menu.Target>
                 <Button variant="subtle" leftSection={<Avatar size="sm" radius="xl" />}>
                   {user?.first_name}
@@ -104,8 +107,10 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
                 </Menu.Item>
               </Menu.Dropdown>
             </Menu>
+            </Group>
           ) : (
             <Group>
+              <ThemeToggle />
               <Button variant="subtle" component={Link} to="/login">
                 Login
               </Button>
