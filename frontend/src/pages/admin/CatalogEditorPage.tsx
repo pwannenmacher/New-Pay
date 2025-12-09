@@ -539,8 +539,8 @@ export function CatalogEditorPage() {
           </Group>
           <Stack gap="xs" style={{ minWidth: 300 }}>
             {catalog && (
-              <Badge color={catalog.phase === 'draft' ? 'gray' : catalog.phase === 'review' ? 'blue' : 'orange'} size="lg">
-                {catalog.phase === 'draft' ? 'Entwurf' : catalog.phase === 'review' ? 'Haupt' : 'Abschluss'}
+              <Badge color={catalog.phase === 'draft' ? 'gray' : catalog.phase === 'active' ? 'blue' : 'orange'} size="lg">
+                {catalog.phase === 'draft' ? 'Entwurf' : catalog.phase === 'active' ? 'Aktiv' : 'Archiviert'}
               </Badge>
             )}
             {!isNew && levels.length > 0 && categories.length > 0 && (
@@ -641,7 +641,7 @@ export function CatalogEditorPage() {
                     onChange={(value) => setPhase(value || 'draft')}
                     data={[
                       { value: 'draft', label: 'Entwurf' },
-                      { value: 'review', label: 'Aktiv' },
+                      { value: 'active', label: 'Aktiv' },
                       { value: 'archived', label: 'Archiviert' },
                     ]}
                     disabled={!calculateCompletionStats().allCategoriesHavePaths}

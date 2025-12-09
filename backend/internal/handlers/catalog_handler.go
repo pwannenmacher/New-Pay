@@ -286,9 +286,9 @@ func (h *CatalogHandler) DeleteCatalog(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// TransitionToReview transitions a catalog to review phase
-// @Summary Transition to review
-// @Description Move catalog from draft to review phase (admin only)
+// TransitionToActive transitions a catalog to active phase
+// @Summary Transition to active
+// @Description Move catalog from draft to active phase (admin only)
 // @Tags Catalogs
 // @Security BearerAuth
 // @Param id path int true "Catalog ID"
@@ -296,8 +296,8 @@ func (h *CatalogHandler) DeleteCatalog(w http.ResponseWriter, r *http.Request) {
 // @Failure 400 {object} map[string]string "Invalid request"
 // @Failure 401 {object} map[string]string "Unauthorized"
 // @Failure 403 {object} map[string]string "Permission denied"
-// @Router /admin/catalogs/{id}/transition-to-review [post]
-func (h *CatalogHandler) TransitionToReview(w http.ResponseWriter, r *http.Request) {
+// @Router /admin/catalogs/{id}/transition-to-active [post]
+func (h *CatalogHandler) TransitionToActive(w http.ResponseWriter, r *http.Request) {
 	idStr := r.PathValue("id")
 	id, err := strconv.ParseUint(idStr, 10, 32)
 	if err != nil {
@@ -310,7 +310,7 @@ func (h *CatalogHandler) TransitionToReview(w http.ResponseWriter, r *http.Reque
 		userRoles = []string{}
 	}
 
-	if err := h.catalogService.TransitionToReview(uint(id), userRoles); err != nil {
+	if err := h.catalogService.TransitionToActive(uint(id), userRoles); err != nil {
 		if strings.Contains(err.Error(), "permission denied") {
 			http.Error(w, err.Error(), http.StatusForbidden)
 		} else {
@@ -321,13 +321,13 @@ func (h *CatalogHandler) TransitionToReview(w http.ResponseWriter, r *http.Reque
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{
-		"message": "Catalog transitioned to review phase",
+		"message": "Catalog transitioned to active phase",
 	})
 }
 
 // TransitionToArchived transitions a catalog to archived phase
 // @Summary Transition to archived
-// @Description Move catalog from review to archived phase (admin only)
+// @Description Move catalog from active to archived phase (admin only)
 // @Tags Catalogs
 // @Security BearerAuth
 // @Param id path int true "Catalog ID"

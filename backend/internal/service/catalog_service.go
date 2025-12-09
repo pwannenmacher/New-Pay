@@ -54,7 +54,7 @@ func (s *CatalogService) GetAllCatalogs() ([]models.CriteriaCatalog, error) {
 
 // GetCatalogsByPhase retrieves catalogs by phase
 func (s *CatalogService) GetCatalogsByPhase(phase string) ([]models.CriteriaCatalog, error) {
-	if phase != "draft" && phase != "review" && phase != "archived" {
+	if phase != "draft" && phase != "active" && phase != "archived" {
 		return nil, fmt.Errorf("invalid phase: %s", phase)
 	}
 	return s.catalogRepo.GetCatalogsByPhase(phase)
@@ -71,8 +71,8 @@ func (s *CatalogService) GetVisibleCatalogs(userRoles []string) ([]models.Criter
 	}
 
 	if isReviewer {
-		// Reviewers see review and archived catalogs
-		reviewCatalogs, err := s.catalogRepo.GetCatalogsByPhase("review")
+		// Reviewers see active and archived catalogs
+		activeCatalogs, err := s.catalogRepo.GetCatalogsByPhase("active")
 		if err != nil {
 			return nil, err
 		}
@@ -80,11 +80,11 @@ func (s *CatalogService) GetVisibleCatalogs(userRoles []string) ([]models.Criter
 		if err != nil {
 			return nil, err
 		}
-		return append(reviewCatalogs, archivedCatalogs...), nil
+		return append(activeCatalogs, archivedCatalogs...), nil
 	}
 
-	// Regular users only see review phase catalogs
-	return s.catalogRepo.GetCatalogsByPhase("review")
+	// Regular users only see active phase catalogs
+	return s.catalogRepo.GetCatalogsByPhase("active")
 }
 
 // UpdateCatalog updates a catalog
@@ -127,8 +127,8 @@ func (s *CatalogService) UpdateCatalog(catalog *models.CriteriaCatalog, userID u
 		return fmt.Errorf("catalog validity period overlaps with existing non-archived catalog")
 	}
 
-	// Log changes if in review phase
-	if existing.Phase == "review" {
+	// Log changes if in active phase
+	if existing.Phase == "active" {
 		if err := s.logCatalogChanges(existing, catalog, userID); err != nil {
 			return fmt.Errorf("failed to log changes: %w", err)
 		}
@@ -137,10 +137,10 @@ func (s *CatalogService) UpdateCatalog(catalog *models.CriteriaCatalog, userID u
 	return s.catalogRepo.UpdateCatalog(catalog)
 }
 
-// TransitionToReview transitions a catalog from draft to review phase
-func (s *CatalogService) TransitionToReview(catalogID uint, userRoles []string) error {
+// TransitionToActive transitions a catalog from draft to active phase
+func (s *CatalogService) TransitionToActive(catalogID uint, userRoles []string) error {
 	if !contains(userRoles, "admin") {
-		return fmt.Errorf("permission denied: only admins can transition to review phase")
+		return fmt.Errorf("permission denied: only admins can transition to active phase")
 	}
 
 	catalog, err := s.catalogRepo.GetCatalogByID(catalogID)
@@ -152,7 +152,7 @@ func (s *CatalogService) TransitionToReview(catalogID uint, userRoles []string) 
 	}
 
 	if catalog.Phase != "draft" {
-		return fmt.Errorf("can only transition from draft to review phase")
+		return fmt.Errorf("can only transition from draft to active phase")
 	}
 
 	// Validate catalog completeness
@@ -160,10 +160,10 @@ func (s *CatalogService) TransitionToReview(catalogID uint, userRoles []string) 
 		return fmt.Errorf("catalog validation failed: %w", err)
 	}
 
-	return s.catalogRepo.UpdateCatalogPhase(catalogID, "review")
+	return s.catalogRepo.UpdateCatalogPhase(catalogID, "active")
 }
 
-// TransitionToArchived transitions a catalog from review to archived phase
+// TransitionToArchived transitions a catalog from active to archived phase
 func (s *CatalogService) TransitionToArchived(catalogID uint, userRoles []string) error {
 	if !contains(userRoles, "admin") {
 		return fmt.Errorf("permission denied: only admins can transition to archived phase")
@@ -177,8 +177,8 @@ func (s *CatalogService) TransitionToArchived(catalogID uint, userRoles []string
 		return fmt.Errorf("catalog not found")
 	}
 
-	if catalog.Phase != "review" {
-		return fmt.Errorf("can only transition from review to archived phase")
+	if catalog.Phase != "active" {
+		return fmt.Errorf("can only transition from active to archived phase")
 	}
 
 	return s.catalogRepo.UpdateCatalogPhase(catalogID, "archived")
@@ -269,8 +269,8 @@ func (s *CatalogService) UpdateCategory(category *models.Category, userID uint, 
 		return fmt.Errorf("permission denied: cannot edit catalog in %s phase", catalog.Phase)
 	}
 
-	// Log changes if in review phase (legacy code - review phase no longer used)
-	if catalog.Phase == "review" {
+	// Log changes if in active phase
+	if catalog.Phase == "active" {
 		if err := s.logCategoryChanges(catalog.ID, oldCategory, category, userID); err != nil {
 			return fmt.Errorf("failed to log changes: %w", err)
 		}
@@ -410,8 +410,8 @@ func (s *CatalogService) CreateOrUpdateDescription(desc *models.PathLevelDescrip
 		return fmt.Errorf("permission denied: cannot edit catalog in %s phase", catalog.Phase)
 	}
 
-	// Get old description if in review phase
-	if catalog.Phase == "review" {
+	// Get old description if in active phase
+	if catalog.Phase == "active" {
 		oldDescs, err := s.catalogRepo.GetDescriptionsByPathID(desc.PathID)
 		if err != nil {
 			return err
@@ -467,8 +467,8 @@ func canViewCatalog(phase string, userRoles []string) bool {
 	switch phase {
 	case "draft":
 		return isAdmin
-	case "review":
-		return true // Everyone can view review phase
+	case "active":
+		return true // Everyone can view active phase
 	case "archived":
 		return isAdmin || isReviewer // Admins and reviewers can view archived
 	default:
@@ -482,8 +482,8 @@ func canEditCatalog(phase string, userRoles []string) bool {
 	switch phase {
 	case "draft":
 		return isAdmin
-	case "review", "archived":
-		return false // Nobody can edit review or archived catalogs
+	case "active", "archived":
+		return false // Nobody can edit active or archived catalogs
 	default:
 		return false
 	}
@@ -503,8 +503,8 @@ func (s *CatalogService) validatePhaseTransition(catalogID uint, fromPhase, toPh
 
 	// Define allowed transitions
 	allowedTransitions := map[string][]string{
-		"draft":    {"review"},
-		"review":   {"archived"},
+		"draft":    {"active"},
+		"active":   {"archived"},
 		"archived": {}, // No transitions from archived
 	}
 
@@ -525,10 +525,10 @@ func (s *CatalogService) validatePhaseTransition(catalogID uint, fromPhase, toPh
 		return fmt.Errorf("cannot transition from %s to %s phase", fromPhase, toPhase)
 	}
 
-	// Additional validation when transitioning to review
-	if toPhase == "review" {
+	// Additional validation when transitioning to active
+	if toPhase == "active" {
 		if err := s.validateCatalogCompleteness(catalogID); err != nil {
-			return fmt.Errorf("cannot transition to review phase: %w", err)
+			return fmt.Errorf("cannot transition to active phase: %w", err)
 		}
 	}
 

@@ -279,10 +279,10 @@ func main() {
 			),
 		),
 	)
-	mux.Handle("POST /api/v1/admin/catalogs/{id}/transition-to-review",
+	mux.Handle("POST /api/v1/admin/catalogs/{id}/transition-to-active",
 		authMw.Authenticate(
 			rbacMw.RequireRole("admin")(
-				http.HandlerFunc(catalogHandler.TransitionToReview),
+				http.HandlerFunc(catalogHandler.TransitionToActive),
 			),
 		),
 	)

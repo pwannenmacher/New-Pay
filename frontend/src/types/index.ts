@@ -134,7 +134,7 @@ export interface ApiError {
 }
 
 // Criteria Catalog types
-export type CatalogPhase = 'draft' | 'review' | 'archived';
+export type CatalogPhase = 'draft' | 'active' | 'archived';
 
 export interface CriteriaCatalog {
   id: number;
