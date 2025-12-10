@@ -26,6 +26,8 @@ import { SessionsPage } from './pages/admin/SessionsPage';
 import { CatalogManagementPage } from './pages/admin/CatalogManagementPage';
 import { CatalogEditorPage } from './pages/admin/CatalogEditorPage';
 import { CatalogViewPage } from './pages/admin/CatalogViewPage';
+import SelfAssessmentsPage from './pages/self-assessments/SelfAssessmentsPage';
+import SelfAssessmentDetailPage from './pages/self-assessments/SelfAssessmentDetailPage';
 
 import 'dayjs/locale/de';
 
@@ -116,6 +118,24 @@ function App() {
                 element={
                   <ProtectedRoute requireAdmin>
                     <CatalogEditorPage />
+                  </ProtectedRoute>
+                }
+              />
+              
+              <Route
+                path="/self-assessments"
+                element={
+                  <ProtectedRoute>
+                    <SelfAssessmentsPage />
+                  </ProtectedRoute>
+                }
+              />
+              
+              <Route
+                path="/self-assessments/:id"
+                element={
+                  <ProtectedRoute>
+                    <SelfAssessmentDetailPage />
                   </ProtectedRoute>
                 }
               />

@@ -94,7 +94,8 @@ func main() {
 	authService := auth.NewService(&cfg.JWT)
 	emailService := email.NewService(&cfg.Email)
 	authSvc := service.NewAuthService(userRepo, tokenRepo, roleRepo, sessionRepo, oauthConnRepo, authService, emailService)
-	catalogService := service.NewCatalogService(catalogRepo, selfAssessmentRepo)
+	catalogService := service.NewCatalogService(catalogRepo, selfAssessmentRepo, auditRepo)
+	selfAssessmentService := service.NewSelfAssessmentService(selfAssessmentRepo, catalogRepo, auditRepo)
 
 	// Initialize middleware
 	authMw := middleware.NewAuthMiddleware(authService, sessionRepo, userRepo)
@@ -110,6 +111,7 @@ func main() {
 	sessionHandler := handlers.NewSessionHandler(sessionRepo, authSvc, auditMw, db.DB)
 	configHandler := handlers.NewConfigHandler(cfg)
 	catalogHandler := handlers.NewCatalogHandler(catalogService, auditMw)
+	selfAssessmentHandler := handlers.NewSelfAssessmentHandler(selfAssessmentService)
 
 	// Setup router
 	mux := http.NewServeMux()
@@ -369,6 +371,44 @@ func main() {
 			rbacMw.RequireRole("admin")(
 				http.HandlerFunc(catalogHandler.GetChanges),
 			),
+		),
+	)
+
+	// Self-Assessment routes
+	// Get active catalogs (available to all authenticated users)
+	mux.Handle("GET /api/v1/self-assessments/active-catalogs",
+		authMw.Authenticate(
+			http.HandlerFunc(selfAssessmentHandler.GetActiveCatalogs),
+		),
+	)
+	// Create self-assessment for a catalog
+	mux.Handle("POST /api/v1/self-assessments/catalog/{catalogId}",
+		authMw.Authenticate(
+			http.HandlerFunc(selfAssessmentHandler.CreateSelfAssessment),
+		),
+	)
+	// Get current user's self-assessments
+	mux.Handle("GET /api/v1/self-assessments/my",
+		authMw.Authenticate(
+			http.HandlerFunc(selfAssessmentHandler.GetUserSelfAssessments),
+		),
+	)
+	// Get visible self-assessments (role-based)
+	mux.Handle("GET /api/v1/self-assessments",
+		authMw.Authenticate(
+			http.HandlerFunc(selfAssessmentHandler.GetVisibleSelfAssessments),
+		),
+	)
+	// Get specific self-assessment
+	mux.Handle("GET /api/v1/self-assessments/{id}",
+		authMw.Authenticate(
+			http.HandlerFunc(selfAssessmentHandler.GetSelfAssessment),
+		),
+	)
+	// Update self-assessment status
+	mux.Handle("PUT /api/v1/self-assessments/{id}/status",
+		authMw.Authenticate(
+			http.HandlerFunc(selfAssessmentHandler.UpdateStatus),
 		),
 	)
 

@@ -11,13 +11,15 @@ import (
 type CatalogService struct {
 	catalogRepo        *repository.CatalogRepository
 	selfAssessmentRepo *repository.SelfAssessmentRepository
+	auditRepo          *repository.AuditRepository
 }
 
 // NewCatalogService creates a new catalog service
-func NewCatalogService(catalogRepo *repository.CatalogRepository, selfAssessmentRepo *repository.SelfAssessmentRepository) *CatalogService {
+func NewCatalogService(catalogRepo *repository.CatalogRepository, selfAssessmentRepo *repository.SelfAssessmentRepository, auditRepo *repository.AuditRepository) *CatalogService {
 	return &CatalogService{
 		catalogRepo:        catalogRepo,
 		selfAssessmentRepo: selfAssessmentRepo,
+		auditRepo:          auditRepo,
 	}
 }
 
@@ -41,7 +43,19 @@ func (s *CatalogService) CreateCatalog(catalog *models.CriteriaCatalog, userID u
 	catalog.Phase = "draft"
 	catalog.CreatedBy = &userID
 
-	return s.catalogRepo.CreateCatalog(catalog)
+	if err := s.catalogRepo.CreateCatalog(catalog); err != nil {
+		return err
+	}
+
+	// Audit log
+	s.auditRepo.Create(&models.AuditLog{
+		UserID:   &userID,
+		Action:   "create",
+		Resource: "catalog",
+		Details:  fmt.Sprintf("Created catalog: %s (ID: %d)", catalog.Name, catalog.ID),
+	})
+
+	return nil
 }
 
 // GetCatalogByID retrieves a catalog by ID
@@ -136,7 +150,23 @@ func (s *CatalogService) UpdateCatalog(catalog *models.CriteriaCatalog, userID u
 		}
 	}
 
-	return s.catalogRepo.UpdateCatalog(catalog)
+	if err := s.catalogRepo.UpdateCatalog(catalog); err != nil {
+		return err
+	}
+
+	// Audit log
+	details := fmt.Sprintf("Updated catalog: %s (ID: %d)", catalog.Name, catalog.ID)
+	if existing.Phase != catalog.Phase {
+		details = fmt.Sprintf("Updated catalog: %s (ID: %d), Phase: %s -> %s", catalog.Name, catalog.ID, existing.Phase, catalog.Phase)
+	}
+	s.auditRepo.Create(&models.AuditLog{
+		UserID:   &userID,
+		Action:   "update",
+		Resource: "catalog",
+		Details:  details,
+	})
+
+	return nil
 }
 
 // TransitionToActive transitions a catalog from draft to active phase
@@ -187,7 +217,7 @@ func (s *CatalogService) TransitionToArchived(catalogID uint, userRoles []string
 }
 
 // DeleteCatalog deletes a catalog (only allowed in draft phase)
-func (s *CatalogService) DeleteCatalog(catalogID uint, userRoles []string) error {
+func (s *CatalogService) DeleteCatalog(catalogID uint, userID uint, userRoles []string) error {
 	if !contains(userRoles, "admin") {
 		return fmt.Errorf("permission denied: only admins can delete catalogs")
 	}
@@ -204,7 +234,19 @@ func (s *CatalogService) DeleteCatalog(catalogID uint, userRoles []string) error
 		return fmt.Errorf("can only delete catalogs in draft phase")
 	}
 
-	return s.catalogRepo.DeleteCatalog(catalogID)
+	if err := s.catalogRepo.DeleteCatalog(catalogID); err != nil {
+		return err
+	}
+
+	// Audit log
+	s.auditRepo.Create(&models.AuditLog{
+		UserID:   &userID,
+		Action:   "delete",
+		Resource: "catalog",
+		Details:  fmt.Sprintf("Deleted catalog: %s (ID: %d)", catalog.Name, catalogID),
+	})
+
+	return nil
 }
 
 // GetCatalogWithDetails retrieves a catalog with all nested entities
@@ -239,7 +281,19 @@ func (s *CatalogService) CreateCategory(category *models.Category, userID uint, 
 		return fmt.Errorf("permission denied: cannot add categories in %s phase", catalog.Phase)
 	}
 
-	return s.catalogRepo.CreateCategory(category)
+	if err := s.catalogRepo.CreateCategory(category); err != nil {
+		return err
+	}
+
+	// Audit log
+	s.auditRepo.Create(&models.AuditLog{
+		UserID:   &userID,
+		Action:   "create",
+		Resource: "category",
+		Details:  fmt.Sprintf("Created category: %s (ID: %d) in catalog %d", category.Name, category.ID, category.CatalogID),
+	})
+
+	return nil
 }
 
 // UpdateCategory updates a category
@@ -278,11 +332,23 @@ func (s *CatalogService) UpdateCategory(category *models.Category, userID uint, 
 		}
 	}
 
-	return s.catalogRepo.UpdateCategory(category)
+	if err := s.catalogRepo.UpdateCategory(category); err != nil {
+		return err
+	}
+
+	// Audit log
+	s.auditRepo.Create(&models.AuditLog{
+		UserID:   &userID,
+		Action:   "update",
+		Resource: "category",
+		Details:  fmt.Sprintf("Updated category: %s (ID: %d) in catalog %d", category.Name, category.ID, category.CatalogID),
+	})
+
+	return nil
 }
 
 // DeleteCategory deletes a category
-func (s *CatalogService) DeleteCategory(categoryID, catalogID uint, userRoles []string) error {
+func (s *CatalogService) DeleteCategory(categoryID, catalogID uint, userID uint, userRoles []string) error {
 	catalog, err := s.catalogRepo.GetCatalogByID(catalogID)
 	if err != nil {
 		return err
@@ -295,7 +361,19 @@ func (s *CatalogService) DeleteCategory(categoryID, catalogID uint, userRoles []
 		return fmt.Errorf("permission denied: cannot delete categories in %s phase", catalog.Phase)
 	}
 
-	return s.catalogRepo.DeleteCategory(categoryID)
+	if err := s.catalogRepo.DeleteCategory(categoryID); err != nil {
+		return err
+	}
+
+	// Audit log
+	s.auditRepo.Create(&models.AuditLog{
+		UserID:   &userID,
+		Action:   "delete",
+		Resource: "category",
+		Details:  fmt.Sprintf("Deleted category ID: %d from catalog %d", categoryID, catalogID),
+	})
+
+	return nil
 }
 
 // CreateLevel creates a new level
@@ -312,7 +390,19 @@ func (s *CatalogService) CreateLevel(level *models.Level, userID uint, userRoles
 		return fmt.Errorf("permission denied: cannot add levels in %s phase", catalog.Phase)
 	}
 
-	return s.catalogRepo.CreateLevel(level)
+	if err := s.catalogRepo.CreateLevel(level); err != nil {
+		return err
+	}
+
+	// Audit log
+	s.auditRepo.Create(&models.AuditLog{
+		UserID:   &userID,
+		Action:   "create",
+		Resource: "level",
+		Details:  fmt.Sprintf("Created level: %s (ID: %d) in catalog %d", level.Name, level.ID, level.CatalogID),
+	})
+
+	return nil
 }
 
 // UpdateLevel updates a level
@@ -330,11 +420,23 @@ func (s *CatalogService) UpdateLevel(level *models.Level, userID uint, userRoles
 	// We can't easily check if sort_order changed without querying, but
 	// the handler should prevent sort operations in active/archived phase
 
-	return s.catalogRepo.UpdateLevel(level)
+	if err := s.catalogRepo.UpdateLevel(level); err != nil {
+		return err
+	}
+
+	// Audit log
+	s.auditRepo.Create(&models.AuditLog{
+		UserID:   &userID,
+		Action:   "update",
+		Resource: "level",
+		Details:  fmt.Sprintf("Updated level: %s (ID: %d) in catalog %d", level.Name, level.ID, level.CatalogID),
+	})
+
+	return nil
 }
 
 // DeleteLevel deletes a level
-func (s *CatalogService) DeleteLevel(levelID, catalogID uint, userRoles []string) error {
+func (s *CatalogService) DeleteLevel(levelID, catalogID uint, userID uint, userRoles []string) error {
 	catalog, err := s.catalogRepo.GetCatalogByID(catalogID)
 	if err != nil {
 		return err
@@ -347,7 +449,19 @@ func (s *CatalogService) DeleteLevel(levelID, catalogID uint, userRoles []string
 		return fmt.Errorf("permission denied: cannot delete levels in %s phase", catalog.Phase)
 	}
 
-	return s.catalogRepo.DeleteLevel(levelID)
+	if err := s.catalogRepo.DeleteLevel(levelID); err != nil {
+		return err
+	}
+
+	// Audit log
+	s.auditRepo.Create(&models.AuditLog{
+		UserID:   &userID,
+		Action:   "delete",
+		Resource: "level",
+		Details:  fmt.Sprintf("Deleted level ID: %d from catalog %d", levelID, catalogID),
+	})
+
+	return nil
 }
 
 // CreatePath creates a new path
@@ -364,7 +478,19 @@ func (s *CatalogService) CreatePath(path *models.Path, userID uint, userRoles []
 		return fmt.Errorf("permission denied: cannot add paths in %s phase", catalog.Phase)
 	}
 
-	return s.catalogRepo.CreatePath(path)
+	if err := s.catalogRepo.CreatePath(path); err != nil {
+		return err
+	}
+
+	// Audit log
+	s.auditRepo.Create(&models.AuditLog{
+		UserID:   &userID,
+		Action:   "create",
+		Resource: "path",
+		Details:  fmt.Sprintf("Created path: %s (ID: %d) in catalog %d", path.Name, path.ID, catalogID),
+	})
+
+	return nil
 }
 
 // UpdatePath updates a path
@@ -378,11 +504,23 @@ func (s *CatalogService) UpdatePath(path *models.Path, userID uint, userRoles []
 		return fmt.Errorf("permission denied: cannot edit catalog in %s phase", catalog.Phase)
 	}
 
-	return s.catalogRepo.UpdatePath(path)
+	if err := s.catalogRepo.UpdatePath(path); err != nil {
+		return err
+	}
+
+	// Audit log
+	s.auditRepo.Create(&models.AuditLog{
+		UserID:   &userID,
+		Action:   "update",
+		Resource: "path",
+		Details:  fmt.Sprintf("Updated path: %s (ID: %d) in catalog %d", path.Name, path.ID, catalogID),
+	})
+
+	return nil
 }
 
 // DeletePath deletes a path
-func (s *CatalogService) DeletePath(pathID, catalogID uint, userRoles []string) error {
+func (s *CatalogService) DeletePath(pathID, catalogID uint, userID uint, userRoles []string) error {
 	catalog, err := s.catalogRepo.GetCatalogByID(catalogID)
 	if err != nil {
 		return err
@@ -395,7 +533,19 @@ func (s *CatalogService) DeletePath(pathID, catalogID uint, userRoles []string) 
 		return fmt.Errorf("permission denied: cannot delete paths in %s phase", catalog.Phase)
 	}
 
-	return s.catalogRepo.DeletePath(pathID)
+	if err := s.catalogRepo.DeletePath(pathID); err != nil {
+		return err
+	}
+
+	// Audit log
+	s.auditRepo.Create(&models.AuditLog{
+		UserID:   &userID,
+		Action:   "delete",
+		Resource: "path",
+		Details:  fmt.Sprintf("Deleted path ID: %d from catalog %d", pathID, catalogID),
+	})
+
+	return nil
 }
 
 // CreateOrUpdateDescription creates or updates a path-level description

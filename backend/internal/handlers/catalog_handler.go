@@ -274,7 +274,13 @@ func (h *CatalogHandler) DeleteCatalog(w http.ResponseWriter, r *http.Request) {
 		userRoles = []string{}
 	}
 
-	if err := h.catalogService.DeleteCatalog(uint(id), userRoles); err != nil {
+	userID, ok := middleware.GetUserID(r)
+	if !ok {
+		http.Error(w, "User ID not found", http.StatusUnauthorized)
+		return
+	}
+
+	if err := h.catalogService.DeleteCatalog(uint(id), userID, userRoles); err != nil {
 		if strings.Contains(err.Error(), "permission denied") {
 			http.Error(w, err.Error(), http.StatusForbidden)
 		} else {
@@ -510,7 +516,13 @@ func (h *CatalogHandler) DeleteCategory(w http.ResponseWriter, r *http.Request) 
 		userRoles = []string{}
 	}
 
-	if err := h.catalogService.DeleteCategory(uint(categoryID), uint(catalogID), userRoles); err != nil {
+	userID, ok := middleware.GetUserID(r)
+	if !ok {
+		http.Error(w, "User ID not found", http.StatusUnauthorized)
+		return
+	}
+
+	if err := h.catalogService.DeleteCategory(uint(categoryID), uint(catalogID), userID, userRoles); err != nil {
 		if strings.Contains(err.Error(), "permission denied") {
 			http.Error(w, err.Error(), http.StatusForbidden)
 		} else {
@@ -668,7 +680,13 @@ func (h *CatalogHandler) DeleteLevel(w http.ResponseWriter, r *http.Request) {
 		userRoles = []string{}
 	}
 
-	if err := h.catalogService.DeleteLevel(uint(levelID), uint(catalogID), userRoles); err != nil {
+	userID, ok := middleware.GetUserID(r)
+	if !ok {
+		http.Error(w, "User ID not found", http.StatusUnauthorized)
+		return
+	}
+
+	if err := h.catalogService.DeleteLevel(uint(levelID), uint(catalogID), userID, userRoles); err != nil {
 		if strings.Contains(err.Error(), "permission denied") {
 			http.Error(w, err.Error(), http.StatusForbidden)
 		} else {
@@ -843,7 +861,13 @@ func (h *CatalogHandler) DeletePath(w http.ResponseWriter, r *http.Request) {
 		userRoles = []string{}
 	}
 
-	if err := h.catalogService.DeletePath(uint(pathID), uint(catalogID), userRoles); err != nil {
+	userID, ok := middleware.GetUserID(r)
+	if !ok {
+		http.Error(w, "User ID not found", http.StatusUnauthorized)
+		return
+	}
+
+	if err := h.catalogService.DeletePath(uint(pathID), uint(catalogID), userID, userRoles); err != nil {
 		if strings.Contains(err.Error(), "permission denied") {
 			http.Error(w, err.Error(), http.StatusForbidden)
 		} else {

@@ -1,7 +1,7 @@
 import { AppShell, Burger, Group, Button, Menu, Avatar, Text, Alert } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { Link, useNavigate } from 'react-router-dom';
-import { IconUser, IconLogout, IconSettings, IconShieldLock, IconAlertCircle, IconMail, IconBook } from '@tabler/icons-react';
+import { IconUser, IconLogout, IconSettings, IconShieldLock, IconAlertCircle, IconMail, IconBook, IconClipboardList } from '@tabler/icons-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useAppConfig } from '../../contexts/AppConfigContext';
 import { ThemeToggle } from './ThemeToggle';
@@ -139,6 +139,17 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
               mb="xs"
             >
               My Profile
+            </Button>
+            <Button
+              variant="subtle"
+              component={Link}
+              to="/self-assessments"
+              fullWidth
+              justify="flex-start"
+              leftSection={<IconClipboardList size={16} />}
+              mb="xs"
+            >
+              Selbsteinschätzungen
             </Button>
             {isAdmin && (
               <>

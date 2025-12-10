@@ -213,3 +213,22 @@ export interface CatalogWithDetails extends CriteriaCatalog {
   categories?: CategoryWithPaths[];
   levels?: Level[];
 }
+
+// Self-Assessment types
+export type SelfAssessmentStatus = 'draft' | 'submitted' | 'in_review' | 'reviewed' | 'discussion' | 'archived' | 'closed';
+
+export interface SelfAssessment {
+  id: number;
+  catalog_id: number;
+  user_id: number;
+  status: SelfAssessmentStatus;
+  created_at: string;
+  updated_at: string;
+  submitted_at?: string;
+  in_review_at?: string;
+  reviewed_at?: string;
+  discussion_started_at?: string;
+  archived_at?: string;
+  closed_at?: string;
+  previous_status?: string;
+}
