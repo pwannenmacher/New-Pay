@@ -37,7 +37,7 @@ jobs:
     #- name: Upload Trivy results to GitHub Security tab
     #  uses: github/codeql-action/upload-sarif@v4
     - name: Upload Trivy SARIF results as artifact
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v5
       if: always()
       with:
         # needed to upload SARIF results to the Security tab, only for public repos or private repos with GitHub Advanced Security enabled (Enterprise Cloud)
@@ -92,7 +92,7 @@ jobs:
     #- name: Upload Backend Image scan results
     #  uses: github/codeql-action/upload-sarif@v4
     - name: Upload Backend Image scan results as artifact
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v5
       if: always()
       with:
         # needed to upload SARIF results to the Security tab, only for public repos or private repos with GitHub Advanced Security enabled (Enterprise Cloud)
@@ -124,7 +124,7 @@ jobs:
     #- name: Upload Frontend Image scan results
     #  uses: github/codeql-action/upload-sarif@v4
     - name: Upload Frontend Image scan results as artifact
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v5
       if: always()
       with:
         # needed to upload SARIF results to the Security tab, only for public repos or private repos with GitHub Advanced Security enabled (Enterprise Cloud)
