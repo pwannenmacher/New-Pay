@@ -31,10 +31,10 @@ const getPhaseColor = (phase: CatalogPhase): string => {
   switch (phase) {
     case 'draft':
       return 'gray';
-    case 'review':
+    case 'active':
       return 'blue';
     case 'archived':
-      return 'orange';
+      return 'green';
     default:
       return 'gray';
   }
@@ -44,10 +44,10 @@ const getPhaseLabel = (phase: CatalogPhase): string => {
   switch (phase) {
     case 'draft':
       return 'Entwurf';
-    case 'review':
-      return 'Haupt';
+    case 'active':
+      return 'Aktiv';
     case 'archived':
-      return 'Abschluss';
+      return 'Archiviert';
     default:
       return phase;
   }
@@ -89,13 +89,13 @@ export function CatalogManagementPage() {
     }
   };
 
-  const handleTransitionToReview = async (catalogId: number, catalogName: string) => {
-    if (!confirm(`Kriterienkatalog "${catalogName}" in die Hauptphase überführen? Der Katalog wird dann für Reviewer und User sichtbar.`)) {
+  const handleTransitionToActive = async (catalogId: number, catalogName: string) => {
+    if (!confirm(`Kriterienkatalog "${catalogName}" aktivieren? Der Katalog wird dann für Reviewer und User sichtbar.`)) {
       return;
     }
 
     try {
-      await adminApi.transitionToReview(catalogId);
+      await adminApi.transitionToActive(catalogId);
       await loadCatalogs();
     } catch (err: any) {
       alert(err.response?.data?.error || 'Failed to transition catalog');
@@ -216,9 +216,9 @@ export function CatalogManagementPage() {
                             <>
                               <Menu.Item
                                 leftSection={<IconChecks size={16} />}
-                                onClick={() => handleTransitionToReview(catalog.id, catalog.name)}
+                                onClick={() => handleTransitionToActive(catalog.id, catalog.name)}
                               >
-                                In Hauptphase überführen
+                                Aktivieren
                               </Menu.Item>
                               <Menu.Item
                                 leftSection={<IconTrash size={16} />}
@@ -230,7 +230,7 @@ export function CatalogManagementPage() {
                             </>
                           )}
 
-                          {catalog.phase === 'review' && (
+                          {catalog.phase === 'active' && (
                             <Menu.Item
                               leftSection={<IconArchive size={16} />}
                               onClick={() => handleTransitionToArchived(catalog.id, catalog.name)}

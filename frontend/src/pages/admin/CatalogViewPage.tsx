@@ -22,10 +22,10 @@ const getPhaseColor = (phase: CatalogPhase): string => {
   switch (phase) {
     case 'draft':
       return 'gray';
-    case 'review':
+    case 'active':
       return 'blue';
     case 'archived':
-      return 'orange';
+      return 'green';
     default:
       return 'gray';
   }
@@ -35,10 +35,10 @@ const getPhaseLabel = (phase: CatalogPhase): string => {
   switch (phase) {
     case 'draft':
       return 'Entwurf';
-    case 'review':
-      return 'Haupt';
+    case 'active':
+      return 'Aktiv';
     case 'archived':
-      return 'Abschluss';
+      return 'Archiviert';
     default:
       return phase;
   }

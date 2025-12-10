@@ -161,9 +161,9 @@ export const adminApi = {
   deleteCatalog: (catalogId: number) =>
     apiClient.delete<{ message: string }>(`/admin/catalogs/${catalogId}`),
   
-  // Transition catalog to review phase
-  transitionToReview: (catalogId: number) =>
-    apiClient.post<{ message: string }>(`/admin/catalogs/${catalogId}/transition-to-review`, {}),
+  // Transition catalog to active phase
+  transitionToActive: (catalogId: number) =>
+    apiClient.post<{ message: string }>(`/admin/catalogs/${catalogId}/transition-to-active`, {}),
   
   // Transition catalog to archived phase
   transitionToArchived: (catalogId: number) =>

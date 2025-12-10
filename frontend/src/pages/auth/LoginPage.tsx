@@ -126,7 +126,7 @@ export const LoginPage = () => {
         {enableRegistration && (
           <Text ta="center" mt="md">
             Noch kein Konto?{' '}
-            <Anchor component={Link} to="/register" weight={700}>
+            <Anchor component={Link} to="/register" fw={700}>
               Registrieren
             </Anchor>
           </Text>
