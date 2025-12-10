@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"new-pay/internal/middleware"
 	"new-pay/internal/service"
@@ -67,6 +68,7 @@ func (h *SelfAssessmentHandler) CreateSelfAssessment(w http.ResponseWriter, r *h
 
 	assessment, err := h.selfAssessmentService.CreateSelfAssessment(uint(catalogID), userID)
 	if err != nil {
+		slog.Error("Failed to create self-assessment", "error", err, "catalog_id", catalogID, "user_id", userID)
 		if strings.Contains(err.Error(), "already exists") {
 			http.Error(w, err.Error(), http.StatusConflict)
 		} else if strings.Contains(err.Error(), "not valid") || strings.Contains(err.Error(), "can only create") {

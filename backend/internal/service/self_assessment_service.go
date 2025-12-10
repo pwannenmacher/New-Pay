@@ -47,12 +47,13 @@ func (s *SelfAssessmentService) CreateSelfAssessment(catalogID uint, userID uint
 		return nil, fmt.Errorf("catalog is not valid for current date")
 	}
 
-	// Check if user already has a self-assessment for this catalog
-	existing, err := s.selfAssessmentRepo.GetByCatalogAndUser(catalogID, userID)
+	// Check if user already has a non-closed self-assessment for this catalog
+	// Multiple assessments for the same catalog are allowed, but only if all previous ones are closed
+	hasOpen, err := s.selfAssessmentRepo.HasOpenAssessmentForCatalog(catalogID, userID)
 	if err != nil {
 		return nil, err
 	}
-	if existing != nil {
+	if hasOpen {
 		return nil, fmt.Errorf("self-assessment already exists for this catalog")
 	}
 

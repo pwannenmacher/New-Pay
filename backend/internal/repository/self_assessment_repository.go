@@ -336,6 +336,23 @@ func (r *SelfAssessmentRepository) HasActiveAssessment(userID uint) (bool, error
 	return count > 0, nil
 }
 
+// HasOpenAssessmentForCatalog checks if a user has any non-closed self-assessment for a specific catalog
+// Returns true if there's any assessment with status other than 'closed'
+func (r *SelfAssessmentRepository) HasOpenAssessmentForCatalog(catalogID, userID uint) (bool, error) {
+	query := `
+		SELECT COUNT(*) 
+		FROM self_assessments 
+		WHERE catalog_id = $1 AND user_id = $2 
+		AND status != 'closed'
+	`
+	var count int
+	err := r.db.QueryRow(query, catalogID, userID).Scan(&count)
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}
+
 // GetAllWithFilters retrieves all self-assessments with optional filters
 func (r *SelfAssessmentRepository) GetAllWithFilters(status, username string, fromDate, toDate *time.Time) ([]models.SelfAssessment, error) {
 	query := `
