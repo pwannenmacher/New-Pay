@@ -191,10 +191,7 @@ export default function SelfAssessmentsPage() {
                 {assessments.map((assessment) => (
                   <Table.Tr key={assessment.id}>
                     <Table.Td>
-                      <div>
-                        <Text size="sm">{assessment.catalog_name || 'Unbekannt'}</Text>
-                        <Text size="xs" c="dimmed">ID: {assessment.catalog_id}</Text>
-                      </div>
+                      <Text size="sm">{assessment.catalog_name || 'Unbekannt'}</Text>
                     </Table.Td>
                     <Table.Td>{getStatusBadge(assessment.status)}</Table.Td>
                     <Table.Td>{formatDate(assessment.created_at)}</Table.Td>

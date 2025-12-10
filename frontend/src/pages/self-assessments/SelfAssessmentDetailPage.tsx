@@ -161,10 +161,10 @@ export default function SelfAssessmentDetailPage() {
               <Title order={1}>
                 {assessment.catalog_name || assessment.user_name 
                   ? `${assessment.catalog_name || 'Katalog'} - ${assessment.user_name || 'Unbekannt'}`
-                  : catalog?.name || `Selbsteinschätzung #${assessment.id}`}
+                  : catalog?.name || `Selbsteinschätzung`}
               </Title>
               <Text c="dimmed" size="sm">
-                ID: {assessment.id} • Erstellt am: {formatDate(assessment.created_at)}
+                Erstellt am: {formatDate(assessment.created_at)}
                 {assessment.user_email && ` • ${assessment.user_email}`}
               </Text>
             </div>
