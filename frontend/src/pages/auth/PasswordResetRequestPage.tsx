@@ -68,13 +68,13 @@ export const PasswordResetRequestPage = () => {
             >
               <IconCheck size={48} color="var(--mantine-color-green-6)" />
             </Center>
-            <Title order={2}>Check your email</Title>
+            <Title order={2}>Prüfen Sie Ihre E-Mails</Title>
             <Text c="dimmed" ta="center">
-              We've sent password reset instructions to your email address.
-              Please check your inbox and follow the link to reset your password.
+              Wir haben Ihnen Anweisungen zum Zurücksetzen des Passworts an Ihre E-Mail-Adresse gesendet.
+              Bitte überprüfen Sie Ihren Posteingang und folgen Sie dem Link.
             </Text>
             <Anchor component={Link} to="/login" mt="md">
-              Back to login
+              Zurück zur Anmeldung
             </Anchor>
           </Stack>
         </Paper>
@@ -85,10 +85,10 @@ export const PasswordResetRequestPage = () => {
   return (
     <Container size={420} my={40}>
       <Title ta="center" order={1}>
-        Reset Password
+        Passwort zurücksetzen
       </Title>
       <Text c="dimmed" size="sm" ta="center" mt={5}>
-        Enter your email to receive reset instructions
+        Geben Sie Ihre E-Mail-Adresse ein, um Anweisungen zu erhalten
       </Text>
 
       <Paper withBorder shadow="md" p={30} mt={30} radius="md">

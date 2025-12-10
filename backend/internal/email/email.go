@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"html/template"
+	"log/slog"
 	"net"
 	"net/smtp"
 
@@ -141,10 +142,19 @@ func (s *Service) sendEmail(to, subject, body string) error {
 
 	// Connect to SMTP server
 	addr := net.JoinHostPort(s.config.SMTPHost, s.config.SMTPPort)
+	slog.Debug("Attempting to connect to SMTP server",
+		"address", addr,
+		"host", s.config.SMTPHost,
+		"port", s.config.SMTPPort,
+	)
 
 	// Establish connection
 	conn, err := net.Dial("tcp", addr)
 	if err != nil {
+		slog.Error("Failed to connect to SMTP server",
+			"address", addr,
+			"error", err,
+		)
 		return fmt.Errorf("failed to connect to SMTP server: %w", err)
 	}
 	defer conn.Close()
@@ -152,6 +162,7 @@ func (s *Service) sendEmail(to, subject, body string) error {
 	// Create SMTP client
 	client, err := smtp.NewClient(conn, s.config.SMTPHost)
 	if err != nil {
+		slog.Error("Failed to create SMTP client", "error", err)
 		return fmt.Errorf("failed to create SMTP client: %w", err)
 	}
 	defer client.Close()
@@ -166,24 +177,36 @@ func (s *Service) sendEmail(to, subject, body string) error {
 
 	// Set sender
 	if err := client.Mail(s.config.SMTPFrom); err != nil {
+		slog.Error("Failed to set sender",
+			"from", s.config.SMTPFrom,
+			"error", err,
+		)
 		return fmt.Errorf("failed to set sender: %w", err)
 	}
 
 	// Set recipient
 	if err := client.Rcpt(to); err != nil {
+		slog.Error("Failed to set recipient",
+			"to", to,
+			"error", err,
+		)
 		return fmt.Errorf("failed to set recipient: %w", err)
 	}
 
 	// Send message
 	wc, err := client.Data()
 	if err != nil {
+		slog.Error("Failed to initiate data transfer", "error", err)
 		return fmt.Errorf("failed to initiate data transfer: %w", err)
 	}
 	defer wc.Close()
 
 	if _, err := wc.Write(message.Bytes()); err != nil {
+		slog.Error("Failed to write message", "error", err)
 		return fmt.Errorf("failed to write message: %w", err)
 	}
+
+	slog.Info("Email sent successfully", "to", to)
 
 	return nil
 }

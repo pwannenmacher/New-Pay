@@ -9,11 +9,13 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 	"time"
 
-	"github.com/golang-jwt/jwt/v5"
 	"new-pay/internal/config"
+
+	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -167,15 +169,15 @@ func loadOrGenerateKeys(secret string) (*ecdsa.PrivateKey, *ecdsa.PublicKey) {
 	// Try to parse secret as PEM-encoded private key
 	if block, _ := pem.Decode([]byte(secret)); block != nil {
 		if privateKey, err := x509.ParseECPrivateKey(block.Bytes); err == nil {
-			fmt.Println("✓ Loaded persistent ECDSA private key from JWT_SECRET")
+			slog.Info("Loaded persistent ECDSA private key from JWT_SECRET")
 			return privateKey, &privateKey.PublicKey
 		}
 	}
 
 	// Generate new key pair for development
 	// In production, you should load from a secure key management system
-	fmt.Println("⚠ Generating new ECDSA key pair (sessions will be invalidated on restart)")
-	fmt.Println("  Run 'go run scripts/generate-jwt-keys.go' to create a persistent key")
+	slog.Warn("Generating new ECDSA key pair (sessions will be invalidated on restart)")
+	slog.Warn("Run 'go run scripts/generate-jwt-keys.go' to create a persistent key")
 	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
 		panic(fmt.Sprintf("failed to generate ECDSA key: %v", err))

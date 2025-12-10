@@ -3,6 +3,7 @@ package database
 import (
 	"database/sql"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"sort"
@@ -52,7 +53,7 @@ func (m *MigrationExecutor) RunMigrations(migrationsPath string) error {
 			if err := m.executeMigration(migration); err != nil {
 				return fmt.Errorf("failed to execute migration %s: %w", migration.Version, err)
 			}
-			fmt.Printf("Applied migration: %s - %s\n", migration.Version, migration.Name)
+			slog.Info("Applied migration", "version", migration.Version, "name", migration.Name)
 		}
 	}
 

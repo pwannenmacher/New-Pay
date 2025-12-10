@@ -82,7 +82,7 @@ export const PasswordResetConfirmPage = () => {
       <Container size={420} my={40}>
         <Paper withBorder shadow="md" p={30} radius="md">
           <Stack align="center" gap="md">
-            <Title order={2}>Invalid Link</Title>
+            <Title order={2}>Ungültiger Link</Title>
             <Text c="dimmed" ta="center">
               This password reset link is invalid or has expired.
             </Text>
@@ -110,7 +110,7 @@ export const PasswordResetConfirmPage = () => {
             >
               <IconCheck size={48} color="var(--mantine-color-green-6)" />
             </Center>
-            <Title order={2}>Password Reset Complete</Title>
+            <Title order={2}>Passwort erfolgreich zurückgesetzt</Title>
             <Text c="dimmed" ta="center">
               Your password has been successfully reset. You will be redirected to the login page.
             </Text>
@@ -123,10 +123,10 @@ export const PasswordResetConfirmPage = () => {
   return (
     <Container size={420} my={40}>
       <Title ta="center" order={1}>
-        Set New Password
+        Neues Passwort festlegen
       </Title>
       <Text c="dimmed" size="sm" ta="center" mt={5}>
-        Enter your new password
+        Geben Sie Ihr neues Passwort ein
       </Text>
 
       <Paper withBorder shadow="md" p={30} mt={30} radius="md">

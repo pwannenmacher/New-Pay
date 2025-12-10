@@ -1,7 +1,7 @@
 package handlers
 
 import (
-	"log"
+	"log/slog"
 	"net/http"
 
 	"new-pay/internal/config"
@@ -27,11 +27,11 @@ func NewConfigHandler(cfg *config.Config) *ConfigHandler {
 // @Success 200 {object} map[string]interface{} "OAuth configuration"
 // @Router /config/oauth [get]
 func (h *ConfigHandler) GetOAuthConfig(w http.ResponseWriter, r *http.Request) {
-	log.Println("GetOAuthConfig handler called")
+	slog.Info("GetOAuthConfig handler called")
 
 	// Only allow GET requests
 	if r.Method != http.MethodGet {
-		log.Printf("Method not allowed: %s", r.Method)
+		slog.Info("Method not allowed", "value", r.Method)
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
@@ -55,7 +55,10 @@ func (h *ConfigHandler) GetOAuthConfig(w http.ResponseWriter, r *http.Request) {
 		"providers": enabledProviders,
 	}
 
-	log.Printf("Returning OAuth config: enabled=%v, provider_count=%d", len(enabledProviders) > 0, len(enabledProviders))
+	slog.Debug("Returning OAuth config",
+		"enabled", len(enabledProviders) > 0,
+		"provider_count", len(enabledProviders),
+	)
 	respondWithJSON(w, http.StatusOK, oauthConfig)
 }
 
@@ -67,11 +70,11 @@ func (h *ConfigHandler) GetOAuthConfig(w http.ResponseWriter, r *http.Request) {
 // @Success 200 {object} map[string]interface{} "App configuration"
 // @Router /config/app [get]
 func (h *ConfigHandler) GetAppConfig(w http.ResponseWriter, r *http.Request) {
-	log.Println("GetAppConfig handler called")
+	slog.Info("GetAppConfig handler called")
 
 	// Only allow GET requests
 	if r.Method != http.MethodGet {
-		log.Printf("Method not allowed: %s", r.Method)
+		slog.Info("Method not allowed", "value", r.Method)
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
@@ -81,7 +84,9 @@ func (h *ConfigHandler) GetAppConfig(w http.ResponseWriter, r *http.Request) {
 		"enable_oauth_registration": h.config.App.EnableOAuthRegistration,
 	}
 
-	log.Printf("Returning app config: registration=%v, oauth_registration=%v",
-		h.config.App.EnableRegistration, h.config.App.EnableOAuthRegistration)
+	slog.Debug("Returning app config",
+		"registration", h.config.App.EnableRegistration,
+		"oauth_registration", h.config.App.EnableOAuthRegistration,
+	)
 	respondWithJSON(w, http.StatusOK, appConfig)
 }

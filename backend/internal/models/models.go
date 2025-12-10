@@ -117,3 +117,118 @@ type OAuthConnection struct {
 	CreatedAt  time.Time `json:"created_at" db:"created_at"`
 	UpdatedAt  time.Time `json:"updated_at" db:"updated_at"`
 }
+
+// CriteriaCatalog represents a criteria catalog with phases and validity
+type CriteriaCatalog struct {
+	ID          uint       `json:"id" db:"id"`
+	Name        string     `json:"name" db:"name"`
+	Description *string    `json:"description,omitempty" db:"description"`
+	ValidFrom   time.Time  `json:"valid_from" db:"valid_from"`
+	ValidUntil  time.Time  `json:"valid_until" db:"valid_until"`
+	Phase       string     `json:"phase" db:"phase"` // draft, review, archived
+	CreatedBy   *uint      `json:"created_by,omitempty" db:"created_by"`
+	CreatedAt   time.Time  `json:"created_at" db:"created_at"`
+	UpdatedAt   time.Time  `json:"updated_at" db:"updated_at"`
+	PublishedAt *time.Time `json:"published_at,omitempty" db:"published_at"`
+	ArchivedAt  *time.Time `json:"archived_at,omitempty" db:"archived_at"`
+}
+
+// Category represents a category within a criteria catalog
+type Category struct {
+	ID          uint      `json:"id" db:"id"`
+	CatalogID   uint      `json:"catalog_id" db:"catalog_id"`
+	Name        string    `json:"name" db:"name"`
+	Description *string   `json:"description,omitempty" db:"description"`
+	SortOrder   int       `json:"sort_order" db:"sort_order"`
+	CreatedAt   time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at" db:"updated_at"`
+}
+
+// Level represents a level (column) in the criteria matrix
+type Level struct {
+	ID          uint      `json:"id" db:"id"`
+	CatalogID   uint      `json:"catalog_id" db:"catalog_id"`
+	Name        string    `json:"name" db:"name"`
+	LevelNumber int       `json:"level_number" db:"level_number"`
+	Description *string   `json:"description,omitempty" db:"description"`
+	CreatedAt   time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at" db:"updated_at"`
+}
+
+// Path represents a path (row) within a category
+type Path struct {
+	ID          uint      `json:"id" db:"id"`
+	CategoryID  uint      `json:"category_id" db:"category_id"`
+	Name        string    `json:"name" db:"name"`
+	Description *string   `json:"description,omitempty" db:"description"`
+	SortOrder   int       `json:"sort_order" db:"sort_order"`
+	CreatedAt   time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at" db:"updated_at"`
+}
+
+// PathLevelDescription represents a cell in the criteria matrix
+type PathLevelDescription struct {
+	ID          uint      `json:"id" db:"id"`
+	PathID      uint      `json:"path_id" db:"path_id"`
+	LevelID     uint      `json:"level_id" db:"level_id"`
+	Description string    `json:"description" db:"description"`
+	CreatedAt   time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at" db:"updated_at"`
+}
+
+// CatalogChange represents a change log entry for catalog modifications
+type CatalogChange struct {
+	ID         uint      `json:"id" db:"id"`
+	CatalogID  uint      `json:"catalog_id" db:"catalog_id"`
+	EntityType string    `json:"entity_type" db:"entity_type"` // catalog, category, path, level, description
+	EntityID   uint      `json:"entity_id" db:"entity_id"`
+	FieldName  string    `json:"field_name" db:"field_name"`
+	OldValue   *string   `json:"old_value,omitempty" db:"old_value"`
+	NewValue   *string   `json:"new_value,omitempty" db:"new_value"`
+	ChangedBy  *uint     `json:"changed_by,omitempty" db:"changed_by"`
+	ChangedAt  time.Time `json:"changed_at" db:"changed_at"`
+}
+
+// CatalogWithDetails extends CriteriaCatalog with nested structures
+type CatalogWithDetails struct {
+	CriteriaCatalog
+	Categories []CategoryWithPaths `json:"categories,omitempty"`
+	Levels     []Level             `json:"levels,omitempty"`
+}
+
+// CategoryWithPaths extends Category with paths
+type CategoryWithPaths struct {
+	Category
+	Paths []PathWithDescriptions `json:"paths,omitempty"`
+}
+
+// PathWithDescriptions extends Path with descriptions for all levels
+type PathWithDescriptions struct {
+	Path
+	Descriptions []PathLevelDescription `json:"descriptions,omitempty"`
+}
+
+// SelfAssessment represents a user's self-assessment for a catalog
+type SelfAssessment struct {
+	ID                  uint       `json:"id" db:"id"`
+	CatalogID           uint       `json:"catalog_id" db:"catalog_id"`
+	UserID              uint       `json:"user_id" db:"user_id"`
+	Status              string     `json:"status" db:"status"` // draft, submitted, in_review, reviewed, discussion, archived, closed
+	CreatedAt           time.Time  `json:"created_at" db:"created_at"`
+	UpdatedAt           time.Time  `json:"updated_at" db:"updated_at"`
+	SubmittedAt         *time.Time `json:"submitted_at,omitempty" db:"submitted_at"`
+	InReviewAt          *time.Time `json:"in_review_at,omitempty" db:"in_review_at"`
+	ReviewedAt          *time.Time `json:"reviewed_at,omitempty" db:"reviewed_at"`
+	DiscussionStartedAt *time.Time `json:"discussion_started_at,omitempty" db:"discussion_started_at"`
+	ArchivedAt          *time.Time `json:"archived_at,omitempty" db:"archived_at"`
+	ClosedAt            *time.Time `json:"closed_at,omitempty" db:"closed_at"`
+	PreviousStatus      *string    `json:"previous_status,omitempty" db:"previous_status"`
+}
+
+// SelfAssessmentWithDetails includes user and catalog information
+type SelfAssessmentWithDetails struct {
+	SelfAssessment
+	UserEmail   string `json:"user_email,omitempty"`
+	UserName    string `json:"user_name,omitempty"` // first_name + last_name
+	CatalogName string `json:"catalog_name,omitempty"`
+}

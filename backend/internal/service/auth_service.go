@@ -3,7 +3,7 @@ package service
 import (
 	"errors"
 	"fmt"
-	"log"
+	"log/slog"
 	"time"
 
 	"new-pay/internal/auth"
@@ -80,14 +80,14 @@ func (s *AuthService) Register(email, password, firstName, lastName string) (*mo
 	// Check if this is the first user in the system
 	userCount, err := s.userRepo.CountAll()
 	if err != nil {
-		log.Printf("Failed to count users: %v", err)
+		slog.Error("Failed to count users", "error", err)
 	}
 
 	// Assign role: first user gets admin, others get user role
 	var roleName string
 	if userCount == 1 {
 		roleName = "admin"
-		log.Printf("Assigning admin role to first user: %s", email)
+		slog.Info("Assigning admin role to first user", "email", email)
 	} else {
 		roleName = "user"
 	}
@@ -95,10 +95,10 @@ func (s *AuthService) Register(email, password, firstName, lastName string) (*mo
 	role, err := s.roleRepo.GetByName(roleName)
 	if err == nil {
 		if err := s.userRepo.AssignRole(user.ID, role.ID); err != nil {
-			log.Printf("Failed to assign %s role to user %d: %v", roleName, user.ID, err)
+			slog.Error("Failed to assign role to user", "role", roleName, "user_id", user.ID, "error", err)
 		}
 	} else {
-		log.Printf("Failed to find %s role: %v", roleName, err)
+		slog.Error("Failed to find role", "role", roleName, "error", err)
 	}
 
 	// Generate email verification token
@@ -120,7 +120,7 @@ func (s *AuthService) Register(email, password, firstName, lastName string) (*mo
 	// Send verification email
 	if err := s.emailSvc.SendVerificationEmail(email, token); err != nil {
 		// Log error but don't fail registration
-		fmt.Printf("Failed to send verification email: %v\n", err)
+		slog.Error("Failed to send verification email", "error", err, "email", email)
 	}
 
 	return user, nil
@@ -283,7 +283,7 @@ func (s *AuthService) RequestPasswordReset(email string) error {
 	// Send password reset email
 	if err := s.emailSvc.SendPasswordResetEmail(email, token); err != nil {
 		// Log error but don't fail the request
-		fmt.Printf("Failed to send password reset email: %v\n", err)
+		slog.Error("Failed to send password reset email", "error", err, "email", email)
 	}
 
 	return nil
@@ -390,7 +390,7 @@ func (s *AuthService) RefreshToken(refreshToken, ipAddress, userAgent string) (a
 	// Create access token session for tracking (same session ID)
 	if err := s.CreateSession(claims.UserID, newSessionID, accessJTI, "access", ipAddress, userAgent, time.Now().Add(24*time.Hour)); err != nil {
 		// Log but don't fail - access tokens can still work without session tracking
-		fmt.Printf("Warning: failed to create access token session: %v\n", err)
+		slog.Warn("Failed to create access token session", "error", err, "session_id", newSessionID, "user_id", claims.UserID)
 	}
 
 	return accessToken, newRefreshToken, user, nil
@@ -407,17 +407,17 @@ func (s *AuthService) InvalidateSessionByToken(token string) error {
 	// Parse token without validation to extract JTI
 	jti, err := s.authSvc.ExtractJTI(token)
 	if err != nil {
-		log.Printf("Failed to extract JTI: %v", err)
+		slog.Error("Failed to extract JTI", "error", err)
 		return err
 	}
 	if jti == "" {
-		log.Printf("Token missing JTI")
+		slog.Info("Token missing JTI")
 		return errors.New("token missing JTI")
 	}
-	log.Printf("Deleting session with JTI: %s", jti)
+	slog.Debug("Deleting session with JTI", "jti", jti)
 	err = s.sessionRepo.DeleteByJTI(jti)
 	if err != nil {
-		log.Printf("Failed to delete session: %v", err)
+		slog.Error("Failed to delete session", "error", err)
 	}
 	return err
 }
@@ -438,7 +438,7 @@ func (s *AuthService) InvalidateCurrentSession(token string) error {
 	}
 
 	// Delete all tokens with the same session_id (access + refresh from this login)
-	log.Printf("Deleting session %s for user ID: %d", session.SessionID, session.UserID)
+	slog.Debug("Deleting session for user ID", "session_id", session.SessionID, "session_id", session.UserID)
 	return s.sessionRepo.DeleteBySessionID(session.SessionID)
 }
 
@@ -492,15 +492,15 @@ func (s *AuthService) FindOrCreateOAuthUser(email, firstName, lastName, oauthPro
 			// Update last login
 			user.LastLoginAt = timePtr(time.Now())
 			if err := s.userRepo.Update(user); err != nil {
-				log.Printf("Failed to update last login for user %d: %v", user.ID, err)
+				slog.Error("Failed to update last login for user", "user_id", user.ID, "error", err)
 			}
 
 			// Update connection timestamp
 			if err := s.oauthConnRepo.Update(conn); err != nil {
-				log.Printf("Failed to update OAuth connection for user %d: %v", user.ID, err)
+				slog.Error("Failed to update OAuth connection for user", "user_id", user.ID, "error", err)
 			}
 
-			log.Printf("Existing user logged in via OAuth: id=%d, email=%s, provider=%s", user.ID, user.Email, oauthProvider)
+			slog.Info("Existing user logged in via OAuth: id=%d, email=%s, provider=%s", "user_id", user.ID, "email", user.Email, "provider", oauthProvider)
 			return user, false, nil
 		}
 	}
@@ -518,24 +518,24 @@ func (s *AuthService) FindOrCreateOAuthUser(email, firstName, lastName, oauthPro
 			}
 
 			if err := s.oauthConnRepo.Create(conn); err != nil {
-				log.Printf("Failed to create OAuth connection for user %d: %v", user.ID, err)
+				slog.Error("Failed to create OAuth connection for user", "user_id", user.ID, "error", err)
 			} else {
-				log.Printf("Created OAuth connection for existing user: id=%d, provider=%s", user.ID, oauthProvider)
+				slog.Info("Created OAuth connection for existing user: id=%d, provider=%s", "user_id", user.ID, "provider", oauthProvider)
 			}
 		}
 
 		// Update last login
 		user.LastLoginAt = timePtr(time.Now())
 		if err := s.userRepo.Update(user); err != nil {
-			log.Printf("Failed to update last login for user %s: %v", email, err)
+			slog.Error("Failed to update last login for user", "email", email, "error", err)
 		}
 
-		log.Printf("Existing user logged in via OAuth (new provider link): id=%d, email=%s, provider=%s", user.ID, user.Email, oauthProvider)
+		slog.Info("Existing user logged in via OAuth (new provider link): id=%d, email=%s, provider=%s", "user_id", user.ID, "email", user.Email, "provider", oauthProvider)
 		return user, false, nil
 	}
 
 	// User doesn't exist, create new one
-	log.Printf("Creating new user from OAuth: email=%s, firstName=%s, lastName=%s, provider=%s", email, firstName, lastName, oauthProvider)
+	slog.Debug("Creating new user from OAuth: email=%s, firstName=%s, lastName=%s, provider=%s", "email", email, "first_name", firstName, "last_name", lastName, "provider", oauthProvider)
 
 	// Set default names if not provided
 	if firstName == "" {
@@ -569,35 +569,35 @@ func (s *AuthService) FindOrCreateOAuthUser(email, firstName, lastName, oauthPro
 		}
 
 		if err := s.oauthConnRepo.Create(conn); err != nil {
-			log.Printf("Failed to create OAuth connection for new user %d: %v", user.ID, err)
+			slog.Error("Failed to create OAuth connection for new user", "user_id", user.ID, "error", err)
 		}
 	}
 
 	// Check if this is the first user in the system
 	userCount, err := s.userRepo.CountAll()
 	if err != nil {
-		log.Printf("Failed to count users: %v", err)
+		slog.Error("Failed to count users", "error", err)
 	}
 
 	// Assign role: first user gets admin, others get user role
 	var roleName string
 	if userCount == 1 {
 		roleName = "admin"
-		log.Printf("Assigning admin role to first OAuth user: %s", email)
+		slog.Info("Assigning admin role to first OAuth user", "email", email)
 	} else {
 		roleName = "user"
 	}
 
 	role, err := s.roleRepo.GetByName(roleName)
 	if err != nil {
-		log.Printf("Failed to find %s role: %v", roleName, err)
+		slog.Error("Failed to find role", "role", roleName, "error", err)
 	} else {
 		if err := s.userRepo.AssignRole(user.ID, role.ID); err != nil {
-			log.Printf("Failed to assign %s role: %v", roleName, err)
+			slog.Error("Failed to assign role", "role", roleName, "error", err)
 		}
 	}
 
-	log.Printf("Successfully created OAuth user: id=%d, email=%s, provider=%s", user.ID, user.Email, oauthProvider)
+	slog.Info("Successfully created OAuth user: id=%d, email=%s, provider=%s", "user_id", user.ID, "email", user.Email, "provider", oauthProvider)
 	return user, isNewUser, nil
 }
 
@@ -626,7 +626,7 @@ func (s *AuthService) ResendVerificationEmail(userID uint) error {
 
 	// Delete any existing pending verification tokens for this user
 	if err := s.tokenRepo.DeletePendingEmailVerificationTokens(userID); err != nil {
-		log.Printf("Failed to delete pending tokens: %v", err)
+		slog.Error("Failed to delete pending tokens", "error", err)
 	}
 
 	// Generate new token
@@ -663,7 +663,7 @@ func (s *AuthService) SendVerificationEmailToUser(userID uint) error {
 
 	// Delete any existing pending verification tokens for this user
 	if err := s.tokenRepo.DeletePendingEmailVerificationTokens(userID); err != nil {
-		log.Printf("Failed to delete pending tokens: %v", err)
+		slog.Error("Failed to delete pending tokens", "error", err)
 	}
 
 	// Generate new token
@@ -702,7 +702,7 @@ func (s *AuthService) CancelEmailVerification(userID uint) error {
 func (s *AuthService) RevokeEmailVerification(userID uint) error {
 	// Delete pending tokens first
 	if err := s.tokenRepo.DeletePendingEmailVerificationTokens(userID); err != nil {
-		log.Printf("Failed to delete pending tokens: %v", err)
+		slog.Error("Failed to delete pending tokens", "error", err)
 	}
 
 	// Mark email as unverified

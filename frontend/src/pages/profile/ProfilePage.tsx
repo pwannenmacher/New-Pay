@@ -152,7 +152,7 @@ export const ProfilePage = () => {
     <Container size="md" my={40}>
       <Paper withBorder shadow="md" p={30} radius="md">
         <Group justify="space-between" mb="xl">
-          <Title order={2}>My Profile</Title>
+          <Title order={2}>Mein Profil</Title>
           <Button onClick={() => setEditModalOpened(true)}>
             Edit Profile
           </Button>
@@ -277,7 +277,7 @@ export const ProfilePage = () => {
         <Paper withBorder shadow="md" p={30} radius="md" mt="xl">
           <Group justify="space-between" mb="xl">
             <div>
-              <Title order={2}>Security</Title>
+              <Title order={2}>Sicherheit</Title>
               <Text size="sm" c="dimmed" mt={4}>Manage your password</Text>
             </div>
             <Button onClick={() => setPasswordModalOpened(true)}>

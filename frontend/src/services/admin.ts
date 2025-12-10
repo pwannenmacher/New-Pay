@@ -1,5 +1,19 @@
 import apiClient from './api';
-import type { UserWithRoles, Role, AuditLog, AssignRoleRequest, RemoveRoleRequest, Session } from '../types';
+import type { 
+  UserWithRoles, 
+  Role, 
+  AuditLog, 
+  AssignRoleRequest, 
+  RemoveRoleRequest, 
+  Session,
+  CriteriaCatalog,
+  CatalogWithDetails,
+  Category,
+  Level,
+  Path,
+  PathLevelDescription,
+  CatalogChange
+} from '../types';
 
 export interface PaginatedResponse<T> {
   page: number;
@@ -125,6 +139,79 @@ export const adminApi = {
   
   deleteAllUserSessions: (userId: number) =>
     apiClient.delete<{ message: string }>(`/admin/sessions/delete-all?user_id=${userId}`),
+
+  // Catalog management
+  // List all catalogs (admin sees all, others see based on permissions)
+  listCatalogs: () =>
+    apiClient.get<CriteriaCatalog[]>('/catalogs'),
+  
+  // Get catalog with full details
+  getCatalog: (catalogId: number) =>
+    apiClient.get<CatalogWithDetails>(`/catalogs/${catalogId}`),
+  
+  // Create new catalog (draft phase)
+  createCatalog: (data: Partial<CriteriaCatalog>) =>
+    apiClient.post<CriteriaCatalog>('/admin/catalogs', data),
+  
+  // Update catalog
+  updateCatalog: (catalogId: number, data: Partial<CriteriaCatalog>) =>
+    apiClient.put<CriteriaCatalog>(`/admin/catalogs/${catalogId}`, data),
+  
+  // Delete catalog (only in draft phase)
+  deleteCatalog: (catalogId: number) =>
+    apiClient.delete<{ message: string }>(`/admin/catalogs/${catalogId}`),
+  
+  // Transition catalog to active phase
+  transitionToActive: (catalogId: number) =>
+    apiClient.post<{ message: string }>(`/admin/catalogs/${catalogId}/transition-to-active`, {}),
+  
+  // Transition catalog to archived phase
+  transitionToArchived: (catalogId: number) =>
+    apiClient.post<{ message: string }>(`/admin/catalogs/${catalogId}/transition-to-archived`, {}),
+  
+  // Create category
+  createCategory: (catalogId: number, data: Partial<Category>) =>
+    apiClient.post<Category>(`/admin/catalogs/${catalogId}/categories`, data),
+  
+  // Update category
+  updateCategory: (catalogId: number, categoryId: number, data: Partial<Category>) =>
+    apiClient.put<Category>(`/admin/catalogs/${catalogId}/categories/${categoryId}`, data),
+  
+  // Delete category
+  deleteCategory: (catalogId: number, categoryId: number) =>
+    apiClient.delete<{ message: string }>(`/admin/catalogs/${catalogId}/categories/${categoryId}`),
+  
+  // Create level
+  createLevel: (catalogId: number, data: Partial<Level>) =>
+    apiClient.post<Level>(`/admin/catalogs/${catalogId}/levels`, data),
+  
+  // Update level
+  updateLevel: (catalogId: number, levelId: number, data: Partial<Level>) =>
+    apiClient.put<Level>(`/admin/catalogs/${catalogId}/levels/${levelId}`, data),
+  
+  // Delete level
+  deleteLevel: (catalogId: number, levelId: number) =>
+    apiClient.delete<{ message: string }>(`/admin/catalogs/${catalogId}/levels/${levelId}`),
+  
+  // Create path
+  createPath: (catalogId: number, categoryId: number, data: Partial<Path>) =>
+    apiClient.post<Path>(`/admin/catalogs/${catalogId}/categories/${categoryId}/paths`, data),
+  
+  // Update path
+  updatePath: (catalogId: number, categoryId: number, pathId: number, data: Partial<Path>) =>
+    apiClient.put<Path>(`/admin/catalogs/${catalogId}/categories/${categoryId}/paths/${pathId}`, data),
+  
+  // Delete path
+  deletePath: (catalogId: number, categoryId: number, pathId: number) =>
+    apiClient.delete<{ message: string }>(`/admin/catalogs/${catalogId}/categories/${categoryId}/paths/${pathId}`),
+  
+  // Create or update path-level description
+  saveDescription: (catalogId: number, data: Partial<PathLevelDescription>) =>
+    apiClient.post<PathLevelDescription>(`/admin/catalogs/${catalogId}/descriptions`, data),
+  
+  // Get change log for catalog
+  getCatalogChanges: (catalogId: number) =>
+    apiClient.get<CatalogChange[]>(`/admin/catalogs/${catalogId}/changes`),
 };
 
 export default adminApi;
