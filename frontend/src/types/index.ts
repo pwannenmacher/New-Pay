@@ -231,4 +231,8 @@ export interface SelfAssessment {
   archived_at?: string;
   closed_at?: string;
   previous_status?: string;
+  // Additional fields for admin/reviewer views
+  user_email?: string;
+  user_name?: string;
+  catalog_name?: string;
 }

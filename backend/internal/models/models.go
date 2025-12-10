@@ -224,3 +224,11 @@ type SelfAssessment struct {
 	ClosedAt            *time.Time `json:"closed_at,omitempty" db:"closed_at"`
 	PreviousStatus      *string    `json:"previous_status,omitempty" db:"previous_status"`
 }
+
+// SelfAssessmentWithDetails includes user and catalog information
+type SelfAssessmentWithDetails struct {
+	SelfAssessment
+	UserEmail   string `json:"user_email,omitempty"`
+	UserName    string `json:"user_name,omitempty"` // first_name + last_name
+	CatalogName string `json:"catalog_name,omitempty"`
+}

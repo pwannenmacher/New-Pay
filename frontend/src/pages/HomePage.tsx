@@ -11,12 +11,12 @@ export const HomePage = () => {
     <Container size="md" my={40}>
       <Paper withBorder shadow="md" p={30} radius="md">
         <Stack align="center" gap="lg">
-          <Title order={1}>Welcome to New Pay</Title>
+          <Title order={1}>Willkommen bei New Pay</Title>
           
           {isAuthenticated ? (
             <>
               <Text size="lg" ta="center">
-                Hello, {user?.first_name}! Welcome to your salary estimation and peer review platform.
+                Hallo, {user?.first_name}! Willkommen auf Ihrer Plattform für Gehaltseinschätzungen und Peer-Reviews.
               </Text>
               <Button component={Link} to="/profile" size="lg">
                 View Profile

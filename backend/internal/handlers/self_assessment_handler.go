@@ -7,6 +7,7 @@ import (
 	"new-pay/internal/service"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // SelfAssessmentHandler handles self-assessment HTTP requests
@@ -137,20 +138,46 @@ func (h *SelfAssessmentHandler) GetSelfAssessment(w http.ResponseWriter, r *http
 		userRoles = []string{}
 	}
 
-	assessment, err := h.selfAssessmentService.GetSelfAssessment(uint(id), userID, userRoles)
-	if err != nil {
-		if strings.Contains(err.Error(), "permission denied") {
-			http.Error(w, err.Error(), http.StatusForbidden)
-		} else if strings.Contains(err.Error(), "not found") {
-			http.Error(w, err.Error(), http.StatusNotFound)
-		} else {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+	// Check if user is admin or reviewer to return details
+	isAdminOrReviewer := false
+	for _, role := range userRoles {
+		if role == "admin" || role == "reviewer" {
+			isAdminOrReviewer = true
+			break
 		}
-		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(assessment)
+	if isAdminOrReviewer {
+		// Return with details for admin/reviewer
+		assessment, err := h.selfAssessmentService.GetSelfAssessmentWithDetails(uint(id), userID, userRoles)
+		if err != nil {
+			if strings.Contains(err.Error(), "permission denied") {
+				http.Error(w, err.Error(), http.StatusForbidden)
+			} else if strings.Contains(err.Error(), "not found") {
+				http.Error(w, err.Error(), http.StatusNotFound)
+			} else {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+			}
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(assessment)
+	} else {
+		// Return basic info for regular users
+		assessment, err := h.selfAssessmentService.GetSelfAssessment(uint(id), userID, userRoles)
+		if err != nil {
+			if strings.Contains(err.Error(), "permission denied") {
+				http.Error(w, err.Error(), http.StatusForbidden)
+			} else if strings.Contains(err.Error(), "not found") {
+				http.Error(w, err.Error(), http.StatusNotFound)
+			} else {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+			}
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(assessment)
+	}
 }
 
 // GetVisibleSelfAssessments returns self-assessments visible to the user based on role
@@ -234,5 +261,108 @@ func (h *SelfAssessmentHandler) UpdateStatus(w http.ResponseWriter, r *http.Requ
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{
 		"message": "Status updated successfully",
+	})
+}
+
+// GetAllSelfAssessmentsAdmin retrieves all self-assessments with filters (admin only)
+// @Summary Get all self-assessments (admin)
+// @Description Retrieve all self-assessments with optional filters (admin only)
+// @Tags Self-Assessments
+// @Security BearerAuth
+// @Param status query string false "Filter by status"
+// @Param username query string false "Filter by username (email, first name, or last name)"
+// @Param from_date query string false "Filter by creation date from (RFC3339)"
+// @Param to_date query string false "Filter by creation date to (RFC3339)"
+// @Success 200 {array} models.SelfAssessment
+// @Failure 401 {object} map[string]string "Unauthorized"
+// @Failure 403 {object} map[string]string "Forbidden"
+// @Router /admin/self-assessments [get]
+func (h *SelfAssessmentHandler) GetAllSelfAssessmentsAdmin(w http.ResponseWriter, r *http.Request) {
+	userRoles, ok := middleware.GetUserRoles(r)
+	if !ok {
+		userRoles = []string{}
+	}
+
+	// Check if user is admin
+	isAdmin := false
+	for _, role := range userRoles {
+		if role == "admin" {
+			isAdmin = true
+			break
+		}
+	}
+	if !isAdmin {
+		http.Error(w, "Admin access required", http.StatusForbidden)
+		return
+	}
+
+	// Parse query parameters
+	status := r.URL.Query().Get("status")
+	username := r.URL.Query().Get("username")
+
+	var fromDate, toDate *time.Time
+	if fromStr := r.URL.Query().Get("from_date"); fromStr != "" {
+		if parsed, err := time.Parse(time.RFC3339, fromStr); err == nil {
+			fromDate = &parsed
+		}
+	}
+	if toStr := r.URL.Query().Get("to_date"); toStr != "" {
+		if parsed, err := time.Parse(time.RFC3339, toStr); err == nil {
+			toDate = &parsed
+		}
+	}
+
+	assessments, err := h.selfAssessmentService.GetAllSelfAssessmentsWithFiltersAndDetails(status, username, fromDate, toDate)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(assessments)
+}
+
+// DeleteSelfAssessment deletes a self-assessment (admin only, closed without submission)
+// @Summary Delete self-assessment
+// @Description Delete a closed self-assessment that was never submitted (admin only)
+// @Tags Self-Assessments
+// @Security BearerAuth
+// @Param id path int true "Assessment ID"
+// @Success 200 {object} map[string]string
+// @Failure 400 {object} map[string]string "Invalid request"
+// @Failure 401 {object} map[string]string "Unauthorized"
+// @Failure 403 {object} map[string]string "Forbidden"
+// @Router /admin/self-assessments/{id} [delete]
+func (h *SelfAssessmentHandler) DeleteSelfAssessment(w http.ResponseWriter, r *http.Request) {
+	idStr := r.PathValue("id")
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		http.Error(w, "Invalid assessment ID", http.StatusBadRequest)
+		return
+	}
+
+	userID, ok := middleware.GetUserID(r)
+	if !ok {
+		http.Error(w, "User ID not found", http.StatusUnauthorized)
+		return
+	}
+
+	userRoles, ok := middleware.GetUserRoles(r)
+	if !ok {
+		userRoles = []string{}
+	}
+
+	if err := h.selfAssessmentService.DeleteSelfAssessment(uint(id), userID, userRoles); err != nil {
+		if strings.Contains(err.Error(), "permission denied") {
+			http.Error(w, err.Error(), http.StatusForbidden)
+		} else {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+		}
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{
+		"message": "Self-assessment deleted successfully",
 	})
 }

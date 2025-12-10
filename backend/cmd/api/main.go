@@ -412,6 +412,18 @@ func main() {
 		),
 	)
 
+	// Admin routes for self-assessments
+	mux.Handle("GET /api/v1/admin/self-assessments",
+		authMw.Authenticate(
+			http.HandlerFunc(selfAssessmentHandler.GetAllSelfAssessmentsAdmin),
+		),
+	)
+	mux.Handle("DELETE /api/v1/admin/self-assessments/{id}",
+		authMw.Authenticate(
+			http.HandlerFunc(selfAssessmentHandler.DeleteSelfAssessment),
+		),
+	)
+
 	// Health check endpoint
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		if err := db.HealthCheck(); err != nil {

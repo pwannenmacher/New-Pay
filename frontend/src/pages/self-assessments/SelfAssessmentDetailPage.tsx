@@ -10,8 +10,6 @@ import {
   Stack,
   Badge,
   Timeline,
-  Select,
-  Modal,
   Alert,
   LoadingOverlay,
   Divider,
@@ -28,7 +26,8 @@ import {
   IconSend,
 } from '@tabler/icons-react';
 import { selfAssessmentService } from '../../services/selfAssessment';
-import type { SelfAssessment } from '../../types';
+import adminService from '../../services/admin';
+import type { SelfAssessment, CriteriaCatalog } from '../../types';
 import { notifications } from '@mantine/notifications';
 
 const statusConfig = {
@@ -41,23 +40,12 @@ const statusConfig = {
   closed: { label: 'Geschlossen', color: 'red', icon: IconX },
 };
 
-const allowedTransitions: Record<string, string[]> = {
-  draft: ['submitted', 'closed'],
-  submitted: [],
-  in_review: [],
-  reviewed: [],
-  discussion: [],
-  archived: [],
-  closed: ['draft', 'submitted', 'in_review', 'reviewed', 'discussion'],
-};
-
 export default function SelfAssessmentDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [assessment, setAssessment] = useState<SelfAssessment | null>(null);
+  const [catalog, setCatalog] = useState<CriteriaCatalog | null>(null);
   const [loading, setLoading] = useState(true);
-  const [statusModalOpen, setStatusModalOpen] = useState(false);
-  const [selectedStatus, setSelectedStatus] = useState<string | null>(null);
   const [updating, setUpdating] = useState(false);
 
   useEffect(() => {
@@ -71,6 +59,14 @@ export default function SelfAssessmentDetailPage() {
       setLoading(true);
       const data = await selfAssessmentService.getSelfAssessment(parseInt(id!));
       setAssessment(data);
+      
+      // Load catalog information
+      try {
+        const catalogData = await adminService.getCatalog(data.catalog_id);
+        setCatalog(catalogData);
+      } catch (error) {
+        console.error('Error loading catalog:', error);
+      }
     } catch (error: any) {
       console.error('Error loading assessment:', error);
       notifications.show({
@@ -84,19 +80,19 @@ export default function SelfAssessmentDetailPage() {
     }
   };
 
-  const handleStatusChange = async () => {
-    if (!selectedStatus || !assessment) return;
+  const handleStatusChange = async (newStatus: string) => {
+    if (!assessment) return;
 
     try {
       setUpdating(true);
-      await selfAssessmentService.updateStatus(assessment.id, selectedStatus);
+      await selfAssessmentService.updateStatus(assessment.id, newStatus);
       notifications.show({
         title: 'Erfolg',
-        message: 'Status wurde aktualisiert',
+        message: newStatus === 'submitted' 
+          ? 'Selbsteinschätzung wurde eingereicht'
+          : 'Selbsteinschätzung wurde storniert',
         color: 'green',
       });
-      setStatusModalOpen(false);
-      setSelectedStatus(null);
       await loadAssessment();
     } catch (error: any) {
       console.error('Error updating status:', error);
@@ -135,24 +131,6 @@ export default function SelfAssessmentDetailPage() {
     );
   };
 
-  const getAvailableTransitions = () => {
-    if (!assessment) return [];
-    const transitions = allowedTransitions[assessment.status] || [];
-    
-    // Check for closed status 24h restriction
-    if (assessment.status === 'closed' && assessment.closed_at) {
-      const closedTime = new Date(assessment.closed_at).getTime();
-      const now = new Date().getTime();
-      const hoursSinceClosed = (now - closedTime) / (1000 * 60 * 60);
-      
-      if (hoursSinceClosed > 24) {
-        return [];
-      }
-    }
-    
-    return transitions;
-  };
-
   const canSubmit = assessment?.status === 'draft';
 
   if (loading) {
@@ -167,8 +145,6 @@ export default function SelfAssessmentDetailPage() {
     return null;
   }
 
-  const availableTransitions = getAvailableTransitions();
-
   return (
     <Container size="xl" py="xl">
       <Stack gap="lg">
@@ -182,9 +158,14 @@ export default function SelfAssessmentDetailPage() {
               Zurück
             </Button>
             <div>
-              <Title order={1}>Selbsteinschätzung #{assessment.id}</Title>
+              <Title order={1}>
+                {assessment.catalog_name || assessment.user_name 
+                  ? `${assessment.catalog_name || 'Katalog'} - ${assessment.user_name || 'Unbekannt'}`
+                  : catalog?.name || `Selbsteinschätzung #${assessment.id}`}
+              </Title>
               <Text c="dimmed" size="sm">
-                Katalog ID: {assessment.catalog_id}
+                ID: {assessment.id} • Erstellt am: {formatDate(assessment.created_at)}
+                {assessment.user_email && ` • ${assessment.user_email}`}
               </Text>
             </div>
           </Group>
@@ -221,27 +202,28 @@ export default function SelfAssessmentDetailPage() {
               <>
                 <Divider />
                 <Alert icon={<IconAlertCircle size={16} />} color="blue">
-                  Diese Selbsteinschätzung befindet sich noch im Entwurf. Sie können sie bearbeiten
-                  und dann zur Prüfung einreichen.
+                  Diese Selbsteinschätzung befindet sich noch im Entwurf. Sie können sie zur Prüfung
+                  einreichen oder stornieren.
                 </Alert>
-                <Button
-                  leftSection={<IconSend size={16} />}
-                  onClick={() => {
-                    setSelectedStatus('submitted');
-                    setStatusModalOpen(true);
-                  }}
-                >
-                  Zur Prüfung einreichen
-                </Button>
-              </>
-            )}
-
-            {availableTransitions.length > 0 && !canSubmit && (
-              <>
-                <Divider />
-                <Button variant="light" onClick={() => setStatusModalOpen(true)}>
-                  Status ändern
-                </Button>
+                <Group>
+                  <Button
+                    leftSection={<IconSend size={16} />}
+                    onClick={() => handleStatusChange('submitted')}
+                    loading={updating}
+                    color="blue"
+                  >
+                    Zur Prüfung einreichen
+                  </Button>
+                  <Button
+                    leftSection={<IconX size={16} />}
+                    onClick={() => handleStatusChange('closed')}
+                    loading={updating}
+                    variant="light"
+                    color="red"
+                  >
+                    Stornieren
+                  </Button>
+                </Group>
               </>
             )}
           </Stack>
@@ -313,51 +295,6 @@ export default function SelfAssessmentDetailPage() {
           </Timeline>
         </Paper>
       </Stack>
-
-      <Modal
-        opened={statusModalOpen}
-        onClose={() => {
-          setStatusModalOpen(false);
-          setSelectedStatus(null);
-        }}
-        title="Status ändern"
-      >
-        <Stack>
-          <Select
-            label="Neuer Status"
-            placeholder="Wählen Sie einen Status"
-            data={availableTransitions.map((status) => ({
-              value: status,
-              label: statusConfig[status as keyof typeof statusConfig]?.label || status,
-            }))}
-            value={selectedStatus}
-            onChange={setSelectedStatus}
-          />
-
-          {assessment.status === 'closed' && assessment.closed_at && (
-            <Alert icon={<IconAlertCircle size={16} />} color="orange">
-              Diese Selbsteinschätzung wurde geschlossen. Sie können sie innerhalb von 24 Stunden
-              in den vorherigen Status zurückversetzen.
-            </Alert>
-          )}
-
-          <Group justify="flex-end" mt="md">
-            <Button
-              variant="subtle"
-              onClick={() => {
-                setStatusModalOpen(false);
-                setSelectedStatus(null);
-              }}
-              disabled={updating}
-            >
-              Abbrechen
-            </Button>
-            <Button onClick={handleStatusChange} disabled={!selectedStatus} loading={updating}>
-              Ändern
-            </Button>
-          </Group>
-        </Stack>
-      </Modal>
     </Container>
   );
 }

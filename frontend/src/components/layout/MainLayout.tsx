@@ -1,7 +1,7 @@
-import { AppShell, Burger, Group, Button, Menu, Avatar, Text, Alert } from '@mantine/core';
+import { AppShell, Burger, Group, Button, Menu, Avatar, Text, Alert, Divider } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { Link, useNavigate } from 'react-router-dom';
-import { IconUser, IconLogout, IconSettings, IconShieldLock, IconAlertCircle, IconMail, IconBook, IconClipboardList } from '@tabler/icons-react';
+import { IconUser, IconLogout, IconSettings, IconAlertCircle, IconMail, IconBook, IconClipboardList, IconUsers, IconShieldCheck, IconFileText, IconClock, IconCheckbox } from '@tabler/icons-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useAppConfig } from '../../contexts/AppConfigContext';
 import { ThemeToggle } from './ThemeToggle';
@@ -46,6 +46,7 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
   };
 
   const isAdmin = user?.roles?.some((role) => role.name === 'admin');
+  const isReviewer = user?.roles?.some((role) => role.name === 'reviewer');
 
   return (
     <AppShell
@@ -83,19 +84,10 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
                   component={Link}
                   to="/profile"
                 >
-                  Profile
+                  Meine Daten
                 </Menu.Item>
-                {isAdmin && (
-                  <Menu.Item
-                    leftSection={<IconShieldLock size={14} />}
-                    component={Link}
-                    to="/admin"
-                  >
-                    Admin Dashboard
-                  </Menu.Item>
-                )}
                 <Menu.Item leftSection={<IconSettings size={14} />}>
-                  Settings
+                  Einstellungen
                 </Menu.Item>
                 <Menu.Divider />
                 <Menu.Item
@@ -103,7 +95,7 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
                   leftSection={<IconLogout size={14} />}
                   onClick={handleLogout}
                 >
-                  Logout
+                  Abmelden
                 </Menu.Item>
               </Menu.Dropdown>
             </Menu>
@@ -125,20 +117,21 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
       </AppShell.Header>
 
       <AppShell.Navbar p="md">
-        <Text size="sm" fw={500} mb="md">
-          Navigation
-        </Text>
         {isAuthenticated && (
           <>
+            <Text size="sm" fw={500} mb="xs" c="dimmed">
+              Navigation
+            </Text>
             <Button
               variant="subtle"
               component={Link}
               to="/profile"
               fullWidth
               justify="flex-start"
+              leftSection={<IconUser size={16} />}
               mb="xs"
             >
-              My Profile
+              Meine Daten
             </Button>
             <Button
               variant="subtle"
@@ -151,21 +144,83 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
             >
               Selbsteinschätzungen
             </Button>
-            {isAdmin && (
+            <Button
+              variant="subtle"
+              component={Link}
+              to="/classifications"
+              fullWidth
+              justify="flex-start"
+              leftSection={<IconShieldCheck size={16} />}
+              mb="xs"
+              disabled
+            >
+              Einstufungen
+            </Button>
+
+            {isReviewer && (
               <>
-                <Text size="sm" fw={500} mt="md" mb="md">
-                  Admin
+                <Divider my="md" />
+                <Text size="sm" fw={500} mb="xs" c="dimmed">
+                  Review
                 </Text>
                 <Button
                   variant="subtle"
                   component={Link}
-                  to="/admin"
+                  to="/review/catalogs"
                   fullWidth
                   justify="flex-start"
+                  leftSection={<IconBook size={16} />}
                   mb="xs"
                 >
-                  Admin Dashboard
+                  Kriterienkataloge
                 </Button>
+                <Button
+                  variant="subtle"
+                  component={Link}
+                  to="/review/open-assessments"
+                  fullWidth
+                  justify="flex-start"
+                  leftSection={<IconClock size={16} />}
+                  mb="xs"
+                >
+                  Offene Selbsteinschätzungen
+                </Button>
+                <Button
+                  variant="subtle"
+                  component={Link}
+                  to="/review/completed-assessments"
+                  fullWidth
+                  justify="flex-start"
+                  leftSection={<IconFileText size={16} />}
+                  mb="xs"
+                  styles={{
+                    root: { height: 'auto', padding: '8px 12px' },
+                    inner: { whiteSpace: 'normal', justifyContent: 'flex-start' },
+                    label: { whiteSpace: 'normal', wordBreak: 'break-word', textAlign: 'left' }
+                  }}
+                >
+                  Abgeschlossene Selbsteinschätzungen
+                </Button>
+                <Button
+                  variant="subtle"
+                  component={Link}
+                  to="/review/classifications"
+                  fullWidth
+                  justify="flex-start"
+                  leftSection={<IconCheckbox size={16} />}
+                  mb="xs"
+                >
+                  Einstufungen
+                </Button>
+              </>
+            )}
+
+            {isAdmin && (
+              <>
+                <Divider my="md" />
+                <Text size="sm" fw={500} mb="xs" c="dimmed">
+                  Admin
+                </Text>
                 <Button
                   variant="subtle"
                   component={Link}
@@ -176,6 +231,50 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
                   mb="xs"
                 >
                   Kriterienkataloge
+                </Button>
+                <Button
+                  variant="subtle"
+                  component={Link}
+                  to="/admin/self-assessments"
+                  fullWidth
+                  justify="flex-start"
+                  leftSection={<IconClipboardList size={16} />}
+                  mb="xs"
+                >
+                  Selbsteinschätzungen
+                </Button>
+                <Button
+                  variant="subtle"
+                  component={Link}
+                  to="/admin/users"
+                  fullWidth
+                  justify="flex-start"
+                  leftSection={<IconUsers size={16} />}
+                  mb="xs"
+                >
+                  Benutzerverwaltung
+                </Button>
+                <Button
+                  variant="subtle"
+                  component={Link}
+                  to="/admin/sessions"
+                  fullWidth
+                  justify="flex-start"
+                  leftSection={<IconClock size={16} />}
+                  mb="xs"
+                >
+                  Sitzungsverwaltung
+                </Button>
+                <Button
+                  variant="subtle"
+                  component={Link}
+                  to="/admin/audit-logs"
+                  fullWidth
+                  justify="flex-start"
+                  leftSection={<IconFileText size={16} />}
+                  mb="xs"
+                >
+                  Audit Logs
                 </Button>
               </>
             )}

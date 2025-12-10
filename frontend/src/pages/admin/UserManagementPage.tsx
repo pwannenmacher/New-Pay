@@ -397,7 +397,7 @@ export const UserManagementPage = () => {
   return (
     <Container size="xl" my={40}>
       <Paper withBorder shadow="md" p={30} radius="md">
-        <Title order={2} mb="xl">User Management</Title>
+        <Title order={2} mb="xl">Benutzerverwaltung</Title>
 
         {/* Filters */}
         <Paper withBorder p="md" mb="md" bg="dark.6">

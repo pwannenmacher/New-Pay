@@ -533,9 +533,16 @@ export function CatalogEditorPage() {
             <ActionIcon variant="subtle" onClick={() => navigate('/admin/catalogs')}>
               <IconArrowLeft size={20} />
             </ActionIcon>
-            <Title order={2}>
-              {isNew ? 'Neuer Kriterienkatalog' : `Katalog bearbeiten: ${name}`}
-            </Title>
+            <div>
+              <Title order={2}>
+                {isNew ? 'Neuer Kriterienkatalog' : name}
+              </Title>
+              {!isNew && catalog && (
+                <Text c="dimmed" size="sm">
+                  ID: {catalog.id} • Erstellt am: {new Date(catalog.created_at).toLocaleDateString('de-DE')}
+                </Text>
+              )}
+            </div>
           </Group>
           <Stack gap="xs" style={{ minWidth: 300 }}>
             {catalog && (

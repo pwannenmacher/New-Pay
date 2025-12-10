@@ -69,10 +69,10 @@ export const LoginPage = () => {
   return (
     <Container size={420} my={40}>
       <Title ta="center" order={1}>
-        Welcome to New Pay
+        Willkommen bei New Pay
       </Title>
       <Text c="dimmed" size="sm" ta="center" mt={5}>
-        Sign in to your account
+        Melden Sie sich bei Ihrem Konto an
       </Text>
 
       <Paper withBorder shadow="md" p={30} mt={30} radius="md">
@@ -94,19 +94,19 @@ export const LoginPage = () => {
 
             <Group justify="space-between" mt="md">
               <Anchor component={Link} to="/password-reset" size="sm">
-                Forgot password?
+                Passwort vergessen?
               </Anchor>
             </Group>
 
             <Button type="submit" fullWidth mt="xl" loading={isLoading}>
-              Sign in
+              Anmelden
             </Button>
           </Stack>
         </form>
 
         {oauthConfig?.enabled && oauthConfig.providers.length > 0 && (
           <>
-            <Divider label="Or continue with" labelPosition="center" my="lg" />
+            <Divider label="Oder fortfahren mit" labelPosition="center" my="lg" />
 
             <Stack gap="xs">
               {oauthConfig.providers.map((provider) => (
@@ -125,9 +125,9 @@ export const LoginPage = () => {
 
         {enableRegistration && (
           <Text ta="center" mt="md">
-            Don&apos;t have an account?{' '}
-            <Anchor component={Link} to="/register" fw={700}>
-              Register
+            Noch kein Konto?{' '}
+            <Anchor component={Link} to="/register" weight={700}>
+              Registrieren
             </Anchor>
           </Text>
         )}

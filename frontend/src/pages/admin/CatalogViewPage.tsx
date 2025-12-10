@@ -114,7 +114,12 @@ export function CatalogViewPage() {
             <ActionIcon variant="subtle" onClick={() => navigate('/admin/catalogs')}>
               <IconArrowLeft size={20} />
             </ActionIcon>
-            <Title order={2}>{catalog.name}</Title>
+            <div>
+              <Title order={2}>{catalog.name}</Title>
+              <Text c="dimmed" size="sm">
+                ID: {catalog.id} • Erstellt am: {new Date(catalog.created_at).toLocaleDateString('de-DE')}
+              </Text>
+            </div>
           </Group>
           <Badge color={getPhaseColor(catalog.phase)}>
             {getPhaseLabel(catalog.phase)}

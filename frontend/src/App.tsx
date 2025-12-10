@@ -19,7 +19,6 @@ import { EmailVerificationPage } from './pages/auth/EmailVerificationPage';
 import { PasswordResetRequestPage } from './pages/auth/PasswordResetRequestPage';
 import { PasswordResetConfirmPage } from './pages/auth/PasswordResetConfirmPage';
 import { ProfilePage } from './pages/profile/ProfilePage';
-import { AdminDashboardPage } from './pages/admin/AdminDashboardPage';
 import { UserManagementPage } from './pages/admin/UserManagementPage';
 import { AuditLogsPage } from './pages/admin/AuditLogsPage';
 import { SessionsPage } from './pages/admin/SessionsPage';
@@ -28,6 +27,7 @@ import { CatalogEditorPage } from './pages/admin/CatalogEditorPage';
 import { CatalogViewPage } from './pages/admin/CatalogViewPage';
 import SelfAssessmentsPage from './pages/self-assessments/SelfAssessmentsPage';
 import SelfAssessmentDetailPage from './pages/self-assessments/SelfAssessmentDetailPage';
+import SelfAssessmentsAdminPage from './pages/admin/SelfAssessmentsAdminPage';
 
 import 'dayjs/locale/de';
 
@@ -55,15 +55,6 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <ProfilePage />
-                  </ProtectedRoute>
-                }
-              />
-              
-              <Route
-                path="/admin"
-                element={
-                  <ProtectedRoute requireAdmin>
-                    <AdminDashboardPage />
                   </ProtectedRoute>
                 }
               />
@@ -118,6 +109,15 @@ function App() {
                 element={
                   <ProtectedRoute requireAdmin>
                     <CatalogEditorPage />
+                  </ProtectedRoute>
+                }
+              />
+              
+              <Route
+                path="/admin/self-assessments"
+                element={
+                  <ProtectedRoute requireAdmin>
+                    <SelfAssessmentsAdminPage />
                   </ProtectedRoute>
                 }
               />

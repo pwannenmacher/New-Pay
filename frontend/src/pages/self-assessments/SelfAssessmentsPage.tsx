@@ -11,7 +11,6 @@ import {
   Badge,
   Table,
   Modal,
-  Select,
   Alert,
   LoadingOverlay,
 } from '@mantine/core';
@@ -42,14 +41,15 @@ const statusConfig = {
 export default function SelfAssessmentsPage() {
   const navigate = useNavigate();
   const [assessments, setAssessments] = useState<SelfAssessment[]>([]);
-  const [activeCatalogs, setActiveCatalogs] = useState<CriteriaCatalog[]>([]);
+  const [activeCatalog, setActiveCatalog] = useState<CriteriaCatalog | null>(null);
   const [loading, setLoading] = useState(true);
   const [createModalOpen, setCreateModalOpen] = useState(false);
-  const [selectedCatalogId, setSelectedCatalogId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+  const [hasActiveAssessment, setHasActiveAssessment] = useState(false);
 
   useEffect(() => {
     loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadData = async () => {
@@ -59,12 +59,21 @@ export default function SelfAssessmentsPage() {
         selfAssessmentService.getMySelfAssessments(),
         selfAssessmentService.getActiveCatalogs(),
       ]);
-      setAssessments(Array.isArray(assessmentsData) ? assessmentsData : []);
-      setActiveCatalogs(Array.isArray(catalogsData) ? catalogsData : []);
+      const assessmentsList = Array.isArray(assessmentsData) ? assessmentsData : [];
+      const catalogsList = Array.isArray(catalogsData) ? catalogsData : [];
+      
+      setAssessments(assessmentsList);
+      setActiveCatalog(catalogsList.length > 0 ? catalogsList[0] : null);
+      
+      // Check if user has any active assessment (not archived or closed)
+      const activeStatuses = ['draft', 'submitted', 'in_review', 'reviewed', 'discussion'];
+      const hasActive = assessmentsList.some(a => activeStatuses.includes(a.status));
+      setHasActiveAssessment(hasActive);
     } catch (error) {
       console.error('Error loading data:', error);
       setAssessments([]);
-      setActiveCatalogs([]);
+      setActiveCatalog(null);
+      setHasActiveAssessment(false);
       notifications.show({
         title: 'Fehler',
         message: 'Daten konnten nicht geladen werden',
@@ -76,20 +85,18 @@ export default function SelfAssessmentsPage() {
   };
 
   const handleCreateAssessment = async () => {
-    if (!selectedCatalogId) return;
+    if (!activeCatalog) return;
 
     try {
       setCreating(true);
-      const newAssessment = await selfAssessmentService.createSelfAssessment(
-        parseInt(selectedCatalogId)
-      );
+      const newAssessment = await selfAssessmentService.createSelfAssessment(activeCatalog.id);
       notifications.show({
         title: 'Erfolg',
         message: 'Selbsteinschätzung wurde erstellt',
         color: 'green',
       });
       setCreateModalOpen(false);
-      setSelectedCatalogId(null);
+      await loadData();
       navigate(`/self-assessments/${newAssessment.id}`);
     } catch (error: any) {
       console.error('Error creating assessment:', error);
@@ -126,16 +133,23 @@ export default function SelfAssessmentsPage() {
     );
   };
 
-  const canCreateForCatalog = (catalogId: number) => {
-    return !assessments.some((a) => a.catalog_id === catalogId);
-  };
+  const canCreateAssessment = !hasActiveAssessment && activeCatalog !== null;
+  const buttonTooltip = hasActiveAssessment 
+    ? 'Sie haben bereits eine aktive Selbsteinschätzung. Schließen oder archivieren Sie diese zuerst.'
+    : !activeCatalog
+    ? 'Zurzeit ist kein aktiver Kriterienkatalog verfügbar.'
+    : '';
 
-  const availableCatalogs = activeCatalogs.filter((c) => canCreateForCatalog(c.id));
+  if (loading) {
+    return (
+      <Container size="xl" py="xl">
+        <LoadingOverlay visible={true} />
+      </Container>
+    );
+  }
 
   return (
     <Container size="xl" py="xl">
-      <LoadingOverlay visible={loading} />
-
       <Stack gap="lg">
         <Group justify="space-between">
           <div>
@@ -147,16 +161,16 @@ export default function SelfAssessmentsPage() {
           <Button
             leftSection={<IconPlus size={16} />}
             onClick={() => setCreateModalOpen(true)}
-            disabled={availableCatalogs.length === 0}
+            disabled={!canCreateAssessment}
+            title={buttonTooltip}
           >
             Neue Selbsteinschätzung
           </Button>
         </Group>
 
-        {availableCatalogs.length === 0 && assessments.length === 0 && (
+        {!canCreateAssessment && assessments.length === 0 && (
           <Alert icon={<IconAlertCircle size={16} />} title="Keine Kataloge verfügbar" color="blue">
-            Zurzeit sind keine aktiven Kriterienkataloge verfügbar, für die Sie eine
-            Selbsteinschätzung erstellen können.
+            {buttonTooltip}
           </Alert>
         )}
 
@@ -201,7 +215,7 @@ export default function SelfAssessmentsPage() {
               <Stack align="center" gap="md">
                 <IconFileCheck size={48} stroke={1.5} />
                 <Text c="dimmed">Sie haben noch keine Selbsteinschätzungen erstellt</Text>
-                {availableCatalogs.length > 0 && (
+                {activeCatalog && (
                   <Button onClick={() => setCreateModalOpen(true)} leftSection={<IconPlus size={16} />}>
                     Erste Selbsteinschätzung erstellen
                   </Button>
@@ -216,21 +230,19 @@ export default function SelfAssessmentsPage() {
         opened={createModalOpen}
         onClose={() => {
           setCreateModalOpen(false);
-          setSelectedCatalogId(null);
         }}
         title="Neue Selbsteinschätzung erstellen"
       >
         <Stack>
-          <Select
-            label="Kriterienkatalog"
-            placeholder="Wählen Sie einen Katalog"
-            data={availableCatalogs.map((catalog) => ({
-              value: catalog.id.toString(),
-              label: `${catalog.name} (${formatDate(catalog.valid_from)} - ${formatDate(catalog.valid_until)})`,
-            }))}
-            value={selectedCatalogId}
-            onChange={setSelectedCatalogId}
-          />
+          {activeCatalog && (
+            <div>
+              <Text size="sm" fw={500} mb="xs">Aktiver Kriterienkatalog</Text>
+              <Text size="sm">{activeCatalog.name}</Text>
+              <Text size="xs" c="dimmed">
+                Gültig von {formatDate(activeCatalog.valid_from)} bis {formatDate(activeCatalog.valid_until)}
+              </Text>
+            </div>
+          )}
 
           <Group justify="flex-end" mt="md">
             <Button variant="subtle" onClick={() => setCreateModalOpen(false)} disabled={creating}>
@@ -238,7 +250,7 @@ export default function SelfAssessmentsPage() {
             </Button>
             <Button
               onClick={handleCreateAssessment}
-              disabled={!selectedCatalogId}
+              disabled={!activeCatalog}
               loading={creating}
             >
               Erstellen

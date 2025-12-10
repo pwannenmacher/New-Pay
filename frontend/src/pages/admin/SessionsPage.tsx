@@ -135,7 +135,7 @@ export const SessionsPage = () => {
     <Container size="xl" my={40}>
       <Paper withBorder shadow="md" p={30} radius="md">
         <Group justify="space-between" mb="xl">
-          <Title order={2}>Session Management</Title>
+          <Title order={2}>Sitzungsverwaltung</Title>
           <Badge size="lg" variant="light">
             {searchQuery && filteredSessions.length !== sessions.length
               ? `${filteredSessions.length} von ${sessions.length} Sessions`

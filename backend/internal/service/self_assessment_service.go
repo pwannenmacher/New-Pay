@@ -56,6 +56,15 @@ func (s *SelfAssessmentService) CreateSelfAssessment(catalogID uint, userID uint
 		return nil, fmt.Errorf("self-assessment already exists for this catalog")
 	}
 
+	// Check if user has any active self-assessment (not archived or closed)
+	hasActive, err := s.selfAssessmentRepo.HasActiveAssessment(userID)
+	if err != nil {
+		return nil, err
+	}
+	if hasActive {
+		return nil, fmt.Errorf("user already has an active self-assessment in progress")
+	}
+
 	// Create new assessment
 	assessment := &models.SelfAssessment{
 		CatalogID: catalogID,
@@ -111,12 +120,46 @@ func (s *SelfAssessmentService) GetSelfAssessment(assessmentID uint, userID uint
 	return nil, fmt.Errorf("permission denied: cannot view this self-assessment")
 }
 
+// GetSelfAssessmentWithDetails retrieves a self-assessment with user and catalog details
+func (s *SelfAssessmentService) GetSelfAssessmentWithDetails(assessmentID uint, userID uint, userRoles []string) (*models.SelfAssessmentWithDetails, error) {
+	assessment, err := s.selfAssessmentRepo.GetByIDWithDetails(assessmentID)
+	if err != nil {
+		return nil, err
+	}
+	if assessment == nil {
+		return nil, fmt.Errorf("self-assessment not found")
+	}
+
+	// Permission checks
+	isOwner := assessment.UserID == userID
+	isReviewer := contains(userRoles, "reviewer")
+	isAdmin := contains(userRoles, "admin")
+
+	// Owners can always see their own assessments
+	if isOwner {
+		return assessment, nil
+	}
+
+	// Admins can see all assessments with details
+	if isAdmin {
+		return assessment, nil
+	}
+
+	// Reviewers can only see submitted or later assessments
+	if isReviewer && assessment.Status != "draft" && assessment.Status != "closed" {
+		return assessment, nil
+	}
+
+	return nil, fmt.Errorf("permission denied: cannot view this self-assessment")
+}
+
 // GetUserSelfAssessments retrieves all self-assessments for a user
 func (s *SelfAssessmentService) GetUserSelfAssessments(userID uint) ([]models.SelfAssessment, error) {
 	return s.selfAssessmentRepo.GetByUserID(userID)
 }
 
 // GetActiveCatalogs retrieves catalogs that are active and valid for current date
+// Returns at most one catalog (only one catalog can be active at a time)
 func (s *SelfAssessmentService) GetActiveCatalogs() ([]models.CriteriaCatalog, error) {
 	catalogs, err := s.catalogRepo.GetCatalogsByPhase("active")
 	if err != nil {
@@ -154,6 +197,16 @@ func (s *SelfAssessmentService) GetVisibleSelfAssessments(userID uint, userRoles
 	return s.selfAssessmentRepo.GetByUserID(userID)
 }
 
+// GetAllSelfAssessmentsWithFilters retrieves all self-assessments with optional filters (admin only)
+func (s *SelfAssessmentService) GetAllSelfAssessmentsWithFilters(status, username string, fromDate, toDate *time.Time) ([]models.SelfAssessment, error) {
+	return s.selfAssessmentRepo.GetAllWithFilters(status, username, fromDate, toDate)
+}
+
+// GetAllSelfAssessmentsWithFiltersAndDetails retrieves all self-assessments with optional filters including details (admin only)
+func (s *SelfAssessmentService) GetAllSelfAssessmentsWithFiltersAndDetails(status, username string, fromDate, toDate *time.Time) ([]models.SelfAssessmentWithDetails, error) {
+	return s.selfAssessmentRepo.GetAllWithFiltersAndDetails(status, username, fromDate, toDate)
+}
+
 // UpdateSelfAssessmentStatus transitions a self-assessment to a new status
 func (s *SelfAssessmentService) UpdateSelfAssessmentStatus(assessmentID uint, newStatus string, userID uint, userRoles []string) error {
 	// Get existing assessment
@@ -166,14 +219,22 @@ func (s *SelfAssessmentService) UpdateSelfAssessmentStatus(assessmentID uint, ne
 	}
 
 	oldStatus := assessment.Status
+	isOwner := assessment.UserID == userID
+	isAdmin := contains(userRoles, "admin")
 
 	// Check ownership for draft/submitted transitions
-	if newStatus == "submitted" && assessment.UserID != userID {
+	// Only owners can submit their assessments
+	if newStatus == "submitted" && !isOwner {
 		return fmt.Errorf("permission denied: only the owner can submit their self-assessment")
 	}
 
+	// Admins can only close assessments, not submit them
+	if isAdmin && !isOwner && newStatus != "closed" {
+		return fmt.Errorf("permission denied: admins can only close other users' self-assessments")
+	}
+
 	// Validate status transitions
-	if err := s.validateStatusTransition(oldStatus, newStatus, userRoles); err != nil {
+	if err := s.validateStatusTransition(oldStatus, newStatus, userRoles, isOwner); err != nil {
 		return err
 	}
 
@@ -224,7 +285,7 @@ func (s *SelfAssessmentService) UpdateSelfAssessmentStatus(assessmentID uint, ne
 }
 
 // validateStatusTransition validates if a status transition is allowed
-func (s *SelfAssessmentService) validateStatusTransition(fromStatus, toStatus string, userRoles []string) error {
+func (s *SelfAssessmentService) validateStatusTransition(fromStatus, toStatus string, userRoles []string, isOwner bool) error {
 	isReviewer := contains(userRoles, "reviewer")
 	isAdmin := contains(userRoles, "admin")
 
@@ -246,6 +307,12 @@ func (s *SelfAssessmentService) validateStatusTransition(fromStatus, toStatus st
 		}
 	}
 
+	// Owners can submit or close their own assessments
+	// Admins can only close (not submit) other users' assessments
+	if toStatus == "submitted" && !isOwner {
+		return fmt.Errorf("permission denied: only the owner can submit their self-assessment")
+	}
+
 	allowed, ok := allowedTransitions[fromStatus]
 	if !ok {
 		return fmt.Errorf("invalid current status: %s", fromStatus)
@@ -258,4 +325,44 @@ func (s *SelfAssessmentService) validateStatusTransition(fromStatus, toStatus st
 	}
 
 	return fmt.Errorf("cannot transition from %s to %s status", fromStatus, toStatus)
+}
+
+// DeleteSelfAssessment deletes a self-assessment (admin only, only if closed without submission)
+func (s *SelfAssessmentService) DeleteSelfAssessment(assessmentID uint, userID uint, userRoles []string) error {
+	isAdmin := contains(userRoles, "admin")
+	if !isAdmin {
+		return fmt.Errorf("permission denied: only admins can delete self-assessments")
+	}
+
+	// Get existing assessment
+	assessment, err := s.selfAssessmentRepo.GetByID(assessmentID)
+	if err != nil {
+		return err
+	}
+	if assessment == nil {
+		return fmt.Errorf("self-assessment not found")
+	}
+
+	// Can only delete if closed and never submitted
+	if assessment.Status != "closed" {
+		return fmt.Errorf("can only delete closed self-assessments")
+	}
+	if assessment.SubmittedAt != nil {
+		return fmt.Errorf("cannot delete self-assessment that was submitted")
+	}
+
+	// Delete assessment
+	if err := s.selfAssessmentRepo.Delete(assessmentID); err != nil {
+		return err
+	}
+
+	// Audit log
+	s.auditRepo.Create(&models.AuditLog{
+		UserID:   &userID,
+		Action:   "delete",
+		Resource: "self_assessment",
+		Details:  fmt.Sprintf("Deleted self-assessment %d (catalog: %d, user: %d)", assessmentID, assessment.CatalogID, assessment.UserID),
+	})
+
+	return nil
 }
