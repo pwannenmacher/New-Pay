@@ -207,3 +207,20 @@ type PathWithDescriptions struct {
 	Path
 	Descriptions []PathLevelDescription `json:"descriptions,omitempty"`
 }
+
+// SelfAssessment represents a user's self-assessment for a catalog
+type SelfAssessment struct {
+	ID                  uint       `json:"id" db:"id"`
+	CatalogID           uint       `json:"catalog_id" db:"catalog_id"`
+	UserID              uint       `json:"user_id" db:"user_id"`
+	Status              string     `json:"status" db:"status"` // draft, submitted, in_review, reviewed, discussion, archived, closed
+	CreatedAt           time.Time  `json:"created_at" db:"created_at"`
+	UpdatedAt           time.Time  `json:"updated_at" db:"updated_at"`
+	SubmittedAt         *time.Time `json:"submitted_at,omitempty" db:"submitted_at"`
+	InReviewAt          *time.Time `json:"in_review_at,omitempty" db:"in_review_at"`
+	ReviewedAt          *time.Time `json:"reviewed_at,omitempty" db:"reviewed_at"`
+	DiscussionStartedAt *time.Time `json:"discussion_started_at,omitempty" db:"discussion_started_at"`
+	ArchivedAt          *time.Time `json:"archived_at,omitempty" db:"archived_at"`
+	ClosedAt            *time.Time `json:"closed_at,omitempty" db:"closed_at"`
+	PreviousStatus      *string    `json:"previous_status,omitempty" db:"previous_status"`
+}

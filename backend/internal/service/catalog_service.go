@@ -9,13 +9,15 @@ import (
 
 // CatalogService handles business logic for criteria catalogs
 type CatalogService struct {
-	catalogRepo *repository.CatalogRepository
+	catalogRepo        *repository.CatalogRepository
+	selfAssessmentRepo *repository.SelfAssessmentRepository
 }
 
 // NewCatalogService creates a new catalog service
-func NewCatalogService(catalogRepo *repository.CatalogRepository) *CatalogService {
+func NewCatalogService(catalogRepo *repository.CatalogRepository, selfAssessmentRepo *repository.SelfAssessmentRepository) *CatalogService {
 	return &CatalogService{
-		catalogRepo: catalogRepo,
+		catalogRepo:        catalogRepo,
+		selfAssessmentRepo: selfAssessmentRepo,
 	}
 }
 
@@ -504,8 +506,8 @@ func (s *CatalogService) validatePhaseTransition(catalogID uint, fromPhase, toPh
 	// Define allowed transitions
 	allowedTransitions := map[string][]string{
 		"draft":    {"active"},
-		"active":   {"archived"},
-		"archived": {}, // No transitions from archived
+		"active":   {"archived", "draft"}, // Can go back to draft if no self-assessments exist
+		"archived": {},                    // No transitions from archived
 	}
 
 	allowed, ok := allowedTransitions[fromPhase]
@@ -529,6 +531,17 @@ func (s *CatalogService) validatePhaseTransition(catalogID uint, fromPhase, toPh
 	if toPhase == "active" {
 		if err := s.validateCatalogCompleteness(catalogID); err != nil {
 			return fmt.Errorf("cannot transition to active phase: %w", err)
+		}
+	}
+
+	// Additional validation when transitioning back to draft from active
+	if fromPhase == "active" && toPhase == "draft" {
+		hasSelfAssessments, err := s.selfAssessmentRepo.HasSelfAssessments(catalogID)
+		if err != nil {
+			return fmt.Errorf("failed to check self-assessments: %w", err)
+		}
+		if hasSelfAssessments {
+			return fmt.Errorf("cannot transition back to draft: catalog has existing self-assessments")
 		}
 	}
 

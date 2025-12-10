@@ -88,12 +88,13 @@ func main() {
 	auditRepo := repository.NewAuditRepository(db.DB)
 	oauthConnRepo := repository.NewOAuthConnectionRepository(db.DB)
 	catalogRepo := repository.NewCatalogRepository(db.DB)
+	selfAssessmentRepo := repository.NewSelfAssessmentRepository(db.DB)
 
 	// Initialize services
 	authService := auth.NewService(&cfg.JWT)
 	emailService := email.NewService(&cfg.Email)
 	authSvc := service.NewAuthService(userRepo, tokenRepo, roleRepo, sessionRepo, oauthConnRepo, authService, emailService)
-	catalogService := service.NewCatalogService(catalogRepo)
+	catalogService := service.NewCatalogService(catalogRepo, selfAssessmentRepo)
 
 	// Initialize middleware
 	authMw := middleware.NewAuthMiddleware(authService, sessionRepo, userRepo)
