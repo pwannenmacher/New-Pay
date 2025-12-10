@@ -16,7 +16,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      security-events: write
+      # needed to upload SARIF results to the Security tab, only for public repos or private repos with GitHub Advanced Security enabled (Enterprise Cloud)
+      #security-events: write
     
     steps:
     - name: Checkout code
@@ -32,11 +33,18 @@ jobs:
         severity: 'CRITICAL,HIGH,MEDIUM'
         exit-code: '0'
     
-    - name: Upload Trivy results to GitHub Security tab
-      uses: github/codeql-action/upload-sarif@v4
+    # needed to upload SARIF results to the Security tab, only for public repos or private repos with GitHub Advanced Security enabled (Enterprise Cloud)
+    #- name: Upload Trivy results to GitHub Security tab
+    #  uses: github/codeql-action/upload-sarif@v4
+    - name: Upload Trivy SARIF results as artifact
+      uses: actions/upload-artifact@v4
       if: always()
       with:
-        sarif_file: 'trivy-results.sarif'
+        # needed to upload SARIF results to the Security tab, only for public repos or private repos with GitHub Advanced Security enabled (Enterprise Cloud)
+        #sarif_file: 'trivy-results.sarif'
+        name: trivy-sarif-results
+        path: 'trivy-results.sarif'
+        retention-days: 30
     
     - name: Run Trivy vulnerability scanner (table output)
       uses: aquasecurity/trivy-action@master
@@ -52,7 +60,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      security-events: write
+      # needed to upload SARIF results to the Security tab, only for public repos or private repos with GitHub Advanced Security enabled (Enterprise Cloud)
+      #security-events: write
     
     steps:
     - name: Checkout code
@@ -79,13 +88,19 @@ jobs:
         output: 'trivy-backend-image.sarif'
         severity: 'CRITICAL,HIGH'
         exit-code: '0'
-    
-    - name: Upload Backend Image scan results
-      uses: github/codeql-action/upload-sarif@v4
+    # needed to upload SARIF results to the Security tab, only for public repos or private repos with GitHub Advanced Security enabled (Enterprise Cloud)
+    #- name: Upload Backend Image scan results
+    #  uses: github/codeql-action/upload-sarif@v4
+    - name: Upload Backend Image scan results as artifact
+      uses: actions/upload-artifact@v4
       if: always()
       with:
-        sarif_file: 'trivy-backend-image.sarif'
-        category: 'backend-image'
+        # needed to upload SARIF results to the Security tab, only for public repos or private repos with GitHub Advanced Security enabled (Enterprise Cloud)
+        #sarif_file: 'trivy-backend-image.sarif'
+        #category: 'backend-image'
+        name: trivy-backend-image-sarif
+        path: 'trivy-backend-image.sarif'
+        retention-days: 30
     
     - name: Build Frontend Image
       uses: docker/build-push-action@v6
@@ -105,10 +120,16 @@ jobs:
         output: 'trivy-frontend-image.sarif'
         severity: 'CRITICAL,HIGH'
         exit-code: '0'
-    
-    - name: Upload Frontend Image scan results
-      uses: github/codeql-action/upload-sarif@v4
+    # needed to upload SARIF results to the Security tab, only for public repos or private repos with GitHub Advanced Security enabled (Enterprise Cloud)
+    #- name: Upload Frontend Image scan results
+    #  uses: github/codeql-action/upload-sarif@v4
+    - name: Upload Frontend Image scan results as artifact
+      uses: actions/upload-artifact@v4
       if: always()
       with:
-        sarif_file: 'trivy-frontend-image.sarif'
-        category: 'frontend-image'
+        # needed to upload SARIF results to the Security tab, only for public repos or private repos with GitHub Advanced Security enabled (Enterprise Cloud)
+        #sarif_file: 'trivy-frontend-image.sarif'
+        #category: 'frontend-image'
+        name: trivy-frontend-image-sarif
+        path: 'trivy-frontend-image.sarif'
+        retention-days: 30
