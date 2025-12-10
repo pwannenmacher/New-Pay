@@ -154,8 +154,8 @@ func (s *SelfAssessmentService) GetSelfAssessmentWithDetails(assessmentID uint, 
 }
 
 // GetUserSelfAssessments retrieves all self-assessments for a user
-func (s *SelfAssessmentService) GetUserSelfAssessments(userID uint) ([]models.SelfAssessment, error) {
-	return s.selfAssessmentRepo.GetByUserID(userID)
+func (s *SelfAssessmentService) GetUserSelfAssessments(userID uint) ([]models.SelfAssessmentWithDetails, error) {
+	return s.selfAssessmentRepo.GetByUserIDWithDetails(userID)
 }
 
 // GetActiveCatalogs retrieves catalogs that are active and valid for current date

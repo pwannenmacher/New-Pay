@@ -87,7 +87,7 @@ func (h *SelfAssessmentHandler) CreateSelfAssessment(w http.ResponseWriter, r *h
 // @Description Retrieve all self-assessments created by the current user
 // @Tags Self-Assessments
 // @Security BearerAuth
-// @Success 200 {array} models.SelfAssessment
+// @Success 200 {array} models.SelfAssessmentWithDetails
 // @Failure 401 {object} map[string]string "Unauthorized"
 // @Router /self-assessments/my [get]
 func (h *SelfAssessmentHandler) GetUserSelfAssessments(w http.ResponseWriter, r *http.Request) {

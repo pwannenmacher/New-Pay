@@ -179,7 +179,7 @@ export default function SelfAssessmentsPage() {
             <Table striped highlightOnHover>
               <Table.Thead>
                 <Table.Tr>
-                  <Table.Th>Katalog-ID</Table.Th>
+                  <Table.Th>Katalog</Table.Th>
                   <Table.Th>Status</Table.Th>
                   <Table.Th>Erstellt am</Table.Th>
                   <Table.Th>Eingereicht am</Table.Th>
@@ -190,7 +190,12 @@ export default function SelfAssessmentsPage() {
               <Table.Tbody>
                 {assessments.map((assessment) => (
                   <Table.Tr key={assessment.id}>
-                    <Table.Td>{assessment.catalog_id}</Table.Td>
+                    <Table.Td>
+                      <div>
+                        <Text size="sm">{assessment.catalog_name || 'Unbekannt'}</Text>
+                        <Text size="xs" c="dimmed">ID: {assessment.catalog_id}</Text>
+                      </div>
+                    </Table.Td>
                     <Table.Td>{getStatusBadge(assessment.status)}</Table.Td>
                     <Table.Td>{formatDate(assessment.created_at)}</Table.Td>
                     <Table.Td>{formatDate(assessment.submitted_at)}</Table.Td>

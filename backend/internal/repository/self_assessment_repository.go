@@ -233,6 +233,51 @@ func (r *SelfAssessmentRepository) GetByUserID(userID uint) ([]models.SelfAssess
 	return assessments, nil
 }
 
+// GetByUserIDWithDetails retrieves all self-assessments for a user with catalog details
+func (r *SelfAssessmentRepository) GetByUserIDWithDetails(userID uint) ([]models.SelfAssessmentWithDetails, error) {
+	query := `
+		SELECT sa.id, sa.catalog_id, sa.user_id, sa.status, 
+		       sa.created_at, sa.updated_at, sa.submitted_at, sa.in_review_at, 
+		       sa.reviewed_at, sa.discussion_started_at, sa.archived_at, 
+		       sa.closed_at, sa.previous_status,
+		       c.name as catalog_name
+		FROM self_assessments sa
+		JOIN criteria_catalogs c ON sa.catalog_id = c.id
+		WHERE sa.user_id = $1
+		ORDER BY sa.created_at DESC
+	`
+	rows, err := r.db.Query(query, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var assessments []models.SelfAssessmentWithDetails
+	for rows.Next() {
+		var assessment models.SelfAssessmentWithDetails
+		if err := rows.Scan(
+			&assessment.ID,
+			&assessment.CatalogID,
+			&assessment.UserID,
+			&assessment.Status,
+			&assessment.CreatedAt,
+			&assessment.UpdatedAt,
+			&assessment.SubmittedAt,
+			&assessment.InReviewAt,
+			&assessment.ReviewedAt,
+			&assessment.DiscussionStartedAt,
+			&assessment.ArchivedAt,
+			&assessment.ClosedAt,
+			&assessment.PreviousStatus,
+			&assessment.CatalogName,
+		); err != nil {
+			return nil, err
+		}
+		assessments = append(assessments, assessment)
+	}
+	return assessments, nil
+}
+
 // GetAllMetadata retrieves metadata for all self-assessments (for admins)
 func (r *SelfAssessmentRepository) GetAllMetadata() ([]models.SelfAssessment, error) {
 	query := `
