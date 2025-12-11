@@ -121,16 +121,19 @@ func (s *CatalogService) UpdateCatalog(catalog *models.CriteriaCatalog, userID u
 	if !canEditCatalog(existing.Phase, userRoles) {
 		// Special case: Admins can update valid_until for active catalogs
 		if existing.Phase == "active" && contains(userRoles, "admin") {
-			// Check if ONLY valid_until is being changed
+			// Check if ONLY valid_until is being changed (compare dates only, not timestamps)
+			validFromSame := catalog.ValidFrom.Truncate(24 * time.Hour).Equal(existing.ValidFrom.Truncate(24 * time.Hour))
+
 			if catalog.Name != existing.Name ||
 				catalog.Description != existing.Description ||
-				!catalog.ValidFrom.Equal(existing.ValidFrom) ||
+				!validFromSame ||
 				catalog.Phase != existing.Phase {
 				return fmt.Errorf("permission denied: can only change valid_until for active catalogs")
 			}
 			// Validate new valid_until is in the future
 			today := time.Now().Truncate(24 * time.Hour)
-			if !catalog.ValidUntil.After(today) {
+			newValidUntilDate := catalog.ValidUntil.Truncate(24 * time.Hour)
+			if !newValidUntilDate.After(today) {
 				return fmt.Errorf("new end date must be after today")
 			}
 			// Allow this change to proceed
