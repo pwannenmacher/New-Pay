@@ -134,6 +134,61 @@ export default function SelfAssessmentDetailPage() {
 
   const canSubmit = assessment?.status === 'draft';
 
+  const canReopen = () => {
+    if (!assessment || assessment.status !== 'closed' || !assessment.closed_at) {
+      return false;
+    }
+    const closedAt = new Date(assessment.closed_at);
+    const now = new Date();
+    const hoursSinceClosed = (now.getTime() - closedAt.getTime()) / (1000 * 60 * 60);
+    return hoursSinceClosed < 24;
+  };
+
+  const getRemainingReopenTime = () => {
+    if (!assessment?.closed_at) return null;
+    const closedAt = new Date(assessment.closed_at);
+    const deadline = new Date(closedAt.getTime() + 24 * 60 * 60 * 1000);
+    const now = new Date();
+    const remaining = deadline.getTime() - now.getTime();
+    
+    if (remaining <= 0) return null;
+    
+    const hours = Math.floor(remaining / (1000 * 60 * 60));
+    const minutes = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60));
+    return `${hours}h ${minutes}m`;
+  };
+
+  const handleReopen = async () => {
+    if (!assessment?.previous_status) {
+      notifications.show({
+        title: 'Fehler',
+        message: 'Vorheriger Status nicht gefunden',
+        color: 'red',
+      });
+      return;
+    }
+
+    try {
+      setUpdating(true);
+      await selfAssessmentService.updateStatus(assessment.id, assessment.previous_status);
+      notifications.show({
+        title: 'Erfolg',
+        message: 'Selbsteinschätzung wurde wiedereröffnet',
+        color: 'green',
+      });
+      await loadAssessment();
+    } catch (error: any) {
+      console.error('Error reopening assessment:', error);
+      notifications.show({
+        title: 'Fehler',
+        message: error.response?.data?.error || 'Selbsteinschätzung konnte nicht wiedereröffnet werden',
+        color: 'red',
+      });
+    } finally {
+      setUpdating(false);
+    }
+  };
+
   if (loading) {
     return (
       <Container size="xl" py="xl">
@@ -231,6 +286,32 @@ export default function SelfAssessmentDetailPage() {
                     color="red"
                   >
                     Stornieren
+                  </Button>
+                </Group>
+              </>
+            )}
+
+            {canReopen() && (
+              <>
+                <Divider />
+                <Alert icon={<IconAlertCircle size={16} />} color="orange">
+                  Diese Selbsteinschätzung wurde geschlossen. Sie können sie innerhalb von 24 Stunden
+                  nach dem Schließen wiedereröffnen.
+                  {getRemainingReopenTime() && (
+                    <Text size="sm" mt="xs" fw={500}>
+                      Verbleibende Zeit: {getRemainingReopenTime()}
+                    </Text>
+                  )}
+                </Alert>
+                <Group>
+                  <Button
+                    leftSection={<IconEdit size={16} />}
+                    onClick={handleReopen}
+                    loading={updating}
+                    color="orange"
+                    variant="filled"
+                  >
+                    Wiedereröffnen
                   </Button>
                 </Group>
               </>

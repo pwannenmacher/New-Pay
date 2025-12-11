@@ -132,6 +132,43 @@ export default function SelfAssessmentsAdminPage() {
     return assessment.status === 'closed' && !assessment.submitted_at;
   };
 
+  const canReopen = (assessment: SelfAssessment) => {
+    if (assessment.status !== 'closed' || !assessment.closed_at) {
+      return false;
+    }
+    const closedAt = new Date(assessment.closed_at);
+    const now = new Date();
+    const hoursSinceClosed = (now.getTime() - closedAt.getTime()) / (1000 * 60 * 60);
+    return hoursSinceClosed < 24;
+  };
+
+  const handleReopen = async (assessmentId: number, previousStatus: string | undefined) => {
+    if (!previousStatus) {
+      notifications.show({
+        title: 'Fehler',
+        message: 'Vorheriger Status nicht gefunden',
+        color: 'red',
+      });
+      return;
+    }
+
+    try {
+      await selfAssessmentService.updateStatus(assessmentId, previousStatus);
+      notifications.show({
+        title: 'Erfolg',
+        message: 'Selbsteinschätzung wurde wiedereröffnet',
+        color: 'green',
+      });
+      await loadData();
+    } catch (error: any) {
+      notifications.show({
+        title: 'Fehler',
+        message: error.response?.data?.error || 'Selbsteinschätzung konnte nicht wiedereröffnet werden',
+        color: 'red',
+      });
+    }
+  };
+
   const formatDate = (dateString?: string) => {
     if (!dateString) return '-';
     return new Date(dateString).toLocaleDateString('de-DE', {
@@ -279,6 +316,16 @@ export default function SelfAssessmentsAdminPage() {
                             onClick={() => handleClose(assessment.id)}
                           >
                             Schließen
+                          </Button>
+                        )}
+                        {canReopen(assessment) && (
+                          <Button
+                            size="xs"
+                            variant="light"
+                            color="orange"
+                            onClick={() => handleReopen(assessment.id, assessment.previous_status)}
+                          >
+                            Wiedereröffnen
                           </Button>
                         )}
                         {canDelete(assessment) && (
