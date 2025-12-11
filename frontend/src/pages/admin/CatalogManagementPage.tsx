@@ -14,7 +14,6 @@ import {
   Alert,
   Menu,
   Modal,
-  TextInput,
 } from '@mantine/core';
 import {
   IconPlus,
@@ -342,7 +341,13 @@ export function CatalogManagementPage() {
                 label="Neues Enddatum"
                 placeholder="Wählen Sie ein Datum"
                 value={newValidUntil}
-                onChange={setNewValidUntil}
+                onChange={(value) => {
+                  if (typeof value === 'string') {
+                    setNewValidUntil(new Date(value));
+                  } else {
+                    setNewValidUntil(value);
+                  }
+                }}
                 minDate={new Date()}
                 maxDate={new Date(selectedCatalog.valid_until)}
                 valueFormat="DD.MM.YYYY"
