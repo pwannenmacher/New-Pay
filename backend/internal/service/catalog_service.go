@@ -123,9 +123,10 @@ func (s *CatalogService) UpdateCatalog(catalog *models.CriteriaCatalog, userID u
 		if existing.Phase == "active" && contains(userRoles, "admin") {
 			// Check if ONLY valid_until is being changed (compare dates only, not timestamps)
 			validFromSame := catalog.ValidFrom.Truncate(24 * time.Hour).Equal(existing.ValidFrom.Truncate(24 * time.Hour))
+			descriptionSame := compareStringPointers(catalog.Description, existing.Description)
 
 			if catalog.Name != existing.Name ||
-				catalog.Description != existing.Description ||
+				!descriptionSame ||
 				!validFromSame ||
 				catalog.Phase != existing.Phase {
 				return fmt.Errorf("permission denied: can only change valid_until for active catalogs")
@@ -954,4 +955,19 @@ func (s *CatalogService) logCategoryChanges(catalogID uint, oldCategory, newCate
 	}
 
 	return nil
+}
+
+// compareStringPointers safely compares two string pointers
+// Treats nil and empty string as equivalent
+func compareStringPointers(a, b *string) bool {
+	// Both nil or both empty
+	if (a == nil || *a == "") && (b == nil || *b == "") {
+		return true
+	}
+	// One is nil/empty, other is not
+	if (a == nil || *a == "") != (b == nil || *b == "") {
+		return false
+	}
+	// Both have values
+	return *a == *b
 }

@@ -3,8 +3,11 @@ package scheduler
 import (
 	"fmt"
 	"log/slog"
+	"new-pay/internal/config"
 	"new-pay/internal/email"
 	"new-pay/internal/repository"
+	"strconv"
+	"strings"
 	"time"
 )
 
@@ -14,6 +17,7 @@ type Scheduler struct {
 	userRepo           *repository.UserRepository
 	roleRepo           *repository.RoleRepository
 	emailService       *email.Service
+	config             *config.SchedulerConfig
 	stopChan           chan bool
 }
 
@@ -23,27 +27,72 @@ func NewScheduler(
 	userRepo *repository.UserRepository,
 	roleRepo *repository.RoleRepository,
 	emailService *email.Service,
+	cfg *config.SchedulerConfig,
 ) *Scheduler {
 	return &Scheduler{
 		selfAssessmentRepo: selfAssessmentRepo,
 		userRepo:           userRepo,
 		roleRepo:           roleRepo,
 		emailService:       emailService,
+		config:             cfg,
 		stopChan:           make(chan bool),
 	}
 }
 
 // Start starts all scheduled tasks
 func (s *Scheduler) Start() {
-	slog.Info("Starting scheduler")
+	slog.Info("Starting scheduler", "draft_reminders_enabled", s.config.EnableDraftReminders, "reviewer_summary_enabled", s.config.EnableReviewerSummary)
 
-	// Weekly draft reminders (every Monday at 9 AM)
-	go s.scheduleWeeklyTask(time.Monday, 9, 0, s.sendDraftReminders)
+	if s.config.EnableDraftReminders {
+		// Parse cron and start draft reminders
+		if err := s.startCronTask(s.config.DraftReminderCron, "draft_reminders", s.sendDraftReminders); err != nil {
+			slog.Error("Failed to start draft reminders", "error", err)
+		}
+	}
 
-	// Daily reviewer summaries (every day at 8 AM)
-	go s.scheduleDailyTask(8, 0, s.sendReviewerSummaries)
+	if s.config.EnableReviewerSummary {
+		// Parse cron and start reviewer summaries
+		if err := s.startCronTask(s.config.ReviewerSummaryCron, "reviewer_summaries", s.sendReviewerSummaries); err != nil {
+			slog.Error("Failed to start reviewer summaries", "error", err)
+		}
+	}
 
 	slog.Info("Scheduler started")
+}
+
+// startCronTask parses a cron expression and starts the task
+// Supports simple cron format: "minute hour day month weekday"
+// Examples: "0 9 * * 1" = Monday 9 AM, "0 8 * * *" = Daily 8 AM
+func (s *Scheduler) startCronTask(cronExpr, taskName string, task func()) error {
+	parts := strings.Fields(cronExpr)
+	if len(parts) != 5 {
+		return fmt.Errorf("invalid cron expression: %s (expected 5 fields)", cronExpr)
+	}
+
+	minute, err := strconv.Atoi(parts[0])
+	if err != nil || minute < 0 || minute > 59 {
+		return fmt.Errorf("invalid minute in cron: %s", parts[0])
+	}
+
+	hour, err := strconv.Atoi(parts[1])
+	if err != nil || hour < 0 || hour > 23 {
+		return fmt.Errorf("invalid hour in cron: %s", parts[1])
+	}
+
+	// Check if daily or weekly
+	if parts[4] == "*" {
+		// Daily task
+		go s.scheduleDailyTask(hour, minute, taskName, task)
+	} else {
+		// Weekly task
+		weekday, err := strconv.Atoi(parts[4])
+		if err != nil || weekday < 0 || weekday > 6 {
+			return fmt.Errorf("invalid weekday in cron: %s (0-6, 0=Sunday)", parts[4])
+		}
+		go s.scheduleWeeklyTask(time.Weekday(weekday), hour, minute, taskName, task)
+	}
+
+	return nil
 }
 
 // Stop stops the scheduler
@@ -53,17 +102,17 @@ func (s *Scheduler) Stop() {
 }
 
 // scheduleWeeklyTask runs a task weekly on a specific weekday and time
-func (s *Scheduler) scheduleWeeklyTask(weekday time.Weekday, hour, minute int, task func()) {
+func (s *Scheduler) scheduleWeeklyTask(weekday time.Weekday, hour, minute int, taskName string, task func()) {
 	for {
 		now := time.Now()
 		next := s.nextWeekday(now, weekday, hour, minute)
 		duration := next.Sub(now)
 
-		slog.Info("Next weekly task scheduled", "task", "draft_reminders", "next_run", next.Format("2006-01-02 15:04:05"))
+		slog.Info("Next weekly task scheduled", "task", taskName, "next_run", next.Format("2006-01-02 15:04:05"))
 
 		select {
 		case <-time.After(duration):
-			slog.Info("Running weekly task", "task", "draft_reminders")
+			slog.Info("Running weekly task", "task", taskName)
 			task()
 		case <-s.stopChan:
 			return
@@ -72,17 +121,17 @@ func (s *Scheduler) scheduleWeeklyTask(weekday time.Weekday, hour, minute int, t
 }
 
 // scheduleDailyTask runs a task daily at a specific time
-func (s *Scheduler) scheduleDailyTask(hour, minute int, task func()) {
+func (s *Scheduler) scheduleDailyTask(hour, minute int, taskName string, task func()) {
 	for {
 		now := time.Now()
 		next := s.nextDailyRun(now, hour, minute)
 		duration := next.Sub(now)
 
-		slog.Info("Next daily task scheduled", "task", "reviewer_summaries", "next_run", next.Format("2006-01-02 15:04:05"))
+		slog.Info("Next daily task scheduled", "task", taskName, "next_run", next.Format("2006-01-02 15:04:05"))
 
 		select {
 		case <-time.After(duration):
-			slog.Info("Running daily task", "task", "reviewer_summaries")
+			slog.Info("Running daily task", "task", taskName)
 			task()
 		case <-s.stopChan:
 			return
@@ -136,13 +185,14 @@ func (s *Scheduler) sendDraftReminders() {
 
 	now := time.Now()
 	remindersSent := 0
+	reminderIntervalMins := s.config.ReminderIntervalMins
 
 	for _, assessment := range assessments {
-		// Check if assessment is older than 7 days
-		daysSinceCreation := int(now.Sub(assessment.CreatedAt).Hours() / 24)
+		// Calculate minutes since creation
+		minutesSinceCreation := int(now.Sub(assessment.CreatedAt).Minutes())
 
-		// Send reminder every 7 days (7, 14, 21, etc.)
-		if daysSinceCreation > 0 && daysSinceCreation%7 == 0 {
+		// Send reminder at each interval (e.g., 10080 mins = 7 days, 20160 = 14 days, etc.)
+		if minutesSinceCreation > 0 && minutesSinceCreation%reminderIntervalMins == 0 {
 			// Get user details
 			user, err := s.userRepo.GetByID(assessment.UserID)
 			if err != nil || user == nil {
@@ -151,6 +201,7 @@ func (s *Scheduler) sendDraftReminders() {
 			}
 
 			userName := fmt.Sprintf("%s %s", user.FirstName, user.LastName)
+			daysSinceCreation := int(now.Sub(assessment.CreatedAt).Hours() / 24)
 
 			// Send reminder email
 			err = s.emailService.SendDraftReminderEmail(

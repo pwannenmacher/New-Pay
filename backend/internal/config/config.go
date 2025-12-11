@@ -22,6 +22,7 @@ type Config struct {
 	RateLimit RateLimitConfig
 	App       AppConfig
 	Log       LogConfig
+	Scheduler SchedulerConfig
 }
 
 // ServerConfig holds server-related configuration
@@ -119,6 +120,15 @@ type LogConfig struct {
 	Level string
 }
 
+// SchedulerConfig holds scheduler configuration
+type SchedulerConfig struct {
+	DraftReminderCron     string // e.g., "0 9 * * 1" (Monday 9 AM)
+	ReviewerSummaryCron   string // e.g., "0 8 * * *" (Daily 8 AM)
+	ReminderIntervalMins  int    // Interval in minutes for draft reminders (default: 10080 = 7 days)
+	EnableDraftReminders  bool   // Enable/disable draft reminders
+	EnableReviewerSummary bool   // Enable/disable reviewer summaries
+}
+
 // Load loads configuration from environment variables
 func Load() (*Config, error) {
 	// Load .env file if it exists (ignore error if not found)
@@ -187,7 +197,14 @@ func Load() (*Config, error) {
 			EnableOAuthRegistration: getBoolEnv("ENABLE_OAUTH_REGISTRATION", false),
 		},
 		Log: LogConfig{
-			Level: getEnv("LOG_LEVEL", "INFO"),
+			Level: getEnv("LOG_LEVEL", "info"),
+		},
+		Scheduler: SchedulerConfig{
+			DraftReminderCron:     getEnv("SCHEDULER_DRAFT_REMINDER_CRON", "0 9 * * 1"),   // Monday 9 AM
+			ReviewerSummaryCron:   getEnv("SCHEDULER_REVIEWER_SUMMARY_CRON", "0 8 * * *"), // Daily 8 AM
+			ReminderIntervalMins:  getIntEnv("SCHEDULER_REMINDER_INTERVAL_MINS", 10080),   // 7 days = 10080 minutes
+			EnableDraftReminders:  getBoolEnv("SCHEDULER_ENABLE_DRAFT_REMINDERS", true),
+			EnableReviewerSummary: getBoolEnv("SCHEDULER_ENABLE_REVIEWER_SUMMARY", true),
 		},
 	}
 

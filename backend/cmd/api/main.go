@@ -100,7 +100,7 @@ func main() {
 	selfAssessmentService := service.NewSelfAssessmentService(selfAssessmentRepo, catalogRepo, auditRepo, assessmentResponseRepo)
 
 	// Initialize scheduler
-	schedulerService := scheduler.NewScheduler(selfAssessmentRepo, userRepo, roleRepo, emailService)
+	schedulerService := scheduler.NewScheduler(selfAssessmentRepo, userRepo, roleRepo, emailService, &cfg.Scheduler)
 	schedulerService.Start()
 	defer schedulerService.Stop()
 
