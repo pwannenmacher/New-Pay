@@ -70,7 +70,7 @@ export default function SelfAssessmentPage() {
 
   useEffect(() => {
     // Load existing response for active category
-    if (activeCategory && responses.length > 0) {
+    if (activeCategory && responses && responses.length > 0) {
       const categoryId = parseInt(activeCategory);
       const existingResponse = responses.find(r => r.category_id === categoryId);
       

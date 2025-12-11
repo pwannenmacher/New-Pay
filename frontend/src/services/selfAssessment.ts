@@ -21,7 +21,7 @@ export const selfAssessmentService = {
   // Create a new self-assessment
   createSelfAssessment: async (catalogId: number): Promise<SelfAssessment> => {
     try {
-      return await api.post<SelfAssessment>(`/self-assessments/catalog/${catalogId}`);
+      return await api.post<SelfAssessment>(`/catalogs/${catalogId}/self-assessments`);
     } catch (error) {
       console.error('Error creating self-assessment:', error);
       throw error;

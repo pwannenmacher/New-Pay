@@ -24,6 +24,7 @@ import {
   IconX,
   IconAlertCircle,
   IconSend,
+  IconEdit,
 } from '@tabler/icons-react';
 import { selfAssessmentService } from '../../services/selfAssessment';
 import adminService from '../../services/admin';
@@ -202,15 +203,23 @@ export default function SelfAssessmentDetailPage() {
               <>
                 <Divider />
                 <Alert icon={<IconAlertCircle size={16} />} color="blue">
-                  Diese Selbsteinschätzung befindet sich noch im Entwurf. Sie können sie zur Prüfung
-                  einreichen oder stornieren.
+                  Diese Selbsteinschätzung befindet sich noch im Entwurf. Sie können sie bearbeiten,
+                  zur Prüfung einreichen oder stornieren.
                 </Alert>
                 <Group>
+                  <Button
+                    leftSection={<IconEdit size={16} />}
+                    onClick={() => navigate(`/self-assessments/${assessment.id}/edit`)}
+                    variant="filled"
+                  >
+                    Bearbeiten
+                  </Button>
                   <Button
                     leftSection={<IconSend size={16} />}
                     onClick={() => handleStatusChange('submitted')}
                     loading={updating}
                     color="blue"
+                    variant="light"
                   >
                     Zur Prüfung einreichen
                   </Button>

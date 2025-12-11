@@ -388,12 +388,6 @@ func main() {
 			http.HandlerFunc(selfAssessmentHandler.GetUserSelfAssessments),
 		),
 	)
-	// Create self-assessment for a catalog
-	mux.Handle("POST /api/v1/self-assessments/catalog/{catalogId}",
-		authMw.Authenticate(
-			http.HandlerFunc(selfAssessmentHandler.CreateSelfAssessment),
-		),
-	)
 	// Get visible self-assessments (role-based)
 	mux.Handle("GET /api/v1/self-assessments",
 		authMw.Authenticate(
@@ -401,7 +395,14 @@ func main() {
 		),
 	)
 
-	// Assessment response routes - must be before generic {id} routes
+	// Create self-assessment for a catalog (using POST to base + query parameter alternative approach)
+	mux.Handle("POST /api/v1/catalogs/{catalogId}/self-assessments",
+		authMw.Authenticate(
+			http.HandlerFunc(selfAssessmentHandler.CreateSelfAssessment),
+		),
+	)
+
+	// Routes with {id}/subpath patterns
 	// Get responses for an assessment
 	mux.Handle("GET /api/v1/self-assessments/{id}/responses",
 		authMw.Authenticate(
@@ -445,9 +446,7 @@ func main() {
 		authMw.Authenticate(
 			http.HandlerFunc(selfAssessmentHandler.UpdateStatus),
 		),
-	)
-
-	// Admin routes for self-assessments
+	) // Admin routes for self-assessments
 	mux.Handle("GET /api/v1/admin/self-assessments",
 		authMw.Authenticate(
 			http.HandlerFunc(selfAssessmentHandler.GetAllSelfAssessmentsAdmin),

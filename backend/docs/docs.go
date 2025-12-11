@@ -148,7 +148,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/handlers.CatalogRequest"
+                            "$ref": "#/definitions/internal_handlers.CatalogRequest"
                         }
                     }
                 ],
@@ -156,7 +156,7 @@ const docTemplate = `{
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/models.CriteriaCatalog"
+                            "$ref": "#/definitions/new-pay_internal_models.CriteriaCatalog"
                         }
                     },
                     "400": {
@@ -221,7 +221,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/handlers.CatalogRequest"
+                            "$ref": "#/definitions/internal_handlers.CatalogRequest"
                         }
                     }
                 ],
@@ -229,7 +229,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/models.CriteriaCatalog"
+                            "$ref": "#/definitions/new-pay_internal_models.CriteriaCatalog"
                         }
                     },
                     "400": {
@@ -347,7 +347,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/models.Category"
+                            "$ref": "#/definitions/new-pay_internal_models.Category"
                         }
                     }
                 ],
@@ -355,7 +355,7 @@ const docTemplate = `{
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/models.Category"
+                            "$ref": "#/definitions/new-pay_internal_models.Category"
                         }
                     },
                     "400": {
@@ -427,7 +427,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/models.Category"
+                            "$ref": "#/definitions/new-pay_internal_models.Category"
                         }
                     }
                 ],
@@ -435,7 +435,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/models.Category"
+                            "$ref": "#/definitions/new-pay_internal_models.Category"
                         }
                     },
                     "400": {
@@ -567,7 +567,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/models.Path"
+                            "$ref": "#/definitions/new-pay_internal_models.Path"
                         }
                     }
                 ],
@@ -575,7 +575,7 @@ const docTemplate = `{
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/models.Path"
+                            "$ref": "#/definitions/new-pay_internal_models.Path"
                         }
                     },
                     "400": {
@@ -654,7 +654,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/models.Path"
+                            "$ref": "#/definitions/new-pay_internal_models.Path"
                         }
                     }
                 ],
@@ -662,7 +662,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/models.Path"
+                            "$ref": "#/definitions/new-pay_internal_models.Path"
                         }
                     },
                     "400": {
@@ -792,7 +792,7 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/models.CatalogChange"
+                                "$ref": "#/definitions/new-pay_internal_models.CatalogChange"
                             }
                         }
                     },
@@ -858,7 +858,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/models.PathLevelDescription"
+                            "$ref": "#/definitions/new-pay_internal_models.PathLevelDescription"
                         }
                     }
                 ],
@@ -866,7 +866,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/models.PathLevelDescription"
+                            "$ref": "#/definitions/new-pay_internal_models.PathLevelDescription"
                         }
                     },
                     "400": {
@@ -931,7 +931,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/models.Level"
+                            "$ref": "#/definitions/new-pay_internal_models.Level"
                         }
                     }
                 ],
@@ -939,7 +939,7 @@ const docTemplate = `{
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/models.Level"
+                            "$ref": "#/definitions/new-pay_internal_models.Level"
                         }
                     },
                     "400": {
@@ -1011,7 +1011,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/models.Level"
+                            "$ref": "#/definitions/new-pay_internal_models.Level"
                         }
                     }
                 ],
@@ -1019,7 +1019,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/models.Level"
+                            "$ref": "#/definitions/new-pay_internal_models.Level"
                         }
                     },
                     "400": {
@@ -1255,7 +1255,7 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/models.Role"
+                                "$ref": "#/definitions/new-pay_internal_models.Role"
                             }
                         }
                     },
@@ -1324,7 +1324,7 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/models.SelfAssessment"
+                                "$ref": "#/definitions/new-pay_internal_models.SelfAssessment"
                             }
                         }
                     },
@@ -2428,7 +2428,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/handlers.LoginRequest"
+                            "$ref": "#/definitions/internal_handlers.LoginRequest"
                         }
                     }
                 ],
@@ -2566,7 +2566,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/handlers.ResetPasswordRequest"
+                            "$ref": "#/definitions/internal_handlers.ResetPasswordRequest"
                         }
                     }
                 ],
@@ -2612,7 +2612,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/handlers.PasswordResetRequest"
+                            "$ref": "#/definitions/internal_handlers.PasswordResetRequest"
                         }
                     }
                 ],
@@ -2693,7 +2693,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/handlers.RegisterRequest"
+                            "$ref": "#/definitions/internal_handlers.RegisterRequest"
                         }
                     }
                 ],
@@ -2782,7 +2782,56 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/models.CriteriaCatalog"
+                                "$ref": "#/definitions/new-pay_internal_models.CriteriaCatalog"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/catalogs/{catalogId}/self-assessments": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Create a new self-assessment for an active catalog",
+                "tags": [
+                    "Self-Assessments"
+                ],
+                "summary": "Create self-assessment",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Catalog ID",
+                        "name": "catalogId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/new-pay_internal_models.SelfAssessment"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
                             }
                         }
                     },
@@ -2826,7 +2875,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/models.CatalogWithDetails"
+                            "$ref": "#/definitions/new-pay_internal_models.CatalogWithDetails"
                         }
                     },
                     "400": {
@@ -2928,7 +2977,7 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/models.SelfAssessment"
+                                "$ref": "#/definitions/new-pay_internal_models.SelfAssessment"
                             }
                         }
                     },
@@ -2962,56 +3011,7 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/models.CriteriaCatalog"
-                            }
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/self-assessments/catalog/{catalogId}": {
-            "post": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Create a new self-assessment for an active catalog",
-                "tags": [
-                    "Self-Assessments"
-                ],
-                "summary": "Create self-assessment",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "Catalog ID",
-                        "name": "catalogId",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "201": {
-                        "description": "Created",
-                        "schema": {
-                            "$ref": "#/definitions/models.SelfAssessment"
-                        }
-                    },
-                    "400": {
-                        "description": "Invalid request",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
+                                "$ref": "#/definitions/new-pay_internal_models.CriteriaCatalog"
                             }
                         }
                     },
@@ -3045,7 +3045,7 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/models.SelfAssessmentWithDetails"
+                                "$ref": "#/definitions/new-pay_internal_models.SelfAssessmentWithDetails"
                             }
                         }
                     },
@@ -3086,7 +3086,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/models.SelfAssessment"
+                            "$ref": "#/definitions/new-pay_internal_models.SelfAssessment"
                         }
                     },
                     "400": {
@@ -3153,7 +3153,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/models.AssessmentCompleteness"
+                            "$ref": "#/definitions/new-pay_internal_models.AssessmentCompleteness"
                         }
                     },
                     "400": {
@@ -3213,7 +3213,7 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/models.AssessmentResponseWithDetails"
+                                "$ref": "#/definitions/new-pay_internal_models.AssessmentResponseWithDetails"
                             }
                         }
                     },
@@ -3271,7 +3271,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/models.AssessmentResponse"
+                            "$ref": "#/definitions/new-pay_internal_models.AssessmentResponse"
                         }
                     }
                 ],
@@ -3279,7 +3279,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/models.AssessmentResponse"
+                            "$ref": "#/definitions/new-pay_internal_models.AssessmentResponse"
                         }
                     },
                     "400": {
@@ -3880,7 +3880,7 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "handlers.CatalogRequest": {
+        "internal_handlers.CatalogRequest": {
             "type": "object",
             "properties": {
                 "description": {
@@ -3902,7 +3902,7 @@ const docTemplate = `{
                 }
             }
         },
-        "handlers.LoginRequest": {
+        "internal_handlers.LoginRequest": {
             "type": "object",
             "required": [
                 "email",
@@ -3917,7 +3917,7 @@ const docTemplate = `{
                 }
             }
         },
-        "handlers.PasswordResetRequest": {
+        "internal_handlers.PasswordResetRequest": {
             "type": "object",
             "required": [
                 "email"
@@ -3928,7 +3928,7 @@ const docTemplate = `{
                 }
             }
         },
-        "handlers.RegisterRequest": {
+        "internal_handlers.RegisterRequest": {
             "type": "object",
             "required": [
                 "email",
@@ -3952,7 +3952,7 @@ const docTemplate = `{
                 }
             }
         },
-        "handlers.ResetPasswordRequest": {
+        "internal_handlers.ResetPasswordRequest": {
             "type": "object",
             "required": [
                 "new_password",
@@ -3968,7 +3968,7 @@ const docTemplate = `{
                 }
             }
         },
-        "models.AssessmentCompleteness": {
+        "new-pay_internal_models.AssessmentCompleteness": {
             "type": "object",
             "properties": {
                 "completed_categories": {
@@ -3991,7 +3991,7 @@ const docTemplate = `{
                 }
             }
         },
-        "models.AssessmentResponse": {
+        "new-pay_internal_models.AssessmentResponse": {
             "type": "object",
             "properties": {
                 "assessment_id": {
@@ -4020,7 +4020,7 @@ const docTemplate = `{
                 }
             }
         },
-        "models.AssessmentResponseWithDetails": {
+        "new-pay_internal_models.AssessmentResponseWithDetails": {
             "type": "object",
             "properties": {
                 "assessment_id": {
@@ -4074,7 +4074,7 @@ const docTemplate = `{
                 }
             }
         },
-        "models.CatalogChange": {
+        "new-pay_internal_models.CatalogChange": {
             "type": "object",
             "properties": {
                 "catalog_id": {
@@ -4107,7 +4107,7 @@ const docTemplate = `{
                 }
             }
         },
-        "models.CatalogWithDetails": {
+        "new-pay_internal_models.CatalogWithDetails": {
             "type": "object",
             "properties": {
                 "archived_at": {
@@ -4116,7 +4116,7 @@ const docTemplate = `{
                 "categories": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/models.CategoryWithPaths"
+                        "$ref": "#/definitions/new-pay_internal_models.CategoryWithPaths"
                     }
                 },
                 "created_at": {
@@ -4134,7 +4134,7 @@ const docTemplate = `{
                 "levels": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/models.Level"
+                        "$ref": "#/definitions/new-pay_internal_models.Level"
                     }
                 },
                 "name": {
@@ -4158,7 +4158,7 @@ const docTemplate = `{
                 }
             }
         },
-        "models.Category": {
+        "new-pay_internal_models.Category": {
             "type": "object",
             "properties": {
                 "catalog_id": {
@@ -4184,7 +4184,7 @@ const docTemplate = `{
                 }
             }
         },
-        "models.CategoryWithPaths": {
+        "new-pay_internal_models.CategoryWithPaths": {
             "type": "object",
             "properties": {
                 "catalog_id": {
@@ -4205,7 +4205,7 @@ const docTemplate = `{
                 "paths": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/models.PathWithDescriptions"
+                        "$ref": "#/definitions/new-pay_internal_models.PathWithDescriptions"
                     }
                 },
                 "sort_order": {
@@ -4216,7 +4216,7 @@ const docTemplate = `{
                 }
             }
         },
-        "models.CriteriaCatalog": {
+        "new-pay_internal_models.CriteriaCatalog": {
             "type": "object",
             "properties": {
                 "archived_at": {
@@ -4255,7 +4255,7 @@ const docTemplate = `{
                 }
             }
         },
-        "models.Level": {
+        "new-pay_internal_models.Level": {
             "type": "object",
             "properties": {
                 "catalog_id": {
@@ -4281,7 +4281,7 @@ const docTemplate = `{
                 }
             }
         },
-        "models.Path": {
+        "new-pay_internal_models.Path": {
             "type": "object",
             "properties": {
                 "category_id": {
@@ -4307,7 +4307,7 @@ const docTemplate = `{
                 }
             }
         },
-        "models.PathLevelDescription": {
+        "new-pay_internal_models.PathLevelDescription": {
             "type": "object",
             "properties": {
                 "created_at": {
@@ -4330,7 +4330,7 @@ const docTemplate = `{
                 }
             }
         },
-        "models.PathWithDescriptions": {
+        "new-pay_internal_models.PathWithDescriptions": {
             "type": "object",
             "properties": {
                 "category_id": {
@@ -4345,7 +4345,7 @@ const docTemplate = `{
                 "descriptions": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/models.PathLevelDescription"
+                        "$ref": "#/definitions/new-pay_internal_models.PathLevelDescription"
                     }
                 },
                 "id": {
@@ -4362,7 +4362,7 @@ const docTemplate = `{
                 }
             }
         },
-        "models.Role": {
+        "new-pay_internal_models.Role": {
             "type": "object",
             "properties": {
                 "created_at": {
@@ -4382,7 +4382,7 @@ const docTemplate = `{
                 }
             }
         },
-        "models.SelfAssessment": {
+        "new-pay_internal_models.SelfAssessment": {
             "type": "object",
             "properties": {
                 "archived_at": {
@@ -4427,7 +4427,7 @@ const docTemplate = `{
                 }
             }
         },
-        "models.SelfAssessmentWithDetails": {
+        "new-pay_internal_models.SelfAssessmentWithDetails": {
             "type": "object",
             "properties": {
                 "archived_at": {

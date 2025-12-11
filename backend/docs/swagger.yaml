@@ -1,6 +1,6 @@
 basePath: /api/v1
 definitions:
-  handlers.CatalogRequest:
+  internal_handlers.CatalogRequest:
     properties:
       description:
         type: string
@@ -15,7 +15,7 @@ definitions:
         description: Date string in YYYY-MM-DD format
         type: string
     type: object
-  handlers.LoginRequest:
+  internal_handlers.LoginRequest:
     properties:
       email:
         type: string
@@ -25,14 +25,14 @@ definitions:
     - email
     - password
     type: object
-  handlers.PasswordResetRequest:
+  internal_handlers.PasswordResetRequest:
     properties:
       email:
         type: string
     required:
     - email
     type: object
-  handlers.RegisterRequest:
+  internal_handlers.RegisterRequest:
     properties:
       email:
         type: string
@@ -49,7 +49,7 @@ definitions:
     - last_name
     - password
     type: object
-  handlers.ResetPasswordRequest:
+  internal_handlers.ResetPasswordRequest:
     properties:
       new_password:
         minLength: 8
@@ -60,7 +60,7 @@ definitions:
     - new_password
     - token
     type: object
-  models.AssessmentCompleteness:
+  new-pay_internal_models.AssessmentCompleteness:
     properties:
       completed_categories:
         type: integer
@@ -75,7 +75,7 @@ definitions:
       total_categories:
         type: integer
     type: object
-  models.AssessmentResponse:
+  new-pay_internal_models.AssessmentResponse:
     properties:
       assessment_id:
         type: integer
@@ -94,7 +94,7 @@ definitions:
       updated_at:
         type: string
     type: object
-  models.AssessmentResponseWithDetails:
+  new-pay_internal_models.AssessmentResponseWithDetails:
     properties:
       assessment_id:
         type: integer
@@ -130,7 +130,7 @@ definitions:
       updated_at:
         type: string
     type: object
-  models.CatalogChange:
+  new-pay_internal_models.CatalogChange:
     properties:
       catalog_id:
         type: integer
@@ -152,13 +152,13 @@ definitions:
       old_value:
         type: string
     type: object
-  models.CatalogWithDetails:
+  new-pay_internal_models.CatalogWithDetails:
     properties:
       archived_at:
         type: string
       categories:
         items:
-          $ref: '#/definitions/models.CategoryWithPaths'
+          $ref: '#/definitions/new-pay_internal_models.CategoryWithPaths'
         type: array
       created_at:
         type: string
@@ -170,7 +170,7 @@ definitions:
         type: integer
       levels:
         items:
-          $ref: '#/definitions/models.Level'
+          $ref: '#/definitions/new-pay_internal_models.Level'
         type: array
       name:
         type: string
@@ -186,7 +186,7 @@ definitions:
       valid_until:
         type: string
     type: object
-  models.Category:
+  new-pay_internal_models.Category:
     properties:
       catalog_id:
         type: integer
@@ -203,7 +203,7 @@ definitions:
       updated_at:
         type: string
     type: object
-  models.CategoryWithPaths:
+  new-pay_internal_models.CategoryWithPaths:
     properties:
       catalog_id:
         type: integer
@@ -217,14 +217,14 @@ definitions:
         type: string
       paths:
         items:
-          $ref: '#/definitions/models.PathWithDescriptions'
+          $ref: '#/definitions/new-pay_internal_models.PathWithDescriptions'
         type: array
       sort_order:
         type: integer
       updated_at:
         type: string
     type: object
-  models.CriteriaCatalog:
+  new-pay_internal_models.CriteriaCatalog:
     properties:
       archived_at:
         type: string
@@ -250,7 +250,7 @@ definitions:
       valid_until:
         type: string
     type: object
-  models.Level:
+  new-pay_internal_models.Level:
     properties:
       catalog_id:
         type: integer
@@ -267,7 +267,7 @@ definitions:
       updated_at:
         type: string
     type: object
-  models.Path:
+  new-pay_internal_models.Path:
     properties:
       category_id:
         type: integer
@@ -284,7 +284,7 @@ definitions:
       updated_at:
         type: string
     type: object
-  models.PathLevelDescription:
+  new-pay_internal_models.PathLevelDescription:
     properties:
       created_at:
         type: string
@@ -299,7 +299,7 @@ definitions:
       updated_at:
         type: string
     type: object
-  models.PathWithDescriptions:
+  new-pay_internal_models.PathWithDescriptions:
     properties:
       category_id:
         type: integer
@@ -309,7 +309,7 @@ definitions:
         type: string
       descriptions:
         items:
-          $ref: '#/definitions/models.PathLevelDescription'
+          $ref: '#/definitions/new-pay_internal_models.PathLevelDescription'
         type: array
       id:
         type: integer
@@ -320,7 +320,7 @@ definitions:
       updated_at:
         type: string
     type: object
-  models.Role:
+  new-pay_internal_models.Role:
     properties:
       created_at:
         type: string
@@ -333,7 +333,7 @@ definitions:
       updated_at:
         type: string
     type: object
-  models.SelfAssessment:
+  new-pay_internal_models.SelfAssessment:
     properties:
       archived_at:
         type: string
@@ -364,7 +364,7 @@ definitions:
       user_id:
         type: integer
     type: object
-  models.SelfAssessmentWithDetails:
+  new-pay_internal_models.SelfAssessmentWithDetails:
     properties:
       archived_at:
         type: string
@@ -492,14 +492,14 @@ paths:
         name: catalog
         required: true
         schema:
-          $ref: '#/definitions/handlers.CatalogRequest'
+          $ref: '#/definitions/internal_handlers.CatalogRequest'
       produces:
       - application/json
       responses:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/models.CriteriaCatalog'
+            $ref: '#/definitions/new-pay_internal_models.CriteriaCatalog'
         "400":
           description: Invalid input
           schema:
@@ -573,14 +573,14 @@ paths:
         name: catalog
         required: true
         schema:
-          $ref: '#/definitions/handlers.CatalogRequest'
+          $ref: '#/definitions/internal_handlers.CatalogRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/models.CriteriaCatalog'
+            $ref: '#/definitions/new-pay_internal_models.CriteriaCatalog'
         "400":
           description: Invalid input
           schema:
@@ -620,14 +620,14 @@ paths:
         name: category
         required: true
         schema:
-          $ref: '#/definitions/models.Category'
+          $ref: '#/definitions/new-pay_internal_models.Category'
       produces:
       - application/json
       responses:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/models.Category'
+            $ref: '#/definitions/new-pay_internal_models.Category'
         "400":
           description: Invalid input
           schema:
@@ -711,14 +711,14 @@ paths:
         name: category
         required: true
         schema:
-          $ref: '#/definitions/models.Category'
+          $ref: '#/definitions/new-pay_internal_models.Category'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/models.Category'
+            $ref: '#/definitions/new-pay_internal_models.Category'
         "400":
           description: Invalid input
           schema:
@@ -763,14 +763,14 @@ paths:
         name: path
         required: true
         schema:
-          $ref: '#/definitions/models.Path'
+          $ref: '#/definitions/new-pay_internal_models.Path'
       produces:
       - application/json
       responses:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/models.Path'
+            $ref: '#/definitions/new-pay_internal_models.Path'
         "400":
           description: Invalid input
           schema:
@@ -864,14 +864,14 @@ paths:
         name: path
         required: true
         schema:
-          $ref: '#/definitions/models.Path'
+          $ref: '#/definitions/new-pay_internal_models.Path'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/models.Path'
+            $ref: '#/definitions/new-pay_internal_models.Path'
         "400":
           description: Invalid input
           schema:
@@ -911,7 +911,7 @@ paths:
           description: OK
           schema:
             items:
-              $ref: '#/definitions/models.CatalogChange'
+              $ref: '#/definitions/new-pay_internal_models.CatalogChange'
             type: array
         "400":
           description: Invalid ID
@@ -953,14 +953,14 @@ paths:
         name: description
         required: true
         schema:
-          $ref: '#/definitions/models.PathLevelDescription'
+          $ref: '#/definitions/new-pay_internal_models.PathLevelDescription'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/models.PathLevelDescription'
+            $ref: '#/definitions/new-pay_internal_models.PathLevelDescription'
         "400":
           description: Invalid input
           schema:
@@ -1000,14 +1000,14 @@ paths:
         name: level
         required: true
         schema:
-          $ref: '#/definitions/models.Level'
+          $ref: '#/definitions/new-pay_internal_models.Level'
       produces:
       - application/json
       responses:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/models.Level'
+            $ref: '#/definitions/new-pay_internal_models.Level'
         "400":
           description: Invalid input
           schema:
@@ -1091,14 +1091,14 @@ paths:
         name: level
         required: true
         schema:
-          $ref: '#/definitions/models.Level'
+          $ref: '#/definitions/new-pay_internal_models.Level'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/models.Level'
+            $ref: '#/definitions/new-pay_internal_models.Level'
         "400":
           description: Invalid input
           schema:
@@ -1210,7 +1210,7 @@ paths:
           description: List of roles
           schema:
             items:
-              $ref: '#/definitions/models.Role'
+              $ref: '#/definitions/new-pay_internal_models.Role'
             type: array
         "401":
           description: Unauthorized
@@ -1254,7 +1254,7 @@ paths:
           description: OK
           schema:
             items:
-              $ref: '#/definitions/models.SelfAssessment'
+              $ref: '#/definitions/new-pay_internal_models.SelfAssessment'
             type: array
         "401":
           description: Unauthorized
@@ -1965,7 +1965,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/handlers.LoginRequest'
+          $ref: '#/definitions/internal_handlers.LoginRequest'
       produces:
       - application/json
       responses:
@@ -2056,7 +2056,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/handlers.ResetPasswordRequest'
+          $ref: '#/definitions/internal_handlers.ResetPasswordRequest'
       produces:
       - application/json
       responses:
@@ -2086,7 +2086,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/handlers.PasswordResetRequest'
+          $ref: '#/definitions/internal_handlers.PasswordResetRequest'
       produces:
       - application/json
       responses:
@@ -2139,7 +2139,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/handlers.RegisterRequest'
+          $ref: '#/definitions/internal_handlers.RegisterRequest'
       produces:
       - application/json
       responses:
@@ -2196,7 +2196,7 @@ paths:
           description: OK
           schema:
             items:
-              $ref: '#/definitions/models.CriteriaCatalog'
+              $ref: '#/definitions/new-pay_internal_models.CriteriaCatalog'
             type: array
         "401":
           description: Unauthorized
@@ -2209,6 +2209,37 @@ paths:
       summary: Get all catalogs
       tags:
       - Catalogs
+  /catalogs/{catalogId}/self-assessments:
+    post:
+      description: Create a new self-assessment for an active catalog
+      parameters:
+      - description: Catalog ID
+        in: path
+        name: catalogId
+        required: true
+        type: integer
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/new-pay_internal_models.SelfAssessment'
+        "400":
+          description: Invalid request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Create self-assessment
+      tags:
+      - Self-Assessments
   /catalogs/{id}:
     get:
       description: Get a specific catalog with all details
@@ -2224,7 +2255,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/models.CatalogWithDetails'
+            $ref: '#/definitions/new-pay_internal_models.CatalogWithDetails'
         "400":
           description: Invalid ID
           schema:
@@ -2291,7 +2322,7 @@ paths:
           description: OK
           schema:
             items:
-              $ref: '#/definitions/models.SelfAssessment'
+              $ref: '#/definitions/new-pay_internal_models.SelfAssessment'
             type: array
         "401":
           description: Unauthorized
@@ -2317,7 +2348,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/models.SelfAssessment'
+            $ref: '#/definitions/new-pay_internal_models.SelfAssessment'
         "400":
           description: Invalid ID
           schema:
@@ -2360,7 +2391,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/models.AssessmentCompleteness'
+            $ref: '#/definitions/new-pay_internal_models.AssessmentCompleteness'
         "400":
           description: Invalid request
           schema:
@@ -2398,7 +2429,7 @@ paths:
           description: OK
           schema:
             items:
-              $ref: '#/definitions/models.AssessmentResponseWithDetails'
+              $ref: '#/definitions/new-pay_internal_models.AssessmentResponseWithDetails'
             type: array
         "400":
           description: Invalid request
@@ -2436,12 +2467,12 @@ paths:
         name: response
         required: true
         schema:
-          $ref: '#/definitions/models.AssessmentResponse'
+          $ref: '#/definitions/new-pay_internal_models.AssessmentResponse'
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/models.AssessmentResponse'
+            $ref: '#/definitions/new-pay_internal_models.AssessmentResponse'
         "400":
           description: Invalid request
           schema:
@@ -2602,7 +2633,7 @@ paths:
           description: OK
           schema:
             items:
-              $ref: '#/definitions/models.CriteriaCatalog'
+              $ref: '#/definitions/new-pay_internal_models.CriteriaCatalog'
             type: array
         "401":
           description: Unauthorized
@@ -2615,37 +2646,6 @@ paths:
       summary: Get active catalogs
       tags:
       - Self-Assessments
-  /self-assessments/catalog/{catalogId}:
-    post:
-      description: Create a new self-assessment for an active catalog
-      parameters:
-      - description: Catalog ID
-        in: path
-        name: catalogId
-        required: true
-        type: integer
-      responses:
-        "201":
-          description: Created
-          schema:
-            $ref: '#/definitions/models.SelfAssessment'
-        "400":
-          description: Invalid request
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-        "401":
-          description: Unauthorized
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-      security:
-      - BearerAuth: []
-      summary: Create self-assessment
-      tags:
-      - Self-Assessments
   /self-assessments/my:
     get:
       description: Retrieve all self-assessments created by the current user
@@ -2654,7 +2654,7 @@ paths:
           description: OK
           schema:
             items:
-              $ref: '#/definitions/models.SelfAssessmentWithDetails'
+              $ref: '#/definitions/new-pay_internal_models.SelfAssessmentWithDetails'
             type: array
         "401":
           description: Unauthorized

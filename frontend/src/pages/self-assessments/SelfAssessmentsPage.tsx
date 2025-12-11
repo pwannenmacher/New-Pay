@@ -97,7 +97,7 @@ export default function SelfAssessmentsPage() {
       });
       setCreateModalOpen(false);
       await loadData();
-      navigate(`/self-assessments/${newAssessment.id}`);
+      navigate(`/self-assessments/${newAssessment.id}/edit`);
     } catch (error: any) {
       console.error('Error creating assessment:', error);
       notifications.show({

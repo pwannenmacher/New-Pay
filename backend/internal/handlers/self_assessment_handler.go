@@ -52,7 +52,7 @@ func (h *SelfAssessmentHandler) GetActiveCatalogs(w http.ResponseWriter, r *http
 // @Success 201 {object} models.SelfAssessment
 // @Failure 400 {object} map[string]string "Invalid request"
 // @Failure 401 {object} map[string]string "Unauthorized"
-// @Router /self-assessments/catalog/{catalogId} [post]
+// @Router /catalogs/{catalogId}/self-assessments [post]
 func (h *SelfAssessmentHandler) CreateSelfAssessment(w http.ResponseWriter, r *http.Request) {
 	catalogIDStr := r.PathValue("catalogId")
 	catalogID, err := strconv.ParseUint(catalogIDStr, 10, 32)
@@ -509,6 +509,13 @@ func (h *SelfAssessmentHandler) GetResponses(w http.ResponseWriter, r *http.Requ
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 		}
 		return
+	}
+
+	// Note: Using standard encoding here. For future: consider using JSONResponse helper
+	// from cmd/api/json_helpers.go to automatically handle nil slices as []
+	// Ensure we return an empty array instead of null
+	if responses == nil {
+		responses = []models.AssessmentResponseWithDetails{}
 	}
 
 	w.Header().Set("Content-Type", "application/json")
