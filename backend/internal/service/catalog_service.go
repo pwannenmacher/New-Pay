@@ -2,6 +2,7 @@ package service
 
 import (
 	"fmt"
+	"new-pay/internal/email"
 	"new-pay/internal/models"
 	"new-pay/internal/repository"
 	"time"
@@ -12,14 +13,16 @@ type CatalogService struct {
 	catalogRepo        *repository.CatalogRepository
 	selfAssessmentRepo *repository.SelfAssessmentRepository
 	auditRepo          *repository.AuditRepository
+	emailService       *email.Service
 }
 
 // NewCatalogService creates a new catalog service
-func NewCatalogService(catalogRepo *repository.CatalogRepository, selfAssessmentRepo *repository.SelfAssessmentRepository, auditRepo *repository.AuditRepository) *CatalogService {
+func NewCatalogService(catalogRepo *repository.CatalogRepository, selfAssessmentRepo *repository.SelfAssessmentRepository, auditRepo *repository.AuditRepository, emailService *email.Service) *CatalogService {
 	return &CatalogService{
 		catalogRepo:        catalogRepo,
 		selfAssessmentRepo: selfAssessmentRepo,
 		auditRepo:          auditRepo,
+		emailService:       emailService,
 	}
 }
 
@@ -116,7 +119,24 @@ func (s *CatalogService) UpdateCatalog(catalog *models.CriteriaCatalog, userID u
 
 	// Check permissions
 	if !canEditCatalog(existing.Phase, userRoles) {
-		return fmt.Errorf("permission denied: cannot edit catalog in %s phase", existing.Phase)
+		// Special case: Admins can update valid_until for active catalogs
+		if existing.Phase == "active" && contains(userRoles, "admin") {
+			// Check if ONLY valid_until is being changed
+			if catalog.Name != existing.Name ||
+				catalog.Description != existing.Description ||
+				!catalog.ValidFrom.Equal(existing.ValidFrom) ||
+				catalog.Phase != existing.Phase {
+				return fmt.Errorf("permission denied: can only change valid_until for active catalogs")
+			}
+			// Validate new valid_until is in the future
+			today := time.Now().Truncate(24 * time.Hour)
+			if !catalog.ValidUntil.After(today) {
+				return fmt.Errorf("new end date must be after today")
+			}
+			// Allow this change to proceed
+		} else {
+			return fmt.Errorf("permission denied: cannot edit catalog in %s phase", existing.Phase)
+		}
 	}
 
 	// Handle phase transition
@@ -167,6 +187,83 @@ func (s *CatalogService) UpdateCatalog(catalog *models.CriteriaCatalog, userID u
 	})
 
 	return nil
+}
+
+// UpdateCatalogValidUntil updates only the valid_until date (shortening runtime)
+func (s *CatalogService) UpdateCatalogValidUntil(catalogID uint, newValidUntilStr string) (*models.CriteriaCatalog, error) {
+	// Get existing catalog
+	catalog, err := s.catalogRepo.GetCatalogByID(catalogID)
+	if err != nil {
+		return nil, err
+	}
+	if catalog == nil {
+		return nil, fmt.Errorf("catalog not found")
+	}
+
+	// Only active catalogs can have their validity shortened
+	if catalog.Phase != "active" {
+		return nil, fmt.Errorf("only active catalogs can have their validity date changed")
+	}
+
+	// Parse new date
+	newValidUntil, err := time.Parse("2006-01-02", newValidUntilStr)
+	if err != nil {
+		return nil, fmt.Errorf("invalid date format, use YYYY-MM-DD")
+	}
+
+	// Validate: new date must be after today
+	today := time.Now().Truncate(24 * time.Hour)
+	if !newValidUntil.After(today) {
+		return nil, fmt.Errorf("new end date must be after today")
+	}
+
+	// Validate: can only shorten, not extend
+	if newValidUntil.After(catalog.ValidUntil) || newValidUntil.Equal(catalog.ValidUntil) {
+		return nil, fmt.Errorf("can only shorten the validity period, not extend it")
+	}
+
+	// Validate: new date must be after valid_from
+	if !newValidUntil.After(catalog.ValidFrom) {
+		return nil, fmt.Errorf("end date must be after start date")
+	}
+
+	oldValidUntil := catalog.ValidUntil
+	catalog.ValidUntil = newValidUntil
+
+	// Update only valid_until in database (bypass normal update checks)
+	if err := s.catalogRepo.UpdateCatalogValidUntil(catalogID, newValidUntil); err != nil {
+		return nil, fmt.Errorf("failed to update catalog: %w", err)
+	}
+
+	// Reload catalog to get updated data
+	updatedCatalog, err := s.catalogRepo.GetCatalogByID(catalogID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to reload catalog: %w", err)
+	}
+
+	// Get all open or in-review self-assessments for this catalog
+	assessments, err := s.selfAssessmentRepo.GetByCatalogID(catalogID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get assessments: %w", err)
+	}
+
+	// Send notifications to affected users
+	affectedStatuses := []string{"draft", "submitted", "in_review", "reviewed", "discussion"}
+	oldDateStr := oldValidUntil.Format("02.01.2006")
+	newDateStr := newValidUntil.Format("02.01.2006")
+
+	for _, assessment := range assessments {
+		if contains(affectedStatuses, assessment.Status) && assessment.UserEmail != "" {
+			// Send email asynchronously
+			go func(email, catalogName, oldDate, newDate string) {
+				if err := s.emailService.SendCatalogValidityChangeNotification(email, catalogName, oldDate, newDate); err != nil {
+					fmt.Printf("Failed to send validity change notification to %s: %v\n", email, err)
+				}
+			}(assessment.UserEmail, catalog.Name, oldDateStr, newDateStr)
+		}
+	}
+
+	return updatedCatalog, nil
 }
 
 // TransitionToActive transitions a catalog from draft to active phase
@@ -635,7 +732,7 @@ func canEditCatalog(phase string, userRoles []string) bool {
 	case "draft":
 		return isAdmin
 	case "active", "archived":
-		return false // Nobody can edit active or archived catalogs
+		return false // Nobody can edit active or archived catalogs directly (use special endpoints)
 	default:
 		return false
 	}

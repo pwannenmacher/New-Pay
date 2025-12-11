@@ -13,6 +13,8 @@ import {
   Loader,
   Alert,
   Menu,
+  Modal,
+  TextInput,
 } from '@mantine/core';
 import {
   IconPlus,
@@ -23,7 +25,9 @@ import {
   IconChecks,
   IconAlertCircle,
   IconDots,
+  IconCalendar,
 } from '@tabler/icons-react';
+import { DateInput } from '@mantine/dates';
 import { adminApi } from '../../services/admin';
 import type { CriteriaCatalog, CatalogPhase } from '../../types';
 
@@ -58,6 +62,12 @@ export function CatalogManagementPage() {
   const [catalogs, setCatalogs] = useState<CriteriaCatalog[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // Modal state for changing valid_until
+  const [validUntilModalOpen, setValidUntilModalOpen] = useState(false);
+  const [selectedCatalog, setSelectedCatalog] = useState<CriteriaCatalog | null>(null);
+  const [newValidUntil, setNewValidUntil] = useState<Date | null>(null);
+  const [saving, setSaving] = useState(false);
 
   const loadCatalogs = async () => {
     try {
@@ -112,6 +122,50 @@ export function CatalogManagementPage() {
       await loadCatalogs();
     } catch (err: any) {
       alert(err.response?.data?.error || 'Failed to archive catalog');
+    }
+  };
+
+  const openValidUntilModal = (catalog: CriteriaCatalog) => {
+    setSelectedCatalog(catalog);
+    setNewValidUntil(new Date(catalog.valid_until));
+    setValidUntilModalOpen(true);
+  };
+
+  const handleUpdateValidUntil = async () => {
+    if (!selectedCatalog || !newValidUntil) return;
+
+    const currentValidUntil = new Date(selectedCatalog.valid_until);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // Validations
+    if (newValidUntil < today) {
+      alert('Das Enddatum muss in der Zukunft liegen.');
+      return;
+    }
+
+    if (newValidUntil >= currentValidUntil) {
+      alert('Das neue Enddatum muss vor dem aktuellen Enddatum liegen.');
+      return;
+    }
+
+    const validFrom = new Date(selectedCatalog.valid_from);
+    if (newValidUntil <= validFrom) {
+      alert('Das Enddatum muss nach dem Startdatum liegen.');
+      return;
+    }
+
+    try {
+      setSaving(true);
+      const formattedDate = newValidUntil.toISOString().split('T')[0]; // YYYY-MM-DD
+      await adminApi.updateCatalogValidUntil(selectedCatalog.id, formattedDate);
+      setValidUntilModalOpen(false);
+      await loadCatalogs();
+      alert(`Enddatum erfolgreich geändert. Betroffene Mitarbeiter werden per E-Mail informiert.`);
+    } catch (err: any) {
+      alert(err.response?.data?.error || 'Failed to update valid_until date');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -231,12 +285,20 @@ export function CatalogManagementPage() {
                           )}
 
                           {catalog.phase === 'active' && (
-                            <Menu.Item
-                              leftSection={<IconArchive size={16} />}
-                              onClick={() => handleTransitionToArchived(catalog.id, catalog.name)}
-                            >
-                              Archivieren
-                            </Menu.Item>
+                            <>
+                              <Menu.Item
+                                leftSection={<IconCalendar size={16} />}
+                                onClick={() => openValidUntilModal(catalog)}
+                              >
+                                Enddatum ändern
+                              </Menu.Item>
+                              <Menu.Item
+                                leftSection={<IconArchive size={16} />}
+                                onClick={() => handleTransitionToArchived(catalog.id, catalog.name)}
+                              >
+                                Archivieren
+                              </Menu.Item>
+                            </>
                           )}
 
                           {catalog.phase === 'archived' && (
@@ -254,6 +316,60 @@ export function CatalogManagementPage() {
           </Table>
         )}
       </Stack>
+
+      {/* Modal for changing valid_until date */}
+      <Modal
+        opened={validUntilModalOpen}
+        onClose={() => setValidUntilModalOpen(false)}
+        title="Enddatum ändern"
+        size="md"
+      >
+        <Stack gap="md">
+          {selectedCatalog && (
+            <>
+              <Text size="sm">
+                <strong>Katalog:</strong> {selectedCatalog.name}
+              </Text>
+              <Text size="sm">
+                <strong>Aktuelles Enddatum:</strong> {formatDate(selectedCatalog.valid_until)}
+              </Text>
+              <Text size="sm" c="dimmed">
+                Sie können das Enddatum nur verkürzen (auf ein früheres Datum setzen).
+                Betroffene Mitarbeiter werden automatisch per E-Mail benachrichtigt.
+              </Text>
+              
+              <DateInput
+                label="Neues Enddatum"
+                placeholder="Wählen Sie ein Datum"
+                value={newValidUntil}
+                onChange={setNewValidUntil}
+                minDate={new Date()}
+                maxDate={new Date(selectedCatalog.valid_until)}
+                valueFormat="DD.MM.YYYY"
+                locale="de"
+                required
+              />
+
+              <Group justify="flex-end" gap="sm">
+                <Button
+                  variant="subtle"
+                  onClick={() => setValidUntilModalOpen(false)}
+                  disabled={saving}
+                >
+                  Abbrechen
+                </Button>
+                <Button
+                  onClick={handleUpdateValidUntil}
+                  loading={saving}
+                  disabled={!newValidUntil}
+                >
+                  Speichern
+                </Button>
+              </Group>
+            </>
+          )}
+        </Stack>
+      </Modal>
     </Container>
   );
 }

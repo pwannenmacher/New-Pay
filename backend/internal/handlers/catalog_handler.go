@@ -59,8 +59,7 @@ func (h *CatalogHandler) GetAllCatalogs(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(catalogs)
+	JSONResponse(w, catalogs)
 }
 
 // GetCatalogByID retrieves a catalog by ID
@@ -101,8 +100,7 @@ func (h *CatalogHandler) GetCatalogByID(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(catalog)
+	JSONResponse(w, catalog)
 }
 
 // CreateCatalog creates a new catalog
@@ -161,9 +159,8 @@ func (h *CatalogHandler) CreateCatalog(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(catalog)
+	JSONResponse(w, catalog)
 }
 
 // UpdateCatalog updates an existing catalog
@@ -240,14 +237,56 @@ func (h *CatalogHandler) UpdateCatalog(w http.ResponseWriter, r *http.Request) {
 			statusCode = http.StatusBadRequest
 		}
 
-		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(statusCode)
-		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		JSONResponse(w, map[string]string{"error": err.Error()})
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(catalog)
+	JSONResponse(w, catalog)
+}
+
+// UpdateCatalogValidUntil updates only the valid_until date of an active catalog
+// @Summary Update catalog end date
+// @Description Update the valid_until date of an active catalog (admin only, can only shorten)
+// @Tags Catalogs
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path int true "Catalog ID"
+// @Param validUntil body object{valid_until=string} true "New end date"
+// @Success 200 {object} models.CriteriaCatalog
+// @Failure 400 {object} map[string]string
+// @Failure 403 {object} map[string]string
+// @Router /admin/catalogs/{id}/valid-until [put]
+func (h *CatalogHandler) UpdateCatalogValidUntil(w http.ResponseWriter, r *http.Request) {
+	idStr := r.PathValue("id")
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		http.Error(w, "Invalid catalog ID", http.StatusBadRequest)
+		return
+	}
+
+	var req struct {
+		ValidUntil string `json:"valid_until"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	catalog, err := h.catalogService.UpdateCatalogValidUntil(uint(id), req.ValidUntil)
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			http.Error(w, err.Error(), http.StatusNotFound)
+		} else if strings.Contains(err.Error(), "permission denied") || strings.Contains(err.Error(), "only active") {
+			http.Error(w, err.Error(), http.StatusForbidden)
+		} else {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+		}
+		return
+	}
+
+	JSONResponse(w, catalog)
 }
 
 // DeleteCatalog deletes a catalog
@@ -325,8 +364,7 @@ func (h *CatalogHandler) TransitionToActive(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{
+	JSONResponse(w, map[string]string{
 		"message": "Catalog transitioned to active phase",
 	})
 }
@@ -364,8 +402,7 @@ func (h *CatalogHandler) TransitionToArchived(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{
+	JSONResponse(w, map[string]string{
 		"message": "Catalog transitioned to archived phase",
 	})
 }
@@ -418,9 +455,8 @@ func (h *CatalogHandler) CreateCategory(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(category)
+	JSONResponse(w, category)
 }
 
 // UpdateCategory updates a category
@@ -480,8 +516,7 @@ func (h *CatalogHandler) UpdateCategory(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(category)
+	JSONResponse(w, category)
 }
 
 // DeleteCategory deletes a category
@@ -582,9 +617,8 @@ func (h *CatalogHandler) CreateLevel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(level)
+	JSONResponse(w, level)
 }
 
 // UpdateLevel updates a level
@@ -644,8 +678,7 @@ func (h *CatalogHandler) UpdateLevel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(level)
+	JSONResponse(w, level)
 }
 
 // DeleteLevel deletes a level
@@ -754,9 +787,8 @@ func (h *CatalogHandler) CreatePath(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(path)
+	JSONResponse(w, path)
 }
 
 // UpdatePath updates a path
@@ -824,8 +856,7 @@ func (h *CatalogHandler) UpdatePath(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(path)
+	JSONResponse(w, path)
 }
 
 // DeletePath deletes a path
@@ -926,8 +957,7 @@ func (h *CatalogHandler) CreateOrUpdateDescription(w http.ResponseWriter, r *htt
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(description)
+	JSONResponse(w, description)
 }
 
 // GetChanges retrieves change log for a catalog
@@ -965,6 +995,5 @@ func (h *CatalogHandler) GetChanges(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(changes)
+	JSONResponse(w, changes)
 }

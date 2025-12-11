@@ -18,6 +18,7 @@ import (
 	"new-pay/internal/logger"
 	"new-pay/internal/middleware"
 	"new-pay/internal/repository"
+	"new-pay/internal/scheduler"
 	"new-pay/internal/service"
 
 	httpSwagger "github.com/swaggo/http-swagger"
@@ -95,8 +96,13 @@ func main() {
 	authService := auth.NewService(&cfg.JWT)
 	emailService := email.NewService(&cfg.Email)
 	authSvc := service.NewAuthService(userRepo, tokenRepo, roleRepo, sessionRepo, oauthConnRepo, authService, emailService)
-	catalogService := service.NewCatalogService(catalogRepo, selfAssessmentRepo, auditRepo)
+	catalogService := service.NewCatalogService(catalogRepo, selfAssessmentRepo, auditRepo, emailService)
 	selfAssessmentService := service.NewSelfAssessmentService(selfAssessmentRepo, catalogRepo, auditRepo, assessmentResponseRepo)
+
+	// Initialize scheduler
+	schedulerService := scheduler.NewScheduler(selfAssessmentRepo, userRepo, roleRepo, emailService)
+	schedulerService.Start()
+	defer schedulerService.Stop()
 
 	// Initialize middleware
 	authMw := middleware.NewAuthMiddleware(authService, sessionRepo, userRepo)
@@ -273,6 +279,13 @@ func main() {
 		authMw.Authenticate(
 			rbacMw.RequireRole("admin")(
 				http.HandlerFunc(catalogHandler.UpdateCatalog),
+			),
+		),
+	)
+	mux.Handle("PUT /api/v1/admin/catalogs/{id}/valid-until",
+		authMw.Authenticate(
+			rbacMw.RequireRole("admin")(
+				http.HandlerFunc(catalogHandler.UpdateCatalogValidUntil),
 			),
 		),
 	)

@@ -509,17 +509,12 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 // Helper functions
 
 func respondWithJSON(w http.ResponseWriter, code int, payload interface{}) {
-	response, err := json.Marshal(payload)
-	if err != nil {
-		// If marshaling fails, send a generic error
-		w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(code)
+	if err := JSONResponse(w, payload); err != nil {
+		// If marshaling fails, log the error
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(`{"error":"Internal server error"}`))
-		return
 	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(code)
-	w.Write(response)
 }
 
 func respondWithError(w http.ResponseWriter, code int, message string) {

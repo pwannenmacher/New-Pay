@@ -39,8 +39,7 @@ func (h *SelfAssessmentHandler) GetActiveCatalogs(w http.ResponseWriter, r *http
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(catalogs)
+	JSONResponse(w, catalogs)
 }
 
 // CreateSelfAssessment creates a new self-assessment
@@ -80,9 +79,8 @@ func (h *SelfAssessmentHandler) CreateSelfAssessment(w http.ResponseWriter, r *h
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(assessment)
+	JSONResponse(w, assessment)
 }
 
 // GetUserSelfAssessments returns all self-assessments for the current user
@@ -106,8 +104,7 @@ func (h *SelfAssessmentHandler) GetUserSelfAssessments(w http.ResponseWriter, r 
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(assessments)
+	JSONResponse(w, assessments)
 }
 
 // GetSelfAssessment returns a specific self-assessment
@@ -163,8 +160,7 @@ func (h *SelfAssessmentHandler) GetSelfAssessment(w http.ResponseWriter, r *http
 			}
 			return
 		}
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(assessment)
+		JSONResponse(w, assessment)
 	} else {
 		// Return basic info for regular users
 		assessment, err := h.selfAssessmentService.GetSelfAssessment(uint(id), userID, userRoles)
@@ -178,8 +174,7 @@ func (h *SelfAssessmentHandler) GetSelfAssessment(w http.ResponseWriter, r *http
 			}
 			return
 		}
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(assessment)
+		JSONResponse(w, assessment)
 	}
 }
 
@@ -209,8 +204,7 @@ func (h *SelfAssessmentHandler) GetVisibleSelfAssessments(w http.ResponseWriter,
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(assessments)
+	JSONResponse(w, assessments)
 }
 
 // UpdateStatus updates the status of a self-assessment
@@ -261,9 +255,8 @@ func (h *SelfAssessmentHandler) UpdateStatus(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{
-		"message": "Status updated successfully",
+	JSONResponse(w, map[string]string{
+		"message": "Assessment status updated successfully",
 	})
 }
 
@@ -321,8 +314,7 @@ func (h *SelfAssessmentHandler) GetAllSelfAssessmentsAdmin(w http.ResponseWriter
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(assessments)
+	JSONResponse(w, assessments)
 }
 
 // DeleteSelfAssessment deletes a self-assessment (admin only, closed without submission)
@@ -364,9 +356,8 @@ func (h *SelfAssessmentHandler) DeleteSelfAssessment(w http.ResponseWriter, r *h
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{
-		"message": "Self-assessment deleted successfully",
+	JSONResponse(w, map[string]string{
+		"message": "Assessment deleted successfully",
 	})
 }
 
@@ -415,8 +406,7 @@ func (h *SelfAssessmentHandler) SaveResponse(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(savedResponse)
+	JSONResponse(w, savedResponse)
 }
 
 // DeleteResponse deletes an assessment response
@@ -463,8 +453,7 @@ func (h *SelfAssessmentHandler) DeleteResponse(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{
+	JSONResponse(w, map[string]string{
 		"message": "Response deleted successfully",
 	})
 }
@@ -511,15 +500,7 @@ func (h *SelfAssessmentHandler) GetResponses(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	// Note: Using standard encoding here. For future: consider using JSONResponse helper
-	// from cmd/api/json_helpers.go to automatically handle nil slices as []
-	// Ensure we return an empty array instead of null
-	if responses == nil {
-		responses = []models.AssessmentResponseWithDetails{}
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(responses)
+	JSONResponse(w, responses)
 }
 
 // GetCompleteness retrieves the completeness status of an assessment
@@ -559,8 +540,7 @@ func (h *SelfAssessmentHandler) GetCompleteness(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(completeness)
+	JSONResponse(w, completeness)
 }
 
 // SubmitAssessment submits an assessment for review
@@ -600,8 +580,7 @@ func (h *SelfAssessmentHandler) SubmitAssessment(w http.ResponseWriter, r *http.
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{
-		"message": "Self-assessment submitted successfully",
+	JSONResponse(w, map[string]string{
+		"message": "Assessment submitted successfully",
 	})
 }

@@ -216,3 +216,189 @@ type EmailTemplate struct {
 	Subject string
 	Body    *template.Template
 }
+
+// SendCatalogValidityChangeNotification sends notification about catalog validity date change
+func (s *Service) SendCatalogValidityChangeNotification(to, catalogName, oldDate, newDate string) error {
+	subject := fmt.Sprintf("Wichtig: Laufzeitänderung für Katalog '%s'", catalogName)
+
+	body := fmt.Sprintf(`
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Katalog Laufzeitänderung</title>
+</head>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+    <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+        <h2 style="color: #e74c3c;">Wichtige Änderung: Katalog-Laufzeit verkürzt</h2>
+        <p>Der Gültigkeitszeitraum des Katalogs <strong>%s</strong> wurde geändert.</p>
+        
+        <div style="background-color: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin: 20px 0;">
+            <p style="margin: 5px 0;"><strong>Bisheriges Enddatum:</strong> %s</p>
+            <p style="margin: 5px 0;"><strong>Neues Enddatum:</strong> %s</p>
+        </div>
+        
+        <p><strong>Was bedeutet das für Sie?</strong></p>
+        <ul>
+            <li>Ihre offene Selbsteinschätzung für diesen Katalog sollte bis zum neuen Enddatum abgeschlossen werden.</li>
+            <li>Bitte prüfen Sie Ihre Einschätzung und reichen Sie sie rechtzeitig ein.</li>
+            <li>Bei Fragen wenden Sie sich bitte an das Review-Team.</li>
+        </ul>
+        
+        <div style="text-align: center; margin: 30px 0;">
+            <a href="%s" style="background-color: #4a90e2; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block;">Zur Selbsteinschätzung</a>
+        </div>
+        
+        <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
+        <p style="color: #999; font-size: 12px;">Dies ist eine automatische Benachrichtigung. Bitte antworten Sie nicht auf diese E-Mail.</p>
+    </div>
+</body>
+</html>
+	`, catalogName, oldDate, newDate, s.config.VerificationURL)
+
+	return s.sendEmail(to, subject, body)
+}
+
+// SendDraftReminderEmail sends reminder about draft self-assessment
+func (s *Service) SendDraftReminderEmail(to, userName, catalogName string, draftID uint, daysSinceCreation int) error {
+	subject := "Erinnerung: Ihre offene Selbsteinschätzung"
+
+	assessmentURL := fmt.Sprintf("%s/self-assessments/%d/edit", s.config.VerificationURL, draftID)
+
+	body := fmt.Sprintf(`
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Erinnerung Selbsteinschätzung</title>
+</head>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+    <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+        <h2 style="color: #4a90e2;">Erinnerung: Ihre Selbsteinschätzung wartet</h2>
+        <p>Hallo %s,</p>
+        <p>Sie haben eine Selbsteinschätzung für den Katalog <strong>%s</strong> begonnen, diese aber noch nicht eingereicht.</p>
+        
+        <div style="background-color: #e3f2fd; border-left: 4px solid #2196f3; padding: 15px; margin: 20px 0;">
+            <p style="margin: 5px 0;"><strong>Status:</strong> Entwurf</p>
+            <p style="margin: 5px 0;"><strong>Erstellt vor:</strong> %d Tagen</p>
+        </div>
+        
+        <p>Bitte nehmen Sie sich Zeit, Ihre Selbsteinschätzung zu vervollständigen und einzureichen.</p>
+        
+        <div style="text-align: center; margin: 30px 0;">
+            <a href="%s" style="background-color: #4a90e2; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block;">Selbsteinschätzung fortsetzen</a>
+        </div>
+        
+        <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
+        <p style="color: #999; font-size: 12px;">Sie erhalten diese Erinnerung wöchentlich, solange die Selbsteinschätzung im Entwurfsstatus ist.</p>
+    </div>
+</body>
+</html>
+	`, userName, catalogName, daysSinceCreation, assessmentURL)
+
+	return s.sendEmail(to, subject, body)
+}
+
+// ReviewSummaryItem represents one assessment in the review summary
+type ReviewSummaryItem struct {
+	ID           uint
+	UserName     string
+	UserEmail    string
+	CatalogName  string
+	Status       string
+	DaysInStatus int
+}
+
+// SendReviewerDailySummary sends daily summary of pending reviews
+func (s *Service) SendReviewerDailySummary(to string, items []ReviewSummaryItem) error {
+	subject := fmt.Sprintf("Tägliche Übersicht: %d offene Selbsteinschätzungen", len(items))
+
+	if len(items) == 0 {
+		return nil // Don't send empty summaries
+	}
+
+	// Build items HTML
+	itemsHTML := ""
+	statusColors := map[string]string{
+		"submitted":  "#2196f3",
+		"in_review":  "#ff9800",
+		"reviewed":   "#9c27b0",
+		"discussion": "#4caf50",
+	}
+	statusLabels := map[string]string{
+		"submitted":  "Eingereicht",
+		"in_review":  "In Prüfung",
+		"reviewed":   "Geprüft",
+		"discussion": "Besprechung",
+	}
+
+	for _, item := range items {
+		color := statusColors[item.Status]
+		if color == "" {
+			color = "#757575"
+		}
+		label := statusLabels[item.Status]
+		if label == "" {
+			label = item.Status
+		}
+
+		itemsHTML += fmt.Sprintf(`
+		<tr style="border-bottom: 1px solid #eee;">
+			<td style="padding: 12px 8px;">%s<br><span style="color: #999; font-size: 12px;">%s</span></td>
+			<td style="padding: 12px 8px;">%s</td>
+			<td style="padding: 12px 8px;">
+				<span style="background-color: %s; color: white; padding: 4px 8px; border-radius: 3px; font-size: 12px;">%s</span>
+			</td>
+			<td style="padding: 12px 8px; text-align: center;">%d Tage</td>
+			<td style="padding: 12px 8px;">
+				<a href="%s/admin/self-assessments/%d" style="color: #4a90e2; text-decoration: none;">Öffnen</a>
+			</td>
+		</tr>
+		`, item.UserName, item.UserEmail, item.CatalogName, color, label, item.DaysInStatus, s.config.VerificationURL, item.ID)
+	}
+
+	body := fmt.Sprintf(`
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Review Übersicht</title>
+</head>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+    <div style="max-width: 800px; margin: 0 auto; padding: 20px;">
+        <h2 style="color: #4a90e2;">Tägliche Übersicht: Offene Selbsteinschätzungen</h2>
+        <p>Sie haben aktuell <strong>%d Selbsteinschätzungen</strong> in Bearbeitung:</p>
+        
+        <table style="width: 100%%; border-collapse: collapse; margin: 20px 0; background-color: white; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+			<thead>
+				<tr style="background-color: #f5f5f5; border-bottom: 2px solid #ddd;">
+					<th style="padding: 12px 8px; text-align: left;">Benutzer</th>
+					<th style="padding: 12px 8px; text-align: left;">Katalog</th>
+					<th style="padding: 12px 8px; text-align: left;">Status</th>
+					<th style="padding: 12px 8px; text-align: center;">Wartezeit</th>
+					<th style="padding: 12px 8px; text-align: left;">Aktion</th>
+				</tr>
+			</thead>
+			<tbody>
+				%s
+			</tbody>
+		</table>
+        
+        <div style="background-color: #e3f2fd; border-left: 4px solid #2196f3; padding: 15px; margin: 20px 0;">
+            <p style="margin: 5px 0;"><strong>Hinweis:</strong> Selbsteinschätzungen sollten zeitnah bearbeitet werden.</p>
+            <p style="margin: 5px 0;">Bitte priorisieren Sie Einträge mit langer Wartezeit.</p>
+        </div>
+        
+        <div style="text-align: center; margin: 30px 0;">
+            <a href="%s/admin/self-assessments" style="background-color: #4a90e2; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block;">Zum Admin-Bereich</a>
+        </div>
+        
+        <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
+        <p style="color: #999; font-size: 12px;">Sie erhalten diese Übersicht täglich. Dies ist eine automatische Benachrichtigung.</p>
+    </div>
+</body>
+</html>
+	`, len(items), itemsHTML, s.config.VerificationURL)
+
+	return s.sendEmail(to, subject, body)
+}

@@ -196,3 +196,38 @@ func (r *RoleRepository) RemovePermission(roleID, permissionID uint) error {
 	}
 	return nil
 }
+
+// GetUsersByRole retrieves all users with a specific role
+func (r *RoleRepository) GetUsersByRole(roleName string) ([]models.User, error) {
+	query := `
+		SELECT u.id, u.email, u.password_hash, u.first_name, u.last_name, 
+		       u.email_verified, u.email_verified_at, u.is_active, u.last_login_at,
+		       u.created_at, u.updated_at, u.oauth_provider, u.oauth_provider_id
+		FROM users u
+		INNER JOIN user_roles ur ON u.id = ur.user_id
+		INNER JOIN roles r ON ur.role_id = r.id
+		WHERE r.name = $1
+	`
+
+	rows, err := r.db.Query(query, roleName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get users by role: %w", err)
+	}
+	defer rows.Close()
+
+	var users []models.User
+	for rows.Next() {
+		var user models.User
+		err := rows.Scan(
+			&user.ID, &user.Email, &user.PasswordHash, &user.FirstName, &user.LastName,
+			&user.EmailVerified, &user.EmailVerifiedAt, &user.IsActive, &user.LastLoginAt,
+			&user.CreatedAt, &user.UpdatedAt, &user.OAuthProvider, &user.OAuthProviderID,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan user: %w", err)
+		}
+		users = append(users, user)
+	}
+
+	return users, nil
+}

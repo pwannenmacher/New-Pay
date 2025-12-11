@@ -169,6 +169,10 @@ export const adminApi = {
   transitionToArchived: (catalogId: number) =>
     apiClient.post<{ message: string }>(`/admin/catalogs/${catalogId}/transition-to-archived`, {}),
   
+  // Update catalog valid_until date
+  updateCatalogValidUntil: (catalogId: number, validUntil: string) =>
+    apiClient.put<CriteriaCatalog>(`/admin/catalogs/${catalogId}/valid-until`, { valid_until: validUntil }),
+  
   // Create category
   createCategory: (catalogId: number, data: Partial<Category>) =>
     apiClient.post<Category>(`/admin/catalogs/${catalogId}/categories`, data),

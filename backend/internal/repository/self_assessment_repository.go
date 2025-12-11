@@ -68,6 +68,98 @@ func (r *SelfAssessmentRepository) GetByCatalogAndUser(catalogID, userID uint) (
 	return &assessment, nil
 }
 
+// GetByStatus retrieves all self-assessments with a specific status
+func (r *SelfAssessmentRepository) GetByStatus(status string) ([]models.SelfAssessmentWithDetails, error) {
+	query := `
+		SELECT 
+			sa.id, sa.catalog_id, sa.user_id, sa.status, 
+			sa.created_at, sa.updated_at, sa.submitted_at, sa.in_review_at, 
+			sa.reviewed_at, sa.discussion_started_at, sa.archived_at, sa.closed_at, sa.previous_status,
+			u.name as user_name, u.email as user_email,
+			c.name as catalog_name
+		FROM self_assessments sa
+		INNER JOIN users u ON sa.user_id = u.id
+		INNER JOIN criteria_catalogs c ON sa.catalog_id = c.id
+		WHERE sa.status = $1
+		ORDER BY sa.created_at ASC
+	`
+
+	rows, err := r.db.Query(query, status)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var assessments []models.SelfAssessmentWithDetails
+	for rows.Next() {
+		var sa models.SelfAssessmentWithDetails
+		err := rows.Scan(
+			&sa.ID, &sa.CatalogID, &sa.UserID, &sa.Status,
+			&sa.CreatedAt, &sa.UpdatedAt, &sa.SubmittedAt, &sa.InReviewAt,
+			&sa.ReviewedAt, &sa.DiscussionStartedAt, &sa.ArchivedAt, &sa.ClosedAt, &sa.PreviousStatus,
+			&sa.UserName, &sa.UserEmail, &sa.CatalogName,
+		)
+		if err != nil {
+			return nil, err
+		}
+		assessments = append(assessments, sa)
+	}
+
+	return assessments, nil
+}
+
+// GetByCatalogID retrieves all self-assessments for a catalog with user details
+func (r *SelfAssessmentRepository) GetByCatalogID(catalogID uint) ([]models.SelfAssessmentWithDetails, error) {
+	query := `
+		SELECT 
+			sa.id, sa.catalog_id, sa.user_id, sa.status, 
+			sa.created_at, sa.updated_at, sa.submitted_at, sa.in_review_at, 
+			sa.reviewed_at, sa.discussion_started_at, sa.archived_at, sa.closed_at, sa.previous_status,
+			u.name as user_name, u.email as user_email,
+			c.name as catalog_name
+		FROM self_assessments sa
+		JOIN users u ON sa.user_id = u.id
+		JOIN criteria_catalogs c ON sa.catalog_id = c.id
+		WHERE sa.catalog_id = $1
+		ORDER BY sa.created_at DESC
+	`
+
+	rows, err := r.db.Query(query, catalogID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var assessments []models.SelfAssessmentWithDetails
+	for rows.Next() {
+		var assessment models.SelfAssessmentWithDetails
+		err := rows.Scan(
+			&assessment.ID,
+			&assessment.CatalogID,
+			&assessment.UserID,
+			&assessment.Status,
+			&assessment.CreatedAt,
+			&assessment.UpdatedAt,
+			&assessment.SubmittedAt,
+			&assessment.InReviewAt,
+			&assessment.ReviewedAt,
+			&assessment.DiscussionStartedAt,
+			&assessment.ArchivedAt,
+			&assessment.ClosedAt,
+			&assessment.PreviousStatus,
+			&assessment.UserName,
+			&assessment.UserEmail,
+			&assessment.CatalogName,
+		)
+		if err != nil {
+			return nil, err
+		}
+		assessments = append(assessments, assessment)
+	}
+
+	return assessments, rows.Err()
+}
+
 // Create creates a new self-assessment
 func (r *SelfAssessmentRepository) Create(assessment *models.SelfAssessment) error {
 	query := `

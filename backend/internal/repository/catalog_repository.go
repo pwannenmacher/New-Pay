@@ -220,6 +220,17 @@ func (r *CatalogRepository) UpdateCatalogPhase(id uint, phase string) error {
 	return err
 }
 
+// UpdateCatalogValidUntil updates only the valid_until field of a catalog
+func (r *CatalogRepository) UpdateCatalogValidUntil(id uint, validUntil time.Time) error {
+	query := `
+		UPDATE criteria_catalogs
+		SET valid_until = $1, updated_at = $2
+		WHERE id = $3
+	`
+	_, err := r.db.Exec(query, validUntil, time.Now(), id)
+	return err
+}
+
 // DeleteCatalog deletes a catalog (only allowed in draft phase)
 func (r *CatalogRepository) DeleteCatalog(id uint) error {
 	query := `DELETE FROM criteria_catalogs WHERE id = $1 AND phase = 'draft'`
