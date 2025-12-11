@@ -12,6 +12,7 @@ type SelfAssessmentService struct {
 	selfAssessmentRepo *repository.SelfAssessmentRepository
 	catalogRepo        *repository.CatalogRepository
 	auditRepo          *repository.AuditRepository
+	responseRepo       *repository.AssessmentResponseRepository
 }
 
 // NewSelfAssessmentService creates a new self-assessment service
@@ -19,11 +20,13 @@ func NewSelfAssessmentService(
 	selfAssessmentRepo *repository.SelfAssessmentRepository,
 	catalogRepo *repository.CatalogRepository,
 	auditRepo *repository.AuditRepository,
+	responseRepo *repository.AssessmentResponseRepository,
 ) *SelfAssessmentService {
 	return &SelfAssessmentService{
 		selfAssessmentRepo: selfAssessmentRepo,
 		catalogRepo:        catalogRepo,
 		auditRepo:          auditRepo,
+		responseRepo:       responseRepo,
 	}
 }
 
@@ -363,6 +366,246 @@ func (s *SelfAssessmentService) DeleteSelfAssessment(assessmentID uint, userID u
 		Action:   "delete",
 		Resource: "self_assessment",
 		Details:  fmt.Sprintf("Deleted self-assessment %d (catalog: %d, user: %d)", assessmentID, assessment.CatalogID, assessment.UserID),
+	})
+
+	return nil
+}
+
+// SaveResponse saves or updates an assessment response
+func (s *SelfAssessmentService) SaveResponse(userID, assessmentID uint, response *models.AssessmentResponse) (*models.AssessmentResponse, error) {
+	// Get assessment and verify ownership and status
+	assessment, err := s.selfAssessmentRepo.GetByID(assessmentID)
+	if err != nil {
+		return nil, err
+	}
+	if assessment == nil {
+		return nil, fmt.Errorf("assessment not found")
+	}
+	if assessment.UserID != userID {
+		return nil, fmt.Errorf("permission denied: not owner of assessment")
+	}
+	if assessment.Status != "draft" {
+		return nil, fmt.Errorf("can only edit responses in draft status")
+	}
+
+	// Get catalog ID
+	catalog, err := s.catalogRepo.GetCatalogByID(assessment.CatalogID)
+	if err != nil {
+		return nil, err
+	}
+	if catalog == nil {
+		return nil, fmt.Errorf("catalog not found")
+	}
+
+	// Validate justification length
+	if len(response.Justification) < 150 {
+		return nil, fmt.Errorf("justification must be at least 150 characters")
+	}
+
+	// Validate path belongs to category
+	valid, err := s.responseRepo.ValidatePathBelongsToCategory(response.PathID, response.CategoryID)
+	if err != nil {
+		return nil, err
+	}
+	if !valid {
+		return nil, fmt.Errorf("path does not belong to the specified category")
+	}
+
+	// Validate level belongs to catalog
+	valid, err = s.responseRepo.ValidateLevelBelongsToCatalog(response.LevelID, catalog.ID)
+	if err != nil {
+		return nil, err
+	}
+	if !valid {
+		return nil, fmt.Errorf("level does not belong to the catalog")
+	}
+
+	// Check if response already exists for this category
+	existing, err := s.responseRepo.GetByAssessmentAndCategory(assessmentID, response.CategoryID)
+	if err != nil {
+		return nil, err
+	}
+
+	response.AssessmentID = assessmentID
+
+	if existing != nil {
+		// Update existing response
+		response.ID = existing.ID
+		response.CreatedAt = existing.CreatedAt
+		if err := s.responseRepo.Update(response); err != nil {
+			return nil, err
+		}
+
+		// Audit log
+		s.auditRepo.Create(&models.AuditLog{
+			UserID:   &userID,
+			Action:   "update",
+			Resource: "assessment_response",
+			Details:  fmt.Sprintf("Updated response for assessment %d, category %d", assessmentID, response.CategoryID),
+		})
+	} else {
+		// Create new response
+		if err := s.responseRepo.Create(response); err != nil {
+			return nil, err
+		}
+
+		// Audit log
+		s.auditRepo.Create(&models.AuditLog{
+			UserID:   &userID,
+			Action:   "create",
+			Resource: "assessment_response",
+			Details:  fmt.Sprintf("Created response for assessment %d, category %d", assessmentID, response.CategoryID),
+		})
+	}
+
+	return response, nil
+}
+
+// DeleteResponse deletes an assessment response
+func (s *SelfAssessmentService) DeleteResponse(userID, assessmentID, categoryID uint) error {
+	// Get assessment and verify ownership and status
+	assessment, err := s.selfAssessmentRepo.GetByID(assessmentID)
+	if err != nil {
+		return err
+	}
+	if assessment == nil {
+		return fmt.Errorf("assessment not found")
+	}
+	if assessment.UserID != userID {
+		return fmt.Errorf("permission denied: not owner of assessment")
+	}
+	if assessment.Status != "draft" {
+		return fmt.Errorf("can only delete responses in draft status")
+	}
+
+	// Get response
+	response, err := s.responseRepo.GetByAssessmentAndCategory(assessmentID, categoryID)
+	if err != nil {
+		return err
+	}
+	if response == nil {
+		return fmt.Errorf("response not found")
+	}
+
+	// Delete response
+	if err := s.responseRepo.Delete(response.ID); err != nil {
+		return err
+	}
+
+	// Audit log
+	s.auditRepo.Create(&models.AuditLog{
+		UserID:   &userID,
+		Action:   "delete",
+		Resource: "assessment_response",
+		Details:  fmt.Sprintf("Deleted response for assessment %d, category %d", assessmentID, categoryID),
+	})
+
+	return nil
+}
+
+// GetResponses retrieves all responses for an assessment
+func (s *SelfAssessmentService) GetResponses(userID uint, assessmentID uint, userRoles []string) ([]models.AssessmentResponseWithDetails, error) {
+	// Get assessment
+	assessment, err := s.selfAssessmentRepo.GetByID(assessmentID)
+	if err != nil {
+		return nil, err
+	}
+	if assessment == nil {
+		return nil, fmt.Errorf("assessment not found")
+	}
+
+	// Check permission: owner, admin, or reviewer (for submitted/later status)
+	isOwner := assessment.UserID == userID
+	isAdminOrReviewer := false
+	for _, role := range userRoles {
+		if role == "admin" || role == "reviewer" {
+			isAdminOrReviewer = true
+			break
+		}
+	}
+
+	if !isOwner && !isAdminOrReviewer {
+		return nil, fmt.Errorf("permission denied")
+	}
+
+	if !isOwner && assessment.Status == "draft" {
+		return nil, fmt.Errorf("permission denied: cannot view draft responses of other users")
+	}
+
+	// Get all responses
+	responses, err := s.responseRepo.GetAllByAssessment(assessmentID)
+	if err != nil {
+		return nil, err
+	}
+
+	return responses, nil
+}
+
+// GetCompleteness calculates the completeness of an assessment
+func (s *SelfAssessmentService) GetCompleteness(userID uint, assessmentID uint) (*models.AssessmentCompleteness, error) {
+	// Get assessment and verify ownership
+	assessment, err := s.selfAssessmentRepo.GetByID(assessmentID)
+	if err != nil {
+		return nil, err
+	}
+	if assessment == nil {
+		return nil, fmt.Errorf("assessment not found")
+	}
+	if assessment.UserID != userID {
+		return nil, fmt.Errorf("permission denied: not owner of assessment")
+	}
+
+	// Get completeness from repository
+	completeness, err := s.responseRepo.GetCompleteness(assessmentID)
+	if err != nil {
+		return nil, err
+	}
+
+	return completeness, nil
+}
+
+// SubmitAssessment submits an assessment for review (changes status from draft to submitted)
+func (s *SelfAssessmentService) SubmitAssessment(userID, assessmentID uint) error {
+	// Get assessment and verify ownership and status
+	assessment, err := s.selfAssessmentRepo.GetByID(assessmentID)
+	if err != nil {
+		return err
+	}
+	if assessment == nil {
+		return fmt.Errorf("assessment not found")
+	}
+	if assessment.UserID != userID {
+		return fmt.Errorf("permission denied: not owner of assessment")
+	}
+	if assessment.Status != "draft" {
+		return fmt.Errorf("can only submit assessments in draft status")
+	}
+
+	// Check completeness
+	completeness, err := s.responseRepo.GetCompleteness(assessmentID)
+	if err != nil {
+		return err
+	}
+	if !completeness.IsComplete {
+		return fmt.Errorf("assessment is incomplete: %d of %d categories completed",
+			completeness.CompletedCategories, completeness.TotalCategories)
+	}
+
+	// Update status to submitted
+	now := time.Now()
+	assessment.Status = "submitted"
+	assessment.SubmittedAt = &now
+
+	if err := s.selfAssessmentRepo.Update(assessment); err != nil {
+		return err
+	}
+
+	// Audit log
+	s.auditRepo.Create(&models.AuditLog{
+		UserID:   &userID,
+		Action:   "submit",
+		Resource: "self_assessment",
+		Details:  fmt.Sprintf("Submitted self-assessment %d for review", assessmentID),
 	})
 
 	return nil

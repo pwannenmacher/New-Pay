@@ -232,3 +232,37 @@ type SelfAssessmentWithDetails struct {
 	UserName    string `json:"user_name,omitempty"` // first_name + last_name
 	CatalogName string `json:"catalog_name,omitempty"`
 }
+
+// AssessmentResponse represents a user's selection for one category
+type AssessmentResponse struct {
+	ID            uint      `json:"id" db:"id"`
+	AssessmentID  uint      `json:"assessment_id" db:"assessment_id"`
+	CategoryID    uint      `json:"category_id" db:"category_id"`
+	PathID        uint      `json:"path_id" db:"path_id"`
+	LevelID       uint      `json:"level_id" db:"level_id"`
+	Justification string    `json:"justification" db:"justification"`
+	CreatedAt     time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt     time.Time `json:"updated_at" db:"updated_at"`
+}
+
+// AssessmentResponseWithDetails includes category, path, and level information
+type AssessmentResponseWithDetails struct {
+	AssessmentResponse
+	CategoryName        string  `json:"category_name"`
+	CategorySortOrder   int     `json:"category_sort_order"`
+	PathName            string  `json:"path_name"`
+	PathDescription     *string `json:"path_description,omitempty"`
+	LevelName           string  `json:"level_name"`
+	LevelNumber         int     `json:"level_number"`
+	LevelDescription    *string `json:"level_description,omitempty"`
+	PathLevelDescription string `json:"path_level_description"` // The description of the path-level combination
+}
+
+// AssessmentCompleteness represents the completion status of a self-assessment
+type AssessmentCompleteness struct {
+	TotalCategories     int     `json:"total_categories"`
+	CompletedCategories int     `json:"completed_categories"`
+	PercentComplete     float64 `json:"percent_complete"`
+	IsComplete          bool    `json:"is_complete"`
+	MissingCategories   []uint  `json:"missing_categories,omitempty"`
+}

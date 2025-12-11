@@ -27,6 +27,7 @@ import { CatalogEditorPage } from './pages/admin/CatalogEditorPage';
 import { CatalogViewPage } from './pages/admin/CatalogViewPage';
 import SelfAssessmentsPage from './pages/self-assessments/SelfAssessmentsPage';
 import SelfAssessmentDetailPage from './pages/self-assessments/SelfAssessmentDetailPage';
+import SelfAssessmentPage from './pages/SelfAssessmentPage';
 import SelfAssessmentsAdminPage from './pages/admin/SelfAssessmentsAdminPage';
 
 import 'dayjs/locale/de';
@@ -136,6 +137,15 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <SelfAssessmentDetailPage />
+                  </ProtectedRoute>
+                }
+              />
+              
+              <Route
+                path="/self-assessments/:id/edit"
+                element={
+                  <ProtectedRoute>
+                    <SelfAssessmentPage />
                   </ProtectedRoute>
                 }
               />

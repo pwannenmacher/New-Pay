@@ -236,3 +236,35 @@ export interface SelfAssessment {
   user_name?: string;
   catalog_name?: string;
 }
+
+// Assessment Response types
+export interface AssessmentResponse {
+  id: number;
+  assessment_id: number;
+  category_id: number;
+  path_id: number;
+  level_id: number;
+  justification: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AssessmentResponseWithDetails extends AssessmentResponse {
+  category_name: string;
+  category_sort_order: number;
+  path_name: string;
+  path_description?: string;
+  level_name: string;
+  level_number: number;
+  level_description?: string;
+  path_level_description: string;
+}
+
+export interface AssessmentCompleteness {
+  total_categories: number;
+  completed_categories: number;
+  percent_complete: number;
+  is_complete: boolean;
+  missing_categories?: number[];
+}
+

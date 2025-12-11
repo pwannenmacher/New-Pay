@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"net/http"
 	"new-pay/internal/middleware"
+	"new-pay/internal/models"
 	"new-pay/internal/service"
 	"strconv"
 	"strings"
@@ -366,5 +367,234 @@ func (h *SelfAssessmentHandler) DeleteSelfAssessment(w http.ResponseWriter, r *h
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{
 		"message": "Self-assessment deleted successfully",
+	})
+}
+
+// SaveResponse saves or updates an assessment response
+// @Summary Save assessment response
+// @Description Save or update a response for a category in a self-assessment
+// @Tags Self-Assessments
+// @Security BearerAuth
+// @Param id path int true "Assessment ID"
+// @Param response body models.AssessmentResponse true "Response data"
+// @Success 200 {object} models.AssessmentResponse
+// @Failure 400 {object} map[string]string "Invalid request"
+// @Failure 401 {object} map[string]string "Unauthorized"
+// @Failure 403 {object} map[string]string "Permission denied"
+// @Router /self-assessments/{id}/responses [post]
+func (h *SelfAssessmentHandler) SaveResponse(w http.ResponseWriter, r *http.Request) {
+	idStr := r.PathValue("id")
+	assessmentID, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		http.Error(w, "Invalid assessment ID", http.StatusBadRequest)
+		return
+	}
+
+	userID, ok := middleware.GetUserID(r)
+	if !ok {
+		http.Error(w, "User ID not found", http.StatusUnauthorized)
+		return
+	}
+
+	var response models.AssessmentResponse
+	if err := json.NewDecoder(r.Body).Decode(&response); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	savedResponse, err := h.selfAssessmentService.SaveResponse(userID, uint(assessmentID), &response)
+	if err != nil {
+		slog.Error("Failed to save response", "error", err, "assessment_id", assessmentID, "user_id", userID)
+		if strings.Contains(err.Error(), "permission denied") {
+			http.Error(w, err.Error(), http.StatusForbidden)
+		} else if strings.Contains(err.Error(), "not found") {
+			http.Error(w, err.Error(), http.StatusNotFound)
+		} else {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+		}
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(savedResponse)
+}
+
+// DeleteResponse deletes an assessment response
+// @Summary Delete assessment response
+// @Description Delete a response for a category in a self-assessment
+// @Tags Self-Assessments
+// @Security BearerAuth
+// @Param id path int true "Assessment ID"
+// @Param categoryId path int true "Category ID"
+// @Success 200 {object} map[string]string
+// @Failure 400 {object} map[string]string "Invalid request"
+// @Failure 401 {object} map[string]string "Unauthorized"
+// @Failure 403 {object} map[string]string "Permission denied"
+// @Router /self-assessments/{id}/responses/{categoryId} [delete]
+func (h *SelfAssessmentHandler) DeleteResponse(w http.ResponseWriter, r *http.Request) {
+	idStr := r.PathValue("id")
+	assessmentID, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		http.Error(w, "Invalid assessment ID", http.StatusBadRequest)
+		return
+	}
+
+	categoryIDStr := r.PathValue("categoryId")
+	categoryID, err := strconv.ParseUint(categoryIDStr, 10, 32)
+	if err != nil {
+		http.Error(w, "Invalid category ID", http.StatusBadRequest)
+		return
+	}
+
+	userID, ok := middleware.GetUserID(r)
+	if !ok {
+		http.Error(w, "User ID not found", http.StatusUnauthorized)
+		return
+	}
+
+	if err := h.selfAssessmentService.DeleteResponse(userID, uint(assessmentID), uint(categoryID)); err != nil {
+		if strings.Contains(err.Error(), "permission denied") {
+			http.Error(w, err.Error(), http.StatusForbidden)
+		} else if strings.Contains(err.Error(), "not found") {
+			http.Error(w, err.Error(), http.StatusNotFound)
+		} else {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+		}
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{
+		"message": "Response deleted successfully",
+	})
+}
+
+// GetResponses retrieves all responses for an assessment
+// @Summary Get assessment responses
+// @Description Retrieve all responses for a self-assessment
+// @Tags Self-Assessments
+// @Security BearerAuth
+// @Param id path int true "Assessment ID"
+// @Success 200 {array} models.AssessmentResponseWithDetails
+// @Failure 400 {object} map[string]string "Invalid request"
+// @Failure 401 {object} map[string]string "Unauthorized"
+// @Failure 403 {object} map[string]string "Permission denied"
+// @Router /self-assessments/{id}/responses [get]
+func (h *SelfAssessmentHandler) GetResponses(w http.ResponseWriter, r *http.Request) {
+	idStr := r.PathValue("id")
+	assessmentID, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		http.Error(w, "Invalid assessment ID", http.StatusBadRequest)
+		return
+	}
+
+	userID, ok := middleware.GetUserID(r)
+	if !ok {
+		http.Error(w, "User ID not found", http.StatusUnauthorized)
+		return
+	}
+
+	userRoles, ok := middleware.GetUserRoles(r)
+	if !ok {
+		userRoles = []string{}
+	}
+
+	responses, err := h.selfAssessmentService.GetResponses(userID, uint(assessmentID), userRoles)
+	if err != nil {
+		if strings.Contains(err.Error(), "permission denied") {
+			http.Error(w, err.Error(), http.StatusForbidden)
+		} else if strings.Contains(err.Error(), "not found") {
+			http.Error(w, err.Error(), http.StatusNotFound)
+		} else {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(responses)
+}
+
+// GetCompleteness retrieves the completeness status of an assessment
+// @Summary Get assessment completeness
+// @Description Retrieve the completion status and progress of a self-assessment
+// @Tags Self-Assessments
+// @Security BearerAuth
+// @Param id path int true "Assessment ID"
+// @Success 200 {object} models.AssessmentCompleteness
+// @Failure 400 {object} map[string]string "Invalid request"
+// @Failure 401 {object} map[string]string "Unauthorized"
+// @Failure 403 {object} map[string]string "Permission denied"
+// @Router /self-assessments/{id}/completeness [get]
+func (h *SelfAssessmentHandler) GetCompleteness(w http.ResponseWriter, r *http.Request) {
+	idStr := r.PathValue("id")
+	assessmentID, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		http.Error(w, "Invalid assessment ID", http.StatusBadRequest)
+		return
+	}
+
+	userID, ok := middleware.GetUserID(r)
+	if !ok {
+		http.Error(w, "User ID not found", http.StatusUnauthorized)
+		return
+	}
+
+	completeness, err := h.selfAssessmentService.GetCompleteness(userID, uint(assessmentID))
+	if err != nil {
+		if strings.Contains(err.Error(), "permission denied") {
+			http.Error(w, err.Error(), http.StatusForbidden)
+		} else if strings.Contains(err.Error(), "not found") {
+			http.Error(w, err.Error(), http.StatusNotFound)
+		} else {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(completeness)
+}
+
+// SubmitAssessment submits an assessment for review
+// @Summary Submit self-assessment
+// @Description Submit a self-assessment for review (changes status from draft to submitted)
+// @Tags Self-Assessments
+// @Security BearerAuth
+// @Param id path int true "Assessment ID"
+// @Success 200 {object} map[string]string
+// @Failure 400 {object} map[string]string "Invalid request or incomplete assessment"
+// @Failure 401 {object} map[string]string "Unauthorized"
+// @Failure 403 {object} map[string]string "Permission denied"
+// @Router /self-assessments/{id}/submit [put]
+func (h *SelfAssessmentHandler) SubmitAssessment(w http.ResponseWriter, r *http.Request) {
+	idStr := r.PathValue("id")
+	assessmentID, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		http.Error(w, "Invalid assessment ID", http.StatusBadRequest)
+		return
+	}
+
+	userID, ok := middleware.GetUserID(r)
+	if !ok {
+		http.Error(w, "User ID not found", http.StatusUnauthorized)
+		return
+	}
+
+	if err := h.selfAssessmentService.SubmitAssessment(userID, uint(assessmentID)); err != nil {
+		slog.Error("Failed to submit assessment", "error", err, "assessment_id", assessmentID, "user_id", userID)
+		if strings.Contains(err.Error(), "permission denied") {
+			http.Error(w, err.Error(), http.StatusForbidden)
+		} else if strings.Contains(err.Error(), "not found") {
+			http.Error(w, err.Error(), http.StatusNotFound)
+		} else {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+		}
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{
+		"message": "Self-assessment submitted successfully",
 	})
 }

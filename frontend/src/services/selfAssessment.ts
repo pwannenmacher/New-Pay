@@ -1,5 +1,11 @@
 import api from './api';
-import type { SelfAssessment, CriteriaCatalog } from '../types';
+import type { 
+  SelfAssessment, 
+  CriteriaCatalog, 
+  AssessmentResponse, 
+  AssessmentResponseWithDetails, 
+  AssessmentCompleteness 
+} from '../types';
 
 export const selfAssessmentService = {
   // Get catalogs available for creating self-assessments
@@ -91,6 +97,56 @@ export const selfAssessmentService = {
       await api.delete<void>(`/admin/self-assessments/${id}`);
     } catch (error) {
       console.error('Error deleting self-assessment:', error);
+      throw error;
+    }
+  },
+
+  // Get responses for an assessment
+  getResponses: async (assessmentId: number): Promise<AssessmentResponseWithDetails[]> => {
+    try {
+      return await api.get<AssessmentResponseWithDetails[]>(`/self-assessments/${assessmentId}/responses`);
+    } catch (error) {
+      console.error('Error fetching responses:', error);
+      throw error;
+    }
+  },
+
+  // Save or update a response
+  saveResponse: async (assessmentId: number, response: Omit<AssessmentResponse, 'id' | 'assessment_id' | 'created_at' | 'updated_at'>): Promise<AssessmentResponse> => {
+    try {
+      return await api.post<AssessmentResponse>(`/self-assessments/${assessmentId}/responses`, response);
+    } catch (error) {
+      console.error('Error saving response:', error);
+      throw error;
+    }
+  },
+
+  // Delete a response
+  deleteResponse: async (assessmentId: number, categoryId: number): Promise<void> => {
+    try {
+      await api.delete<void>(`/self-assessments/${assessmentId}/responses/${categoryId}`);
+    } catch (error) {
+      console.error('Error deleting response:', error);
+      throw error;
+    }
+  },
+
+  // Get completeness status
+  getCompleteness: async (assessmentId: number): Promise<AssessmentCompleteness> => {
+    try {
+      return await api.get<AssessmentCompleteness>(`/self-assessments/${assessmentId}/completeness`);
+    } catch (error) {
+      console.error('Error fetching completeness:', error);
+      throw error;
+    }
+  },
+
+  // Submit assessment for review
+  submitAssessment: async (assessmentId: number): Promise<void> => {
+    try {
+      await api.put<void>(`/self-assessments/${assessmentId}/submit`, {});
+    } catch (error) {
+      console.error('Error submitting assessment:', error);
       throw error;
     }
   },

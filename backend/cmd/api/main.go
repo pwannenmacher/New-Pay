@@ -89,13 +89,14 @@ func main() {
 	oauthConnRepo := repository.NewOAuthConnectionRepository(db.DB)
 	catalogRepo := repository.NewCatalogRepository(db.DB)
 	selfAssessmentRepo := repository.NewSelfAssessmentRepository(db.DB)
+	assessmentResponseRepo := repository.NewAssessmentResponseRepository(db.DB)
 
 	// Initialize services
 	authService := auth.NewService(&cfg.JWT)
 	emailService := email.NewService(&cfg.Email)
 	authSvc := service.NewAuthService(userRepo, tokenRepo, roleRepo, sessionRepo, oauthConnRepo, authService, emailService)
 	catalogService := service.NewCatalogService(catalogRepo, selfAssessmentRepo, auditRepo)
-	selfAssessmentService := service.NewSelfAssessmentService(selfAssessmentRepo, catalogRepo, auditRepo)
+	selfAssessmentService := service.NewSelfAssessmentService(selfAssessmentRepo, catalogRepo, auditRepo, assessmentResponseRepo)
 
 	// Initialize middleware
 	authMw := middleware.NewAuthMiddleware(authService, sessionRepo, userRepo)
@@ -381,16 +382,16 @@ func main() {
 			http.HandlerFunc(selfAssessmentHandler.GetActiveCatalogs),
 		),
 	)
-	// Create self-assessment for a catalog
-	mux.Handle("POST /api/v1/self-assessments/catalog/{catalogId}",
-		authMw.Authenticate(
-			http.HandlerFunc(selfAssessmentHandler.CreateSelfAssessment),
-		),
-	)
 	// Get current user's self-assessments
 	mux.Handle("GET /api/v1/self-assessments/my",
 		authMw.Authenticate(
 			http.HandlerFunc(selfAssessmentHandler.GetUserSelfAssessments),
+		),
+	)
+	// Create self-assessment for a catalog
+	mux.Handle("POST /api/v1/self-assessments/catalog/{catalogId}",
+		authMw.Authenticate(
+			http.HandlerFunc(selfAssessmentHandler.CreateSelfAssessment),
 		),
 	)
 	// Get visible self-assessments (role-based)
@@ -399,6 +400,40 @@ func main() {
 			http.HandlerFunc(selfAssessmentHandler.GetVisibleSelfAssessments),
 		),
 	)
+
+	// Assessment response routes - must be before generic {id} routes
+	// Get responses for an assessment
+	mux.Handle("GET /api/v1/self-assessments/{id}/responses",
+		authMw.Authenticate(
+			http.HandlerFunc(selfAssessmentHandler.GetResponses),
+		),
+	)
+	// Save or update a response
+	mux.Handle("POST /api/v1/self-assessments/{id}/responses",
+		authMw.Authenticate(
+			http.HandlerFunc(selfAssessmentHandler.SaveResponse),
+		),
+	)
+	// Delete a response
+	mux.Handle("DELETE /api/v1/self-assessments/{id}/responses/{categoryId}",
+		authMw.Authenticate(
+			http.HandlerFunc(selfAssessmentHandler.DeleteResponse),
+		),
+	)
+	// Get completeness status
+	mux.Handle("GET /api/v1/self-assessments/{id}/completeness",
+		authMw.Authenticate(
+			http.HandlerFunc(selfAssessmentHandler.GetCompleteness),
+		),
+	)
+	// Submit assessment for review
+	mux.Handle("PUT /api/v1/self-assessments/{id}/submit",
+		authMw.Authenticate(
+			http.HandlerFunc(selfAssessmentHandler.SubmitAssessment),
+		),
+	)
+
+	// Generic self-assessment routes
 	// Get specific self-assessment
 	mux.Handle("GET /api/v1/self-assessments/{id}",
 		authMw.Authenticate(
