@@ -12,7 +12,7 @@ Die New Pay Plattform implementiert ein sicheres Verschlüsselungssystem für se
 
 ## Architektur
 
-```
+```plain
 ┌─────────────────────────────────────────────────────────────┐
 │                    HashiCorp Vault (KMS)                     │
 │  - System Master Key (AES-256)                               │
@@ -45,12 +45,14 @@ Die New Pay Plattform implementiert ein sicheres Verschlüsselungssystem für se
 ## Key-Hierarchie
 
 ### 1. System Master Key
+
 - **Speicherort**: HashiCorp Vault
 - **Typ**: AES-256-GCM
 - **Verwendung**: Verschlüsselung aller User- und Process-Keys
 - **Rotation**: Unterstützt durch Vault Key Versioning
 
 ### 2. User Keys
+
 - **Typ**: Ed25519 Keypair (Public + Private)
 - **Speicherort**: PostgreSQL (Private Key verschlüsselt mit System Key)
 - **Verwendung**:
@@ -59,12 +61,14 @@ Die New Pay Plattform implementiert ein sicheres Verschlüsselungssystem für se
   - Seed: Teil der Key Derivation für Data Encryption Key
 
 ### 3. Process Keys
+
 - **Typ**: 256-bit symmetrischer Schlüssel
 - **Speicherort**: PostgreSQL (verschlüsselt mit System Key)
 - **Verwendung**: Isolierung von Datenströmen (z.B. pro Self-Assessment)
 - **Expiration**: Optional, für zeitlich begrenzte Vorgänge
 
 ### 4. Data Encryption Key (DEK)
+
 - **Ableitung**: `SHA256(Process-Key || User-Key-Seed || "process:ID:user:ID")`
 - **Verwendung**: Einmalig für jede Verschlüsselungsoperation
 - **Speicherung**: Nicht gespeichert, wird bei Bedarf neu abgeleitet
@@ -72,6 +76,7 @@ Die New Pay Plattform implementiert ein sicheres Verschlüsselungssystem für se
 ## Datenbank-Schema
 
 ### user_keys
+
 ```sql
 CREATE TABLE user_keys (
     user_id BIGINT PRIMARY KEY,
@@ -83,6 +88,7 @@ CREATE TABLE user_keys (
 ```
 
 ### process_keys
+
 ```sql
 CREATE TABLE process_keys (
     process_id VARCHAR(100) PRIMARY KEY,
@@ -94,6 +100,7 @@ CREATE TABLE process_keys (
 ```
 
 ### encrypted_records
+
 ```sql
 CREATE TABLE encrypted_records (
     id BIGSERIAL PRIMARY KEY,
@@ -132,21 +139,25 @@ CREATE TABLE encrypted_records (
 ### Daten speichern
 
 1. **Key Derivation**
+
    ```go
    dek := SHA256(processKey || userKeySeed || contextInfo)
    ```
 
 2. **Verschlüsselung**
+
    ```go
    ciphertext, nonce, tag := AES-256-GCM.Encrypt(plaintext, dek, additionalData)
    ```
 
 3. **Signatur**
+
    ```go
    signature := Ed25519.Sign(userPrivateKey, ciphertext || nonce || tag)
    ```
 
 4. **Hash Chain**
+
    ```go
    chainHash := SHA256(prevHash || signature || userID || processID || timestamp)
    ```
@@ -158,6 +169,7 @@ CREATE TABLE encrypted_records (
 ### Daten entschlüsseln
 
 1. **Signatur verifizieren**
+
    ```go
    valid := Ed25519.Verify(publicKey, ciphertext || nonce || tag, signature)
    ```
@@ -165,6 +177,7 @@ CREATE TABLE encrypted_records (
 2. **Key Derivation** (identisch wie beim Verschlüsseln)
 
 3. **Entschlüsselung**
+
    ```go
    plaintext := AES-256-GCM.Decrypt(ciphertext, dek, nonce, tag, additionalData)
    ```
@@ -172,32 +185,38 @@ CREATE TABLE encrypted_records (
 ## Sicherheitsmerkmale
 
 ### ✅ Authenticated Encryption (AEAD)
+
 - AES-256-GCM garantiert Vertraulichkeit UND Integrität
 - Authentication Tag verhindert unbemerkte Manipulation
 - Nonce verhindert Replay-Angriffe
 
 ### ✅ Digitale Signaturen
+
 - Ed25519: Schnell, klein, sicher (128-bit Sicherheit)
 - Authentizität: Nur der User mit Private Key kann signieren
 - Non-Repudiation: User kann Erstellung nicht abstreiten
 
 ### ✅ Hash Chain Audit Trail
+
 - Jeder Record verlinkt auf vorherigen via `prev_hash`
 - Manipulation bricht die Kette → sofort erkennbar
 - Genesis Block: `0000...0000` (64 Nullen)
 
 ### ✅ Append-Only
+
 - PostgreSQL Trigger verhindert UPDATE/DELETE
 - Vollständige Historie bleibt erhalten
 - Compliance-ready (DSGVO, GoBD)
 
 ### ✅ Key Separation
+
 - System-Key: Nur in Vault, niemals in DB oder App-Code
 - User-Keys: Pro User isoliert
 - Process-Keys: Pro Vorgang isoliert
 - DEK: Wird nicht gespeichert, nur abgeleitet
 
 ### ✅ Automatische Entschlüsselung
+
 - Keine User-Interaktion nötig
 - Backend kann Daten entschlüsseln und weitergeben
 - Vault-Token wird von Backend verwaltet
@@ -207,6 +226,7 @@ CREATE TABLE encrypted_records (
 ### Konfiguration
 
 **.env**
+
 ```bash
 VAULT_ENABLED=true
 VAULT_ADDR=http://vault:8200
@@ -371,12 +391,14 @@ vault:
 **Wichtig**: Dev-Mode ist NICHT für Produktion geeignet!
 
 1. **Vault in Produktion deployen**:
+
    ```bash
    vault operator init
    vault operator unseal (3x mit verschiedenen Unseal Keys)
    ```
 
 2. **AppRole Auth einrichten**:
+
    ```bash
    vault auth enable approle
    vault write auth/approle/role/newpay-api \
@@ -386,12 +408,14 @@ vault:
    ```
 
 3. **Backend mit AppRole Token**:
+
    ```go
    VAULT_TOKEN=$(vault write -field=token auth/approle/login \
        role_id=$ROLE_ID secret_id=$SECRET_ID)
    ```
 
 4. **TLS aktivieren**:
+
    ```bash
    VAULT_ADDR=https://vault.example.com:8200
    ```
@@ -410,6 +434,7 @@ if err := vaultClient.Health(); err != nil {
 ### Audit Logs
 
 Vault speichert alle Operationen:
+
 ```bash
 vault audit enable file file_path=/vault/logs/audit.log
 ```
@@ -431,6 +456,7 @@ for _, processID := range allProcessIDs {
 ### Key Caching
 
 KeyManager cached System-Keys im Memory:
+
 ```go
 systemKeyCache map[string][]byte
 ```
@@ -438,6 +464,7 @@ systemKeyCache map[string][]byte
 ### Batch-Operations
 
 Für große Datenmengen:
+
 ```go
 // TODO: Batch-Encrypt API
 records, err := store.CreateRecordsBatch(processID, userID, dataSlice)
@@ -457,11 +484,12 @@ ON encrypted_records(created_at DESC);
 
 ### Vault nicht erreichbar
 
-```
+```plain
 Error: failed to connect to Vault: connection refused
 ```
 
 **Lösung**: Prüfe `VAULT_ADDR` und Vault Container Status:
+
 ```bash
 docker-compose ps vault
 curl http://localhost:8200/v1/sys/health
@@ -469,11 +497,12 @@ curl http://localhost:8200/v1/sys/health
 
 ### Signatur-Verifikation fehlgeschlagen
 
-```
+```plain
 Error: signature verification failed - data may be tampered
 ```
 
 **Ursachen**:
+
 - Daten wurden manipuliert (KRITISCH!)
 - Falscher Public Key
 - Falscher User Key verwendet
@@ -482,11 +511,12 @@ Error: signature verification failed - data may be tampered
 
 ### Key nicht gefunden
 
-```
+```plain
 Error: user key not found
 ```
 
 **Lösung**: User Key erstellen:
+
 ```go
 publicKey, err := keyManager.CreateUserKey(userID)
 ```

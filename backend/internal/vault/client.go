@@ -104,8 +104,8 @@ func (c *Client) CreateKey(keyName string, keyType string) error {
 }
 
 // Encrypt encrypts data using Vault's transit engine
-func (c *Client) Encrypt(keyName string, plaintext []byte, context map[string]string) (string, error) {
-	ctx := context.Background()
+func (c *Client) Encrypt(keyName string, plaintext []byte, ctx map[string]string) (string, error) {
+	context := context.Background()
 
 	path := fmt.Sprintf("%s/encrypt/%s", c.transitMount, keyName)
 
@@ -116,12 +116,12 @@ func (c *Client) Encrypt(keyName string, plaintext []byte, context map[string]st
 	}
 
 	// Add context for additional authenticated data (AAD)
-	if len(context) > 0 {
-		contextStr := c.encodeContext(context)
+	if len(ctx) > 0 {
+		contextStr := c.encodeContext(ctx)
 		data["context"] = base64.StdEncoding.EncodeToString([]byte(contextStr))
 	}
 
-	secret, err := c.client.Logical().WriteWithContext(ctx, path, data)
+	secret, err := c.client.Logical().WriteWithContext(context, path, data)
 	if err != nil {
 		return "", fmt.Errorf("failed to encrypt: %w", err)
 	}
@@ -135,8 +135,8 @@ func (c *Client) Encrypt(keyName string, plaintext []byte, context map[string]st
 }
 
 // Decrypt decrypts data using Vault's transit engine
-func (c *Client) Decrypt(keyName string, ciphertext string, context map[string]string) ([]byte, error) {
-	ctx := context.Background()
+func (c *Client) Decrypt(keyName string, ciphertext string, ctx map[string]string) ([]byte, error) {
+	context := context.Background()
 
 	path := fmt.Sprintf("%s/decrypt/%s", c.transitMount, keyName)
 
@@ -145,12 +145,12 @@ func (c *Client) Decrypt(keyName string, ciphertext string, context map[string]s
 	}
 
 	// Add context for AAD verification
-	if len(context) > 0 {
-		contextStr := c.encodeContext(context)
+	if len(ctx) > 0 {
+		contextStr := c.encodeContext(ctx)
 		data["context"] = base64.StdEncoding.EncodeToString([]byte(contextStr))
 	}
 
-	secret, err := c.client.Logical().WriteWithContext(ctx, path, data)
+	secret, err := c.client.Logical().WriteWithContext(context, path, data)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decrypt: %w", err)
 	}
@@ -266,9 +266,9 @@ func (c *Client) Health() error {
 }
 
 // encodeContext converts context map to string
-func (c *Client) encodeContext(context map[string]string) string {
+func (c *Client) encodeContext(ctx map[string]string) string {
 	result := ""
-	for k, v := range context {
+	for k, v := range ctx {
 		result += fmt.Sprintf("%s=%s;", k, v)
 	}
 	return result

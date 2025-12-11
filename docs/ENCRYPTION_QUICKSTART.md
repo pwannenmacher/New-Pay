@@ -28,7 +28,7 @@ cd docker
 docker-compose up -d vault postgres
 ```
 
-Vault UI: http://localhost:8200 (Token: `dev-root-token`)
+Vault UI: <http://localhost:8200> (Token: `dev-root-token`)
 
 ### 2. Migrationen ausführen
 
@@ -104,6 +104,7 @@ VAULT_TRANSIT_MOUNT=transit
    - DecryptRecord beim Abrufen
 
 3. **Testing**:
+
    ```bash
    go test ./internal/securestore/...
    go test ./internal/keymanager/...
@@ -116,6 +117,7 @@ Vollständige Dokumentation: [docs/ENCRYPTION.md](../docs/ENCRYPTION.md)
 ## Troubleshooting
 
 **Vault nicht erreichbar?**
+
 ```bash
 docker-compose ps vault
 docker-compose logs vault
@@ -123,6 +125,7 @@ curl http://localhost:8200/v1/sys/health
 ```
 
 **Migrationen fehlgeschlagen?**
+
 ```bash
 docker-compose logs api
 # Oder manuell:
@@ -131,6 +134,7 @@ go run cmd/api/main.go
 ```
 
 **Tests ausführen**
+
 ```bash
 cd backend
 go test ./internal/vault/...
