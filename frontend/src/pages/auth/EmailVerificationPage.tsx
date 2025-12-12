@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import {
   Container,
@@ -19,6 +19,7 @@ export const EmailVerificationPage = () => {
   const navigate = useNavigate();
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [message, setMessage] = useState('');
+  const hasVerified = useRef(false);
 
   useEffect(() => {
     const token = searchParams.get('token');
@@ -28,6 +29,12 @@ export const EmailVerificationPage = () => {
       setMessage('Verification token is missing');
       return;
     }
+
+    // Prevent double execution in StrictMode
+    if (hasVerified.current) {
+      return;
+    }
+    hasVerified.current = true;
 
     const verifyEmail = async () => {
       try {

@@ -229,7 +229,7 @@ export const authApi = {
     apiClient.post<void>('/auth/logout'),
   
   verifyEmail: (token: string) =>
-    apiClient.get<{ message: string }>(`/auth/verify-email?token=${token}`),
+    apiClient.getPublic<{ message: string }>(`/auth/verify-email?token=${token}`),
   
   requestPasswordReset: (data: PasswordResetRequest) =>
     apiClient.post<{ message: string }>('/auth/password-reset/request', data),
