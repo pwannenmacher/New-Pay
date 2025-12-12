@@ -3,6 +3,7 @@ package service
 import (
 	"database/sql"
 	"fmt"
+	"log/slog"
 
 	"new-pay/internal/keymanager"
 	"new-pay/internal/models"
@@ -244,4 +245,29 @@ func (s *EncryptedResponseService) ensureProcessKey(processID string) error {
 
 	// Create new process key (no expiration)
 	return s.keyManager.CreateProcessKey(processID, nil)
+}
+
+// DecryptJustification decrypts a single justification by encrypted record ID
+func (s *EncryptedResponseService) DecryptJustification(encryptedJustificationID int64) (string, error) {
+	// Decrypt using securestore
+	plainData, err := s.secureStore.DecryptRecord(encryptedJustificationID)
+	if err != nil {
+		slog.Error("Failed to decrypt record in DecryptJustification", 
+			"error", err, 
+			"encrypted_justification_id", encryptedJustificationID)
+		return "", fmt.Errorf("failed to decrypt record: %w", err)
+	}
+	
+	// Extract justification from decrypted data
+	if justification, ok := plainData.Fields["justification"].(string); ok {
+		slog.Debug("Successfully decrypted justification", 
+			"encrypted_justification_id", encryptedJustificationID,
+			"justification_length", len(justification))
+		return justification, nil
+	}
+	
+	slog.Error("Justification field not found in decrypted data", 
+		"encrypted_justification_id", encryptedJustificationID,
+		"available_fields", plainData.Fields)
+	return "", fmt.Errorf("justification field not found in decrypted data")
 }

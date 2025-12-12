@@ -78,8 +78,7 @@ func (r *AssessmentResponseRepository) Delete(responseID uint) error {
 func (r *AssessmentResponseRepository) GetByID(responseID uint) (*models.AssessmentResponse, error) {
 	var response models.AssessmentResponse
 	query := `
-		SELECT id, assessment_id, category_id, path_id, level_id, justification, 
-		       encrypted_justification_id, created_at, updated_at
+		SELECT id, assessment_id, category_id, path_id, level_id, encrypted_justification_id, created_at, updated_at
 		FROM assessment_responses
 		WHERE id = $1
 	`
@@ -89,7 +88,6 @@ func (r *AssessmentResponseRepository) GetByID(responseID uint) (*models.Assessm
 		&response.CategoryID,
 		&response.PathID,
 		&response.LevelID,
-		&response.Justification,
 		&response.EncryptedJustificationID,
 		&response.CreatedAt,
 		&response.UpdatedAt,
@@ -107,8 +105,7 @@ func (r *AssessmentResponseRepository) GetByID(responseID uint) (*models.Assessm
 func (r *AssessmentResponseRepository) GetByAssessmentAndCategory(assessmentID, categoryID uint) (*models.AssessmentResponse, error) {
 	var response models.AssessmentResponse
 	query := `
-		SELECT id, assessment_id, category_id, path_id, level_id, justification,
-		       encrypted_justification_id, created_at, updated_at
+		SELECT id, assessment_id, category_id, path_id, level_id, encrypted_justification_id, created_at, updated_at
 		FROM assessment_responses
 		WHERE assessment_id = $1 AND category_id = $2
 	`
@@ -118,7 +115,6 @@ func (r *AssessmentResponseRepository) GetByAssessmentAndCategory(assessmentID, 
 		&response.CategoryID,
 		&response.PathID,
 		&response.LevelID,
-		&response.Justification,
 		&response.EncryptedJustificationID,
 		&response.CreatedAt,
 		&response.UpdatedAt,
@@ -137,7 +133,7 @@ func (r *AssessmentResponseRepository) GetAllByAssessment(assessmentID uint) ([]
 	query := `
 		SELECT 
 			ar.id, ar.assessment_id, ar.category_id, ar.path_id, ar.level_id, 
-			ar.justification, ar.encrypted_justification_id, ar.created_at, ar.updated_at,
+			ar.encrypted_justification_id, ar.created_at, ar.updated_at,
 			c.name as category_name, c.sort_order as category_sort_order,
 			p.name as path_name, p.description as path_description,
 			l.name as level_name, l.level_number, l.description as level_description,
@@ -166,7 +162,6 @@ func (r *AssessmentResponseRepository) GetAllByAssessment(assessmentID uint) ([]
 			&response.CategoryID,
 			&response.PathID,
 			&response.LevelID,
-			&response.Justification,
 			&response.EncryptedJustificationID,
 			&response.CreatedAt,
 			&response.UpdatedAt,
@@ -300,8 +295,7 @@ func (r *AssessmentResponseRepository) ValidateLevelBelongsToCatalog(levelID, ca
 // GetByAssessmentID retrieves all responses for an assessment (without details)
 func (r *AssessmentResponseRepository) GetByAssessmentID(assessmentID uint) ([]*models.AssessmentResponse, error) {
 	query := `
-		SELECT id, assessment_id, category_id, path_id, level_id, justification,
-		       encrypted_justification_id, created_at, updated_at
+		SELECT id, assessment_id, category_id, path_id, level_id, encrypted_justification_id, created_at, updated_at
 		FROM assessment_responses
 		WHERE assessment_id = $1
 		ORDER BY id
@@ -321,7 +315,6 @@ func (r *AssessmentResponseRepository) GetByAssessmentID(assessmentID uint) ([]*
 			&response.CategoryID,
 			&response.PathID,
 			&response.LevelID,
-			&response.Justification,
 			&response.EncryptedJustificationID,
 			&response.CreatedAt,
 			&response.UpdatedAt,
@@ -344,7 +337,7 @@ func (r *AssessmentResponseRepository) GetWithDetailsByAssessmentID(assessmentID
 	query := `
 		SELECT 
 			ar.id, ar.assessment_id, ar.category_id, ar.path_id, ar.level_id, 
-			ar.justification, ar.encrypted_justification_id, ar.created_at, ar.updated_at,
+			ar.encrypted_justification_id, ar.created_at, ar.updated_at,
 			c.name as category_name, c.sort_order as category_sort_order,
 			p.name as path_name, p.description as path_description,
 			l.name as level_name, l.level_number, l.description as level_description,
@@ -372,7 +365,6 @@ func (r *AssessmentResponseRepository) GetWithDetailsByAssessmentID(assessmentID
 			&response.CategoryID,
 			&response.PathID,
 			&response.LevelID,
-			&response.Justification,
 			&response.EncryptedJustificationID,
 			&response.CreatedAt,
 			&response.UpdatedAt,

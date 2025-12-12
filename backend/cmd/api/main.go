@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -15,11 +16,14 @@ import (
 	"new-pay/internal/database"
 	"new-pay/internal/email"
 	"new-pay/internal/handlers"
+	"new-pay/internal/keymanager"
 	"new-pay/internal/logger"
 	"new-pay/internal/middleware"
 	"new-pay/internal/repository"
 	"new-pay/internal/scheduler"
+	"new-pay/internal/securestore"
 	"new-pay/internal/service"
+	"new-pay/internal/vault"
 
 	httpSwagger "github.com/swaggo/http-swagger"
 )
@@ -69,7 +73,12 @@ func main() {
 		slog.Error("Failed to connect to database", "error", err)
 		os.Exit(1)
 	}
-	defer db.Close()
+	defer func(db *database.Database) {
+		err := db.Close()
+		if err != nil {
+			slog.Error("Failed to close database connection", "error", err)
+		}
+	}(db)
 
 	slog.Info("Database connection established")
 
@@ -97,7 +106,35 @@ func main() {
 	emailService := email.NewService(&cfg.Email)
 	authSvc := service.NewAuthService(userRepo, tokenRepo, roleRepo, sessionRepo, oauthConnRepo, authService, emailService)
 	catalogService := service.NewCatalogService(catalogRepo, selfAssessmentRepo, auditRepo, emailService)
-	selfAssessmentService := service.NewSelfAssessmentService(selfAssessmentRepo, catalogRepo, auditRepo, assessmentResponseRepo)
+
+	// Initialize encryption services (if Vault is enabled)
+	var encryptedResponseSvc *service.EncryptedResponseService
+	if cfg.Vault.Enabled {
+		vaultClient, err := vault.NewClient(&vault.Config{
+			Address:      cfg.Vault.Address,
+			Token:        cfg.Vault.Token,
+			TransitMount: cfg.Vault.TransitMount,
+		})
+		if err != nil {
+			slog.Error("Failed to initialize Vault client", "error", err)
+			os.Exit(1)
+		}
+
+		keyManager, err := keymanager.NewKeyManager(db.DB, vaultClient)
+		if err != nil {
+			slog.Error("Failed to initialize KeyManager", "error", err)
+			os.Exit(1)
+		}
+
+		secureStore := securestore.NewSecureStore(db.DB, keyManager)
+		encryptedResponseSvc = service.NewEncryptedResponseService(db.DB, assessmentResponseRepo, keyManager, secureStore)
+
+		slog.Info("Encryption services initialized", "vault_addr", cfg.Vault.Address)
+	} else {
+		slog.Warn("Vault is disabled - encrypted responses will not work")
+	}
+
+	selfAssessmentService := service.NewSelfAssessmentService(selfAssessmentRepo, catalogRepo, auditRepo, assessmentResponseRepo, encryptedResponseSvc)
 
 	// Initialize scheduler
 	schedulerService := scheduler.NewScheduler(selfAssessmentRepo, userRepo, roleRepo, emailService, &cfg.Scheduler)
@@ -475,11 +512,19 @@ func main() {
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		if err := db.HealthCheck(); err != nil {
 			w.WriteHeader(http.StatusServiceUnavailable)
-			w.Write([]byte(`{"status":"unhealthy","database":"error"}`))
+			_, err := w.Write([]byte(`{"status":"unhealthy","database":"error"}`))
+			if err != nil {
+				slog.Error("Failed to write health check response", "error", err)
+				return
+			}
 			return
 		}
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"status":"healthy","version":"` + cfg.App.Version + `"}`))
+		_, err := w.Write([]byte(`{"status":"healthy","version":"` + cfg.App.Version + `"}`))
+		if err != nil {
+			slog.Error("Failed to write health check response", "error", err)
+			return
+		}
 	})
 
 	// Swagger documentation
@@ -507,7 +552,7 @@ func main() {
 	// Start server in a goroutine
 	go func() {
 		slog.Info("Server starting", "address", addr)
-		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			slog.Error("Server failed to start", "error", err)
 			os.Exit(1)
 		}

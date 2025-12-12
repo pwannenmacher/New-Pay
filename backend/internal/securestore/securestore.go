@@ -93,8 +93,10 @@ func (ss *SecureStore) CreateRecord(
 
 	// Extract GCM tag (last 16 bytes)
 	tagSize := 16
-	encryptedData := ciphertext[:len(ciphertext)-tagSize]
-	tag := ciphertext[len(ciphertext)-tagSize:]
+	encryptedData := make([]byte, len(ciphertext)-tagSize)
+	copy(encryptedData, ciphertext[:len(ciphertext)-tagSize])
+	tag := make([]byte, tagSize)
+	copy(tag, ciphertext[len(ciphertext)-tagSize:])
 
 	// Sign: signature covers encrypted data + nonce + tag
 	signatureInput := append(encryptedData, nonce...)

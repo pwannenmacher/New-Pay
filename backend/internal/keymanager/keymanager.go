@@ -237,7 +237,8 @@ func (km *KeyManager) DeriveDataEncryptionKey(processID string, userID int64) ([
 	// Combine keys
 	h := sha256.New()
 	h.Write(processKey)
-	h.Write(userKey.Seed())
+	userSeed := userKey.Seed()
+	h.Write(userSeed)
 	h.Write([]byte(info))
 	seed := h.Sum(nil)
 
