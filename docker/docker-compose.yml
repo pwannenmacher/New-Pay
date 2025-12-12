@@ -98,7 +98,7 @@ services:
       - newpay-network
 
   vault:
-    image: hashicorp/vault:1.18
+    image: hashicorp/vault:1.21
     container_name: newpay-vault
     restart: unless-stopped
     ports:
