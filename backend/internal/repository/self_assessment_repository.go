@@ -75,7 +75,7 @@ func (r *SelfAssessmentRepository) GetByStatus(status string) ([]models.SelfAsse
 			sa.id, sa.catalog_id, sa.user_id, sa.status, 
 			sa.created_at, sa.updated_at, sa.submitted_at, sa.in_review_at, 
 			sa.reviewed_at, sa.discussion_started_at, sa.archived_at, sa.closed_at, sa.previous_status,
-			u.name as user_name, u.email as user_email,
+			CONCAT(u.first_name, ' ', u.last_name) as user_name, u.email as user_email,
 			c.name as catalog_name
 		FROM self_assessments sa
 		INNER JOIN users u ON sa.user_id = u.id
@@ -115,7 +115,7 @@ func (r *SelfAssessmentRepository) GetByCatalogID(catalogID uint) ([]models.Self
 			sa.id, sa.catalog_id, sa.user_id, sa.status, 
 			sa.created_at, sa.updated_at, sa.submitted_at, sa.in_review_at, 
 			sa.reviewed_at, sa.discussion_started_at, sa.archived_at, sa.closed_at, sa.previous_status,
-			u.name as user_name, u.email as user_email,
+			CONCAT(u.first_name, ' ', u.last_name) as user_name, u.email as user_email,
 			c.name as catalog_name
 		FROM self_assessments sa
 		JOIN users u ON sa.user_id = u.id
