@@ -235,27 +235,28 @@ type SelfAssessmentWithDetails struct {
 
 // AssessmentResponse represents a user's selection for one category
 type AssessmentResponse struct {
-	ID            uint      `json:"id" db:"id"`
-	AssessmentID  uint      `json:"assessment_id" db:"assessment_id"`
-	CategoryID    uint      `json:"category_id" db:"category_id"`
-	PathID        uint      `json:"path_id" db:"path_id"`
-	LevelID       uint      `json:"level_id" db:"level_id"`
-	Justification string    `json:"justification" db:"justification"`
-	CreatedAt     time.Time `json:"created_at" db:"created_at"`
-	UpdatedAt     time.Time `json:"updated_at" db:"updated_at"`
+	ID                       uint      `json:"id" db:"id"`
+	AssessmentID             uint      `json:"assessment_id" db:"assessment_id"`
+	CategoryID               uint      `json:"category_id" db:"category_id"`
+	PathID                   uint      `json:"path_id" db:"path_id"`
+	LevelID                  uint      `json:"level_id" db:"level_id"`
+	Justification            string    `json:"justification" db:"justification"`                                     // Decrypted justification (not stored)
+	EncryptedJustificationID *int64    `json:"encrypted_justification_id,omitempty" db:"encrypted_justification_id"` // Reference to encrypted_records
+	CreatedAt                time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt                time.Time `json:"updated_at" db:"updated_at"`
 }
 
 // AssessmentResponseWithDetails includes category, path, and level information
 type AssessmentResponseWithDetails struct {
 	AssessmentResponse
-	CategoryName        string  `json:"category_name"`
-	CategorySortOrder   int     `json:"category_sort_order"`
-	PathName            string  `json:"path_name"`
-	PathDescription     *string `json:"path_description,omitempty"`
-	LevelName           string  `json:"level_name"`
-	LevelNumber         int     `json:"level_number"`
-	LevelDescription    *string `json:"level_description,omitempty"`
-	PathLevelDescription string `json:"path_level_description"` // The description of the path-level combination
+	CategoryName         string  `json:"category_name"`
+	CategorySortOrder    int     `json:"category_sort_order"`
+	PathName             string  `json:"path_name"`
+	PathDescription      *string `json:"path_description,omitempty"`
+	LevelName            string  `json:"level_name"`
+	LevelNumber          int     `json:"level_number"`
+	LevelDescription     *string `json:"level_description,omitempty"`
+	PathLevelDescription string  `json:"path_level_description"` // The description of the path-level combination
 }
 
 // AssessmentCompleteness represents the completion status of a self-assessment
