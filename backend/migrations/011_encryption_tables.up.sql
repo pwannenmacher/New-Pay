@@ -66,6 +66,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS enforce_encrypted_records_append_only ON encrypted_records;
 CREATE TRIGGER enforce_encrypted_records_append_only
     BEFORE UPDATE OR DELETE ON encrypted_records
     FOR EACH ROW EXECUTE FUNCTION prevent_encrypted_record_modifications();
