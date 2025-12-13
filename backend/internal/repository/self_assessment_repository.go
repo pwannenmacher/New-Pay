@@ -34,6 +34,26 @@ func (r *SelfAssessmentRepository) HasSelfAssessments(catalogID uint) (bool, err
 	return count > 0, nil
 }
 
+// GetCatalogIDsByUserID retrieves all catalog IDs where the user has self-assessments
+func (r *SelfAssessmentRepository) GetCatalogIDsByUserID(userID uint) ([]uint, error) {
+	query := `SELECT DISTINCT catalog_id FROM self_assessments WHERE user_id = $1`
+	rows, err := r.db.Query(query, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var catalogIDs []uint
+	for rows.Next() {
+		var catalogID uint
+		if err := rows.Scan(&catalogID); err != nil {
+			return nil, err
+		}
+		catalogIDs = append(catalogIDs, catalogID)
+	}
+	return catalogIDs, rows.Err()
+}
+
 // GetByCatalogAndUser retrieves a self-assessment by catalog and user
 func (r *SelfAssessmentRepository) GetByCatalogAndUser(catalogID, userID uint) (*models.SelfAssessment, error) {
 	var assessment models.SelfAssessment
@@ -75,7 +95,7 @@ func (r *SelfAssessmentRepository) GetByStatus(status string) ([]models.SelfAsse
 			sa.id, sa.catalog_id, sa.user_id, sa.status, 
 			sa.created_at, sa.updated_at, sa.submitted_at, sa.in_review_at, 
 			sa.reviewed_at, sa.discussion_started_at, sa.archived_at, sa.closed_at, sa.previous_status,
-			u.name as user_name, u.email as user_email,
+			CONCAT(u.first_name, ' ', u.last_name) as user_name, u.email as user_email,
 			c.name as catalog_name
 		FROM self_assessments sa
 		INNER JOIN users u ON sa.user_id = u.id
@@ -115,7 +135,7 @@ func (r *SelfAssessmentRepository) GetByCatalogID(catalogID uint) ([]models.Self
 			sa.id, sa.catalog_id, sa.user_id, sa.status, 
 			sa.created_at, sa.updated_at, sa.submitted_at, sa.in_review_at, 
 			sa.reviewed_at, sa.discussion_started_at, sa.archived_at, sa.closed_at, sa.previous_status,
-			u.name as user_name, u.email as user_email,
+			CONCAT(u.first_name, ' ', u.last_name) as user_name, u.email as user_email,
 			c.name as catalog_name
 		FROM self_assessments sa
 		JOIN users u ON sa.user_id = u.id

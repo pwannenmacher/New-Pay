@@ -23,6 +23,7 @@ type Config struct {
 	App       AppConfig
 	Log       LogConfig
 	Scheduler SchedulerConfig
+	Vault     VaultConfig
 }
 
 // ServerConfig holds server-related configuration
@@ -129,6 +130,14 @@ type SchedulerConfig struct {
 	EnableReviewerSummary bool   // Enable/disable reviewer summaries
 }
 
+// VaultConfig holds Vault configuration
+type VaultConfig struct {
+	Address      string // Vault server address (e.g., http://localhost:8200)
+	Token        string // Root token or service token for authentication
+	TransitMount string // Transit engine mount path (default: transit)
+	Enabled      bool   // Enable/disable Vault integration
+}
+
 // Load loads configuration from environment variables
 func Load() (*Config, error) {
 	// Load .env file if it exists (ignore error if not found)
@@ -205,6 +214,12 @@ func Load() (*Config, error) {
 			ReminderIntervalMins:  getIntEnv("SCHEDULER_REMINDER_INTERVAL_MINS", 10080),   // 7 days = 10080 minutes
 			EnableDraftReminders:  getBoolEnv("SCHEDULER_ENABLE_DRAFT_REMINDERS", true),
 			EnableReviewerSummary: getBoolEnv("SCHEDULER_ENABLE_REVIEWER_SUMMARY", true),
+		},
+		Vault: VaultConfig{
+			Address:      getEnv("VAULT_ADDR", "http://localhost:8200"),
+			Token:        getEnv("VAULT_TOKEN", ""),
+			TransitMount: getEnv("VAULT_TRANSIT_MOUNT", "transit"),
+			Enabled:      getBoolEnv("VAULT_ENABLED", true),
 		},
 	}
 

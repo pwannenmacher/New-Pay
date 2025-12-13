@@ -53,7 +53,13 @@ func (h *CatalogHandler) GetAllCatalogs(w http.ResponseWriter, r *http.Request) 
 		userRoles = []string{} // Default to empty roles if not found
 	}
 
-	catalogs, err := h.catalogService.GetVisibleCatalogs(userRoles)
+	userID, ok := middleware.GetUserID(r)
+	if !ok {
+		http.Error(w, "User ID not found", http.StatusUnauthorized)
+		return
+	}
+
+	catalogs, err := h.catalogService.GetVisibleCatalogs(userRoles, userID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

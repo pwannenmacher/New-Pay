@@ -76,6 +76,7 @@ export function CatalogEditorPage() {
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [newCategoryName, setNewCategoryName] = useState('');
   const [newCategoryDescription, setNewCategoryDescription] = useState('');
+  const [newCategoryWeight, setNewCategoryWeight] = useState<string>('');
 
   useEffect(() => {
     if (!isNew && id) {
@@ -373,6 +374,7 @@ export function CatalogEditorPage() {
     setEditingCategory(null);
     setNewCategoryName(`Kategorie ${categories.length + 1}`);
     setNewCategoryDescription('');
+    setNewCategoryWeight('');
     setCategoryModalOpened(true);
   };
 
@@ -380,11 +382,23 @@ export function CatalogEditorPage() {
     setEditingCategory(category);
     setNewCategoryName(category.name);
     setNewCategoryDescription(category.description || '');
+    setNewCategoryWeight(category.weight !== undefined ? category.weight.toString() : '');
     setCategoryModalOpened(true);
   };
 
   const handleSaveCategory = async () => {
     if (!catalog || !newCategoryName.trim()) return;
+
+    // Parse weight value
+    const weightValue = newCategoryWeight.trim() ? parseFloat(newCategoryWeight) : undefined;
+    if (weightValue !== undefined && (isNaN(weightValue) || weightValue < 0 || weightValue > 1)) {
+      notifications.show({
+        title: 'Fehler',
+        message: 'Gewichtung muss zwischen 0,00 und 1,00 liegen',
+        color: 'red',
+      });
+      return;
+    }
 
     try {
       if (editingCategory) {
@@ -393,6 +407,7 @@ export function CatalogEditorPage() {
           name: newCategoryName.trim(),
           description: newCategoryDescription.trim() || undefined,
           sort_order: editingCategory.sort_order,
+          weight: weightValue,
         });
         setCategories(categories.map(c => c.id === editingCategory.id ? updatedCategory : c));
         notifications.show({
@@ -406,6 +421,7 @@ export function CatalogEditorPage() {
           name: newCategoryName.trim(),
           description: newCategoryDescription.trim() || undefined,
           sort_order: categories.length,
+          weight: weightValue,
         });
         setCategories([...categories, newCategory]);
         notifications.show({
@@ -418,6 +434,7 @@ export function CatalogEditorPage() {
       setEditingCategory(null);
       setNewCategoryName('');
       setNewCategoryDescription('');
+      setNewCategoryWeight('');
     } catch (err: any) {
       notifications.show({
         title: 'Fehler',
@@ -906,6 +923,7 @@ export function CatalogEditorPage() {
             setEditingCategory(null);
             setNewCategoryName('');
             setNewCategoryDescription('');
+            setNewCategoryWeight('');
           }}
           title={editingCategory ? 'Kategorie bearbeiten' : 'Neue Kategorie hinzufügen'}
         >
@@ -939,6 +957,17 @@ export function CatalogEditorPage() {
                 }
               }}
             />
+            <TextInput
+              label="Gewichtung"
+              placeholder="z.B. 0,25"
+              description="Dezimalwert von 0,00 bis 1,00. Summe aller Kategorien muss 1,00 ergeben."
+              value={newCategoryWeight}
+              onChange={(e) => setNewCategoryWeight(e.target.value)}
+              type="number"
+              step="0.01"
+              min="0"
+              max="1"
+            />
             <Group justify="flex-end">
               <Button
                 variant="subtle"
@@ -947,6 +976,7 @@ export function CatalogEditorPage() {
                   setEditingCategory(null);
                   setNewCategoryName('');
                   setNewCategoryDescription('');
+                  setNewCategoryWeight('');
                 }}
                 type="button"
               >

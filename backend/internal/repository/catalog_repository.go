@@ -254,8 +254,8 @@ func (r *CatalogRepository) DeleteCatalog(id uint) error {
 // CreateCategory creates a new category
 func (r *CatalogRepository) CreateCategory(category *models.Category) error {
 	query := `
-		INSERT INTO categories (catalog_id, name, description, sort_order)
-		VALUES ($1, $2, $3, $4)
+		INSERT INTO categories (catalog_id, name, description, sort_order, weight)
+		VALUES ($1, $2, $3, $4, $5)
 		RETURNING id, created_at, updated_at
 	`
 
@@ -265,6 +265,7 @@ func (r *CatalogRepository) CreateCategory(category *models.Category) error {
 		category.Name,
 		category.Description,
 		category.SortOrder,
+		category.Weight,
 	).Scan(&category.ID, &category.CreatedAt, &category.UpdatedAt)
 
 	return err
@@ -273,7 +274,7 @@ func (r *CatalogRepository) CreateCategory(category *models.Category) error {
 // GetCategoriesByCatalogID retrieves all categories for a catalog
 func (r *CatalogRepository) GetCategoriesByCatalogID(catalogID uint) ([]models.Category, error) {
 	query := `
-		SELECT id, catalog_id, name, description, sort_order, created_at, updated_at
+		SELECT id, catalog_id, name, description, sort_order, weight, created_at, updated_at
 		FROM categories
 		WHERE catalog_id = $1
 		ORDER BY sort_order, name
@@ -294,6 +295,7 @@ func (r *CatalogRepository) GetCategoriesByCatalogID(catalogID uint) ([]models.C
 			&category.Name,
 			&category.Description,
 			&category.SortOrder,
+			&category.Weight,
 			&category.CreatedAt,
 			&category.UpdatedAt,
 		)
@@ -310,8 +312,8 @@ func (r *CatalogRepository) GetCategoriesByCatalogID(catalogID uint) ([]models.C
 func (r *CatalogRepository) UpdateCategory(category *models.Category) error {
 	query := `
 		UPDATE categories
-		SET name = $1, description = $2, sort_order = $3
-		WHERE id = $4
+		SET name = $1, description = $2, sort_order = $3, weight = $4
+		WHERE id = $5
 		RETURNING updated_at
 	`
 
@@ -320,6 +322,7 @@ func (r *CatalogRepository) UpdateCategory(category *models.Category) error {
 		category.Name,
 		category.Description,
 		category.SortOrder,
+		category.Weight,
 		category.ID,
 	).Scan(&category.UpdatedAt)
 

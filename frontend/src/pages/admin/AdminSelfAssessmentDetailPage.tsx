@@ -13,6 +13,7 @@ import {
   Alert,
   LoadingOverlay,
   Divider,
+  Table,
 } from '@mantine/core';
 import {
   IconArrowLeft,
@@ -23,8 +24,6 @@ import {
   IconArchive,
   IconX,
   IconAlertCircle,
-  IconSend,
-  IconEdit,
 } from '@tabler/icons-react';
 import { selfAssessmentService } from '../../services/selfAssessment';
 import adminService from '../../services/admin';
@@ -41,7 +40,7 @@ const statusConfig = {
   closed: { label: 'Geschlossen', color: 'red', icon: IconX },
 };
 
-export default function SelfAssessmentDetailPage() {
+export default function AdminSelfAssessmentDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [assessment, setAssessment] = useState<SelfAssessment | null>(null);
@@ -75,7 +74,7 @@ export default function SelfAssessmentDetailPage() {
         message: error.response?.data?.error || 'Selbsteinschätzung konnte nicht geladen werden',
         color: 'red',
       });
-      navigate('/self-assessments');
+      navigate('/admin/self-assessments');
     } finally {
       setLoading(false);
     }
@@ -89,9 +88,7 @@ export default function SelfAssessmentDetailPage() {
       await selfAssessmentService.updateStatus(assessment.id, newStatus);
       notifications.show({
         title: 'Erfolg',
-        message: newStatus === 'submitted' 
-          ? 'Selbsteinschätzung wurde eingereicht'
-          : 'Selbsteinschätzung wurde storniert',
+        message: `Status wurde auf "${statusConfig[newStatus as keyof typeof statusConfig]?.label || newStatus}" geändert`,
         color: 'green',
       });
       await loadAssessment();
@@ -104,6 +101,30 @@ export default function SelfAssessmentDetailPage() {
       });
     } finally {
       setUpdating(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!assessment) return;
+
+    if (!confirm('Möchten Sie diese Selbsteinschätzung wirklich löschen?')) {
+      return;
+    }
+
+    try {
+      await selfAssessmentService.deleteSelfAssessment(assessment.id);
+      notifications.show({
+        title: 'Erfolg',
+        message: 'Selbsteinschätzung wurde gelöscht',
+        color: 'green',
+      });
+      navigate('/admin/self-assessments');
+    } catch (error: any) {
+      notifications.show({
+        title: 'Fehler',
+        message: error.response?.data?.error || 'Selbsteinschätzung konnte nicht gelöscht werden',
+        color: 'red',
+      });
     }
   };
 
@@ -132,7 +153,10 @@ export default function SelfAssessmentDetailPage() {
     );
   };
 
-  const canSubmit = assessment?.status === 'draft';
+  const canDelete = () => {
+    if (!assessment) return false;
+    return assessment.status === 'closed' && !assessment.submitted_at;
+  };
 
   const canReopen = () => {
     if (!assessment || assessment.status !== 'closed' || !assessment.closed_at) {
@@ -209,19 +233,16 @@ export default function SelfAssessmentDetailPage() {
             <Button
               variant="subtle"
               leftSection={<IconArrowLeft size={16} />}
-              onClick={() => navigate('/self-assessments')}
+              onClick={() => navigate('/admin/self-assessments')}
             >
               Zurück
             </Button>
             <div>
               <Title order={1}>
-                {assessment.catalog_name || assessment.user_name 
-                  ? `${assessment.catalog_name || 'Katalog'} - ${assessment.user_name || 'Unbekannt'}`
-                  : catalog?.name || `Selbsteinschätzung`}
+                {assessment.catalog_name || catalog?.name || 'Selbsteinschätzung'}
               </Title>
               <Text c="dimmed" size="sm">
-                Erstellt am: {formatDate(assessment.created_at)}
-                {assessment.user_email && ` • ${assessment.user_email}`}
+                Benutzer: {assessment.user_name || 'Unbekannt'} ({assessment.user_email || 'keine E-Mail'})
               </Text>
             </div>
           </Group>
@@ -232,90 +253,164 @@ export default function SelfAssessmentDetailPage() {
           <Stack gap="md">
             <div>
               <Text fw={500} size="sm" c="dimmed" mb={4}>
-                Aktueller Status
+                Grundinformationen
               </Text>
-              {getStatusBadge(assessment.status)}
+              <Table withColumnBorders>
+                <Table.Tbody>
+                  <Table.Tr>
+                    <Table.Td fw={500} w="200px">Benutzer</Table.Td>
+                    <Table.Td>
+                      {assessment.user_name || 'Unbekannt'} (ID: {assessment.user_id})
+                    </Table.Td>
+                  </Table.Tr>
+                  <Table.Tr>
+                    <Table.Td fw={500}>Katalog</Table.Td>
+                    <Table.Td>
+                      {assessment.catalog_name || catalog?.name || 'Unbekannt'} (ID: {assessment.catalog_id})
+                    </Table.Td>
+                  </Table.Tr>
+                  <Table.Tr>
+                    <Table.Td fw={500}>Status</Table.Td>
+                    <Table.Td>{getStatusBadge(assessment.status)}</Table.Td>
+                  </Table.Tr>
+                </Table.Tbody>
+              </Table>
             </div>
 
             <Divider />
 
-            <Group grow>
-              <div>
-                <Text fw={500} size="sm" c="dimmed">
-                  Erstellt am
-                </Text>
-                <Text>{formatDate(assessment.created_at)}</Text>
-              </div>
-              <div>
-                <Text fw={500} size="sm" c="dimmed">
-                  Aktualisiert am
-                </Text>
-                <Text>{formatDate(assessment.updated_at)}</Text>
-              </div>
-            </Group>
+            <div>
+              <Text fw={500} size="sm" c="dimmed" mb={4}>
+                Zeitstempel
+              </Text>
+              <Group grow>
+                <div>
+                  <Text fw={500} size="sm" c="dimmed">
+                    Erstellt am
+                  </Text>
+                  <Text>{formatDate(assessment.created_at)}</Text>
+                </div>
+                <div>
+                  <Text fw={500} size="sm" c="dimmed">
+                    Aktualisiert am
+                  </Text>
+                  <Text>{formatDate(assessment.updated_at)}</Text>
+                </div>
+              </Group>
+            </div>
 
-            {canSubmit && (
-              <>
-                <Divider />
-                <Alert icon={<IconAlertCircle size={16} />} color="blue">
-                  Diese Selbsteinschätzung befindet sich noch im Entwurf. Sie können sie bearbeiten,
-                  zur Prüfung einreichen oder stornieren.
-                </Alert>
-                <Group>
-                  <Button
-                    leftSection={<IconEdit size={16} />}
-                    onClick={() => navigate(`/self-assessments/${assessment.id}/edit`)}
-                    variant="filled"
-                  >
-                    Bearbeiten
-                  </Button>
-                  <Button
-                    leftSection={<IconSend size={16} />}
-                    onClick={() => handleStatusChange('submitted')}
-                    loading={updating}
-                    color="blue"
-                    variant="light"
-                  >
-                    Zur Prüfung einreichen
-                  </Button>
-                  <Button
-                    leftSection={<IconX size={16} />}
-                    onClick={() => handleStatusChange('closed')}
-                    loading={updating}
-                    variant="light"
-                    color="red"
-                  >
-                    Stornieren
-                  </Button>
-                </Group>
-              </>
-            )}
+            <Divider />
 
-            {canReopen() && (
-              <>
-                <Divider />
-                <Alert icon={<IconAlertCircle size={16} />} color="orange">
-                  Diese Selbsteinschätzung wurde geschlossen. Sie können sie innerhalb von 24 Stunden
-                  nach dem Schließen wiedereröffnen.
-                  {getRemainingReopenTime() && (
-                    <Text size="sm" mt="xs" fw={500}>
-                      Verbleibende Zeit: {getRemainingReopenTime()}
-                    </Text>
-                  )}
-                </Alert>
-                <Group>
-                  <Button
-                    leftSection={<IconEdit size={16} />}
-                    onClick={handleReopen}
-                    loading={updating}
-                    color="orange"
-                    variant="filled"
-                  >
-                    Wiedereröffnen
-                  </Button>
-                </Group>
-              </>
-            )}
+            <div>
+              <Text fw={500} size="sm" c="dimmed" mb="md">
+                Administrative Aktionen
+              </Text>
+              
+              <Stack gap="sm">
+                {assessment.status === 'submitted' && (
+                  <Group>
+                    <Button
+                      onClick={() => handleStatusChange('in_review')}
+                      loading={updating}
+                      color="yellow"
+                    >
+                      In Prüfung setzen
+                    </Button>
+                  </Group>
+                )}
+
+                {assessment.status === 'in_review' && (
+                  <Group>
+                    <Button
+                      onClick={() => handleStatusChange('reviewed')}
+                      loading={updating}
+                      color="orange"
+                    >
+                      Als geprüft markieren
+                    </Button>
+                  </Group>
+                )}
+
+                {assessment.status === 'reviewed' && (
+                  <Group>
+                    <Button
+                      onClick={() => handleStatusChange('discussion')}
+                      loading={updating}
+                      color="violet"
+                    >
+                      In Besprechung setzen
+                    </Button>
+                    <Button
+                      onClick={() => handleStatusChange('archived')}
+                      loading={updating}
+                      color="green"
+                    >
+                      Archivieren
+                    </Button>
+                  </Group>
+                )}
+
+                {assessment.status === 'discussion' && (
+                  <Group>
+                    <Button
+                      onClick={() => handleStatusChange('archived')}
+                      loading={updating}
+                      color="green"
+                    >
+                      Archivieren
+                    </Button>
+                  </Group>
+                )}
+
+                {assessment.status !== 'closed' && (
+                  <Group>
+                    <Button
+                      onClick={() => handleStatusChange('closed')}
+                      loading={updating}
+                      variant="light"
+                      color="red"
+                    >
+                      Schließen
+                    </Button>
+                  </Group>
+                )}
+
+                {canReopen() && (
+                  <>
+                    <Alert icon={<IconAlertCircle size={16} />} color="orange">
+                      Diese Selbsteinschätzung wurde geschlossen. Sie kann innerhalb von 24 Stunden
+                      nach dem Schließen wiedereröffnet werden.
+                      {getRemainingReopenTime() && (
+                        <Text size="sm" mt="xs" fw={500}>
+                          Verbleibende Zeit: {getRemainingReopenTime()}
+                        </Text>
+                      )}
+                    </Alert>
+                    <Group>
+                      <Button
+                        onClick={handleReopen}
+                        loading={updating}
+                        color="orange"
+                      >
+                        Wiedereröffnen
+                      </Button>
+                    </Group>
+                  </>
+                )}
+
+                {canDelete() && (
+                  <Group>
+                    <Button
+                      onClick={handleDelete}
+                      variant="light"
+                      color="red"
+                    >
+                      Löschen
+                    </Button>
+                  </Group>
+                )}
+              </Stack>
+            </div>
           </Stack>
         </Paper>
 
@@ -384,6 +479,15 @@ export default function SelfAssessmentDetailPage() {
             )}
           </Timeline>
         </Paper>
+
+        <Alert icon={<IconAlertCircle size={16} />} color="blue">
+          <Text fw={500} mb="xs">Hinweis zu sensiblen Informationen</Text>
+          <Text size="sm">
+            Diese Ansicht zeigt keine Details zu den spezifischen Level-Einschätzungen des Benutzers,
+            um die Vertraulichkeit der Selbsteinschätzung zu wahren. Als Administrator können Sie den
+            Status verwalten und administrative Aktionen durchführen.
+          </Text>
+        </Alert>
       </Stack>
     </Container>
   );

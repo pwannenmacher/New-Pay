@@ -78,8 +78,7 @@ func (r *AssessmentResponseRepository) Delete(responseID uint) error {
 func (r *AssessmentResponseRepository) GetByID(responseID uint) (*models.AssessmentResponse, error) {
 	var response models.AssessmentResponse
 	query := `
-		SELECT id, assessment_id, category_id, path_id, level_id, justification, 
-		       created_at, updated_at
+		SELECT id, assessment_id, category_id, path_id, level_id, encrypted_justification_id, created_at, updated_at
 		FROM assessment_responses
 		WHERE id = $1
 	`
@@ -89,7 +88,7 @@ func (r *AssessmentResponseRepository) GetByID(responseID uint) (*models.Assessm
 		&response.CategoryID,
 		&response.PathID,
 		&response.LevelID,
-		&response.Justification,
+		&response.EncryptedJustificationID,
 		&response.CreatedAt,
 		&response.UpdatedAt,
 	)
@@ -106,8 +105,7 @@ func (r *AssessmentResponseRepository) GetByID(responseID uint) (*models.Assessm
 func (r *AssessmentResponseRepository) GetByAssessmentAndCategory(assessmentID, categoryID uint) (*models.AssessmentResponse, error) {
 	var response models.AssessmentResponse
 	query := `
-		SELECT id, assessment_id, category_id, path_id, level_id, justification,
-		       created_at, updated_at
+		SELECT id, assessment_id, category_id, path_id, level_id, encrypted_justification_id, created_at, updated_at
 		FROM assessment_responses
 		WHERE assessment_id = $1 AND category_id = $2
 	`
@@ -117,7 +115,7 @@ func (r *AssessmentResponseRepository) GetByAssessmentAndCategory(assessmentID, 
 		&response.CategoryID,
 		&response.PathID,
 		&response.LevelID,
-		&response.Justification,
+		&response.EncryptedJustificationID,
 		&response.CreatedAt,
 		&response.UpdatedAt,
 	)
@@ -135,7 +133,7 @@ func (r *AssessmentResponseRepository) GetAllByAssessment(assessmentID uint) ([]
 	query := `
 		SELECT 
 			ar.id, ar.assessment_id, ar.category_id, ar.path_id, ar.level_id, 
-			ar.justification, ar.created_at, ar.updated_at,
+			ar.encrypted_justification_id, ar.created_at, ar.updated_at,
 			c.name as category_name, c.sort_order as category_sort_order,
 			p.name as path_name, p.description as path_description,
 			l.name as level_name, l.level_number, l.description as level_description,
@@ -164,7 +162,7 @@ func (r *AssessmentResponseRepository) GetAllByAssessment(assessmentID uint) ([]
 			&response.CategoryID,
 			&response.PathID,
 			&response.LevelID,
-			&response.Justification,
+			&response.EncryptedJustificationID,
 			&response.CreatedAt,
 			&response.UpdatedAt,
 			&response.CategoryName,
@@ -292,4 +290,102 @@ func (r *AssessmentResponseRepository) ValidateLevelBelongsToCatalog(levelID, ca
 		return false, err
 	}
 	return count > 0, nil
+}
+
+// GetByAssessmentID retrieves all responses for an assessment (without details)
+func (r *AssessmentResponseRepository) GetByAssessmentID(assessmentID uint) ([]*models.AssessmentResponse, error) {
+	query := `
+		SELECT id, assessment_id, category_id, path_id, level_id, encrypted_justification_id, created_at, updated_at
+		FROM assessment_responses
+		WHERE assessment_id = $1
+		ORDER BY id
+	`
+	rows, err := r.db.Query(query, assessmentID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var responses []*models.AssessmentResponse
+	for rows.Next() {
+		var response models.AssessmentResponse
+		err := rows.Scan(
+			&response.ID,
+			&response.AssessmentID,
+			&response.CategoryID,
+			&response.PathID,
+			&response.LevelID,
+			&response.EncryptedJustificationID,
+			&response.CreatedAt,
+			&response.UpdatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+		responses = append(responses, &response)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return responses, nil
+}
+
+// GetWithDetailsByAssessmentID retrieves all responses for an assessment with details
+func (r *AssessmentResponseRepository) GetWithDetailsByAssessmentID(assessmentID uint) ([]*models.AssessmentResponseWithDetails, error) {
+	query := `
+		SELECT 
+			ar.id, ar.assessment_id, ar.category_id, ar.path_id, ar.level_id, 
+			ar.encrypted_justification_id, ar.created_at, ar.updated_at,
+			c.name as category_name, c.sort_order as category_sort_order,
+			p.name as path_name, p.description as path_description,
+			l.name as level_name, l.level_number, l.description as level_description,
+			pld.description as path_level_description
+		FROM assessment_responses ar
+		JOIN categories c ON ar.category_id = c.id
+		JOIN paths p ON ar.path_id = p.id
+		JOIN levels l ON ar.level_id = l.id
+		LEFT JOIN path_level_descriptions pld ON pld.path_id = ar.path_id AND pld.level_id = ar.level_id
+		WHERE ar.assessment_id = $1
+		ORDER BY c.sort_order, c.name
+	`
+	rows, err := r.db.Query(query, assessmentID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var responses []*models.AssessmentResponseWithDetails
+	for rows.Next() {
+		var response models.AssessmentResponseWithDetails
+		err := rows.Scan(
+			&response.ID,
+			&response.AssessmentID,
+			&response.CategoryID,
+			&response.PathID,
+			&response.LevelID,
+			&response.EncryptedJustificationID,
+			&response.CreatedAt,
+			&response.UpdatedAt,
+			&response.CategoryName,
+			&response.CategorySortOrder,
+			&response.PathName,
+			&response.PathDescription,
+			&response.LevelName,
+			&response.LevelNumber,
+			&response.LevelDescription,
+			&response.PathLevelDescription,
+		)
+		if err != nil {
+			return nil, err
+		}
+		responses = append(responses, &response)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return responses, nil
 }

@@ -27,6 +27,7 @@ import {
 import { selfAssessmentService } from '../../services/selfAssessment';
 import type { SelfAssessment, CriteriaCatalog } from '../../types';
 import { notifications } from '@mantine/notifications';
+import { WeightedScoreBadge } from '../../components/WeightedScoreDisplay';
 
 const statusConfig = {
   draft: { label: 'Entwurf', color: 'gray', icon: IconClock },
@@ -97,7 +98,7 @@ export default function SelfAssessmentsPage() {
       });
       setCreateModalOpen(false);
       await loadData();
-      navigate(`/self-assessments/${newAssessment.id}/edit`);
+      navigate(`/self-assessments/${newAssessment.id}`);
     } catch (error: any) {
       console.error('Error creating assessment:', error);
       notifications.show({
@@ -181,6 +182,7 @@ export default function SelfAssessmentsPage() {
                 <Table.Tr>
                   <Table.Th>Katalog</Table.Th>
                   <Table.Th>Status</Table.Th>
+                  <Table.Th>Gesamtlevel</Table.Th>
                   <Table.Th>Erstellt am</Table.Th>
                   <Table.Th>Eingereicht am</Table.Th>
                   <Table.Th>Aktualisiert am</Table.Th>
@@ -194,6 +196,9 @@ export default function SelfAssessmentsPage() {
                       <Text size="sm">{assessment.catalog_name || 'Unbekannt'}</Text>
                     </Table.Td>
                     <Table.Td>{getStatusBadge(assessment.status)}</Table.Td>
+                    <Table.Td>
+                      <WeightedScoreBadge assessmentId={assessment.id} compact />
+                    </Table.Td>
                     <Table.Td>{formatDate(assessment.created_at)}</Table.Td>
                     <Table.Td>{formatDate(assessment.submitted_at)}</Table.Td>
                     <Table.Td>{formatDate(assessment.updated_at)}</Table.Td>

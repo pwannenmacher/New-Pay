@@ -62,16 +62,40 @@ func (s *Scheduler) Start() {
 
 // startCronTask parses a cron expression and starts the task
 // Supports simple cron format: "minute hour day month weekday"
-// Examples: "0 9 * * 1" = Monday 9 AM, "0 8 * * *" = Daily 8 AM
+// Examples: "0 9 * * 1" = Monday 9 AM, "0 8 * * *" = Daily 8 AM, "*/5 * * * *" = Every 5 minutes
 func (s *Scheduler) startCronTask(cronExpr, taskName string, task func()) error {
 	parts := strings.Fields(cronExpr)
 	if len(parts) != 5 {
 		return fmt.Errorf("invalid cron expression: %s (expected 5 fields)", cronExpr)
 	}
 
+	// Parse minute field (supports */n for intervals)
+	if strings.HasPrefix(parts[0], "*/") {
+		// Interval notation: */5 = every 5 minutes
+		interval, err := strconv.Atoi(parts[0][2:])
+		if err != nil || interval < 1 || interval > 59 {
+			return fmt.Errorf("invalid minute interval in cron: %s", parts[0])
+		}
+		// For interval tasks, run immediately
+		go s.scheduleIntervalTask(time.Duration(interval)*time.Minute, taskName, task)
+		return nil
+	}
+
 	minute, err := strconv.Atoi(parts[0])
 	if err != nil || minute < 0 || minute > 59 {
 		return fmt.Errorf("invalid minute in cron: %s", parts[0])
+	}
+
+	// Parse hour field (supports */n for intervals)
+	if strings.HasPrefix(parts[1], "*/") {
+		// Interval notation: */2 = every 2 hours
+		interval, err := strconv.Atoi(parts[1][2:])
+		if err != nil || interval < 1 || interval > 23 {
+			return fmt.Errorf("invalid hour interval in cron: %s", parts[1])
+		}
+		// For hourly intervals at a specific minute
+		go s.scheduleHourlyIntervalTask(interval, minute, taskName, task)
+		return nil
 	}
 
 	hour, err := strconv.Atoi(parts[1])
@@ -99,6 +123,67 @@ func (s *Scheduler) startCronTask(cronExpr, taskName string, task func()) error 
 func (s *Scheduler) Stop() {
 	slog.Info("Stopping scheduler")
 	close(s.stopChan)
+}
+
+// scheduleIntervalTask runs a task at regular intervals
+func (s *Scheduler) scheduleIntervalTask(interval time.Duration, taskName string, task func()) {
+	slog.Info("Starting interval task", "task", taskName, "interval", interval)
+
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	// Run immediately on start
+	slog.Info("Running interval task", "task", taskName)
+	task()
+
+	for {
+		select {
+		case <-ticker.C:
+			slog.Info("Running interval task", "task", taskName)
+			task()
+		case <-s.stopChan:
+			return
+		}
+	}
+}
+
+// scheduleHourlyIntervalTask runs a task every N hours at a specific minute
+func (s *Scheduler) scheduleHourlyIntervalTask(hourInterval, minute int, taskName string, task func()) {
+	slog.Info("Starting hourly interval task", "task", taskName, "interval_hours", hourInterval, "minute", minute)
+
+	for {
+		now := time.Now()
+		next := s.nextHourlyInterval(now, hourInterval, minute)
+		duration := next.Sub(now)
+
+		slog.Info("Next hourly interval task scheduled", "task", taskName, "next_run", next.Format("2006-01-02 15:04:05"))
+
+		select {
+		case <-time.After(duration):
+			slog.Info("Running hourly interval task", "task", taskName)
+			task()
+		case <-s.stopChan:
+			return
+		}
+	}
+}
+
+// nextHourlyInterval calculates the next run time for hourly intervals
+func (s *Scheduler) nextHourlyInterval(from time.Time, hourInterval, minute int) time.Time {
+	// Start with current hour at the specified minute
+	next := time.Date(from.Year(), from.Month(), from.Day(), from.Hour(), minute, 0, 0, from.Location())
+
+	// If the time has passed in this hour, move to next hour
+	if next.Before(from) || next.Equal(from) {
+		next = next.Add(time.Hour)
+	}
+
+	// Find the next hour that matches the interval
+	for next.Hour()%hourInterval != 0 {
+		next = next.Add(time.Hour)
+	}
+
+	return next
 }
 
 // scheduleWeeklyTask runs a task weekly on a specific weekday and time

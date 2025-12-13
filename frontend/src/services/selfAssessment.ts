@@ -4,7 +4,8 @@ import type {
   CriteriaCatalog, 
   AssessmentResponse, 
   AssessmentResponseWithDetails, 
-  AssessmentCompleteness 
+  AssessmentCompleteness,
+  WeightedScore
 } from '../types';
 
 export const selfAssessmentService = {
@@ -35,16 +36,6 @@ export const selfAssessmentService = {
     } catch (error) {
       console.error('Error fetching my self-assessments:', error);
       return [];
-    }
-  },
-
-  // Get visible self-assessments based on role
-  getVisibleSelfAssessments: async (): Promise<SelfAssessment[]> => {
-    try {
-      return await api.get<SelfAssessment[]>('/self-assessments');
-    } catch (error) {
-      console.error('Error fetching visible self-assessments:', error);
-      throw error;
     }
   },
 
@@ -137,6 +128,16 @@ export const selfAssessmentService = {
       return await api.get<AssessmentCompleteness>(`/self-assessments/${assessmentId}/completeness`);
     } catch (error) {
       console.error('Error fetching completeness:', error);
+      throw error;
+    }
+  },
+
+  // Get weighted score
+  getWeightedScore: async (assessmentId: number): Promise<WeightedScore> => {
+    try {
+      return await api.get<WeightedScore>(`/self-assessments/${assessmentId}/weighted-score`);
+    } catch (error) {
+      console.error('Error fetching weighted score:', error);
       throw error;
     }
   },

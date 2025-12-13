@@ -140,6 +140,7 @@ type Category struct {
 	Name        string    `json:"name" db:"name"`
 	Description *string   `json:"description,omitempty" db:"description"`
 	SortOrder   int       `json:"sort_order" db:"sort_order"`
+	Weight      *float64  `json:"weight,omitempty" db:"weight"`
 	CreatedAt   time.Time `json:"created_at" db:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at" db:"updated_at"`
 }
@@ -235,27 +236,28 @@ type SelfAssessmentWithDetails struct {
 
 // AssessmentResponse represents a user's selection for one category
 type AssessmentResponse struct {
-	ID            uint      `json:"id" db:"id"`
-	AssessmentID  uint      `json:"assessment_id" db:"assessment_id"`
-	CategoryID    uint      `json:"category_id" db:"category_id"`
-	PathID        uint      `json:"path_id" db:"path_id"`
-	LevelID       uint      `json:"level_id" db:"level_id"`
-	Justification string    `json:"justification" db:"justification"`
-	CreatedAt     time.Time `json:"created_at" db:"created_at"`
-	UpdatedAt     time.Time `json:"updated_at" db:"updated_at"`
+	ID                       uint      `json:"id" db:"id"`
+	AssessmentID             uint      `json:"assessment_id" db:"assessment_id"`
+	CategoryID               uint      `json:"category_id" db:"category_id"`
+	PathID                   uint      `json:"path_id" db:"path_id"`
+	LevelID                  uint      `json:"level_id" db:"level_id"`
+	Justification            string    `json:"justification" db:"justification"`                                     // Decrypted justification (not stored)
+	EncryptedJustificationID *int64    `json:"encrypted_justification_id,omitempty" db:"encrypted_justification_id"` // Reference to encrypted_records
+	CreatedAt                time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt                time.Time `json:"updated_at" db:"updated_at"`
 }
 
 // AssessmentResponseWithDetails includes category, path, and level information
 type AssessmentResponseWithDetails struct {
 	AssessmentResponse
-	CategoryName        string  `json:"category_name"`
-	CategorySortOrder   int     `json:"category_sort_order"`
-	PathName            string  `json:"path_name"`
-	PathDescription     *string `json:"path_description,omitempty"`
-	LevelName           string  `json:"level_name"`
-	LevelNumber         int     `json:"level_number"`
-	LevelDescription    *string `json:"level_description,omitempty"`
-	PathLevelDescription string `json:"path_level_description"` // The description of the path-level combination
+	CategoryName         string  `json:"category_name"`
+	CategorySortOrder    int     `json:"category_sort_order"`
+	PathName             string  `json:"path_name"`
+	PathDescription      *string `json:"path_description,omitempty"`
+	LevelName            string  `json:"level_name"`
+	LevelNumber          int     `json:"level_number"`
+	LevelDescription     *string `json:"level_description,omitempty"`
+	PathLevelDescription string  `json:"path_level_description"` // The description of the path-level combination
 }
 
 // AssessmentCompleteness represents the completion status of a self-assessment
@@ -265,4 +267,12 @@ type AssessmentCompleteness struct {
 	PercentComplete     float64 `json:"percent_complete"`
 	IsComplete          bool    `json:"is_complete"`
 	MissingCategories   []uint  `json:"missing_categories,omitempty"`
+}
+
+// WeightedScore represents the calculated weighted average score for a self-assessment
+type WeightedScore struct {
+	WeightedAverage float64 `json:"weighted_average"` // The calculated weighted score
+	OverallLevel    string  `json:"overall_level"`    // The corresponding level letter (A, B, C, etc.)
+	LevelNumber     int     `json:"level_number"`     // The corresponding level number
+	IsComplete      bool    `json:"is_complete"`      // Whether all categories have responses
 }

@@ -78,7 +78,7 @@ JSONResponse(w, items)  // Handled alles automatisch
 
 ### Symptome im Frontend
 
-```
+```plain
 TypeError: can't access property "length", items is null
 TypeError: items.map is not a function
 ```

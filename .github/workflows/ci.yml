@@ -217,6 +217,24 @@ jobs:
     
     - name: Test Docker Compose
       run: |
-        cd docker
-        docker compose config
-        echo "Docker Compose configuration is valid"
+        # Create dummy .env files for validation
+        cat > docker/development/.env << EOF
+        DB_USER=test
+        DB_PASSWORD=test
+        DB_NAME=test
+        EOF
+        
+        cat > docker/production/.env << EOF
+        DB_USER=test
+        DB_PASSWORD=test
+        DB_NAME=test
+        EOF
+        
+        # Validate configurations
+        cd docker/development
+        docker compose config > /dev/null
+        echo "✓ Development Docker Compose configuration is valid"
+        
+        cd ../production
+        docker compose config > /dev/null
+        echo "✓ Production Docker Compose configuration is valid"

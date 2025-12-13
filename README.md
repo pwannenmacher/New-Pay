@@ -76,6 +76,8 @@ Required:
 
 ## Documentation
 
+- `docs/CATALOG_SYSTEM.md` - Catalog system and role-based visibility
+- `docs/ENCRYPTION.md` - Encryption system architecture
 - `docs/OAUTH_CONFIGURATION.md` - OAuth setup
 - `docs/SESSION_MANAGEMENT.md` - Session management
 - `docs/JWT_KEY_MANAGEMENT.md` - JWT key handling

@@ -2,6 +2,7 @@ package service
 
 import (
 	"fmt"
+	"log/slog"
 	"new-pay/internal/models"
 	"new-pay/internal/repository"
 	"time"
@@ -9,10 +10,11 @@ import (
 
 // SelfAssessmentService handles business logic for self-assessments
 type SelfAssessmentService struct {
-	selfAssessmentRepo *repository.SelfAssessmentRepository
-	catalogRepo        *repository.CatalogRepository
-	auditRepo          *repository.AuditRepository
-	responseRepo       *repository.AssessmentResponseRepository
+	selfAssessmentRepo   *repository.SelfAssessmentRepository
+	catalogRepo          *repository.CatalogRepository
+	auditRepo            *repository.AuditRepository
+	responseRepo         *repository.AssessmentResponseRepository
+	encryptedResponseSvc *EncryptedResponseService
 }
 
 // NewSelfAssessmentService creates a new self-assessment service
@@ -21,12 +23,14 @@ func NewSelfAssessmentService(
 	catalogRepo *repository.CatalogRepository,
 	auditRepo *repository.AuditRepository,
 	responseRepo *repository.AssessmentResponseRepository,
+	encryptedResponseSvc *EncryptedResponseService,
 ) *SelfAssessmentService {
 	return &SelfAssessmentService{
-		selfAssessmentRepo: selfAssessmentRepo,
-		catalogRepo:        catalogRepo,
-		auditRepo:          auditRepo,
-		responseRepo:       responseRepo,
+		selfAssessmentRepo:   selfAssessmentRepo,
+		catalogRepo:          catalogRepo,
+		auditRepo:            auditRepo,
+		responseRepo:         responseRepo,
+		encryptedResponseSvc: encryptedResponseSvc,
 	}
 }
 
@@ -180,25 +184,6 @@ func (s *SelfAssessmentService) GetActiveCatalogs() ([]models.CriteriaCatalog, e
 	}
 
 	return validCatalogs, nil
-}
-
-// GetVisibleSelfAssessments retrieves self-assessments visible to a user based on role
-func (s *SelfAssessmentService) GetVisibleSelfAssessments(userID uint, userRoles []string) ([]models.SelfAssessment, error) {
-	isReviewer := contains(userRoles, "reviewer")
-	isAdmin := contains(userRoles, "admin")
-
-	if isAdmin {
-		// Admins see all metadata
-		return s.selfAssessmentRepo.GetAllMetadata()
-	}
-
-	if isReviewer {
-		// Reviewers see submitted and later assessments
-		return s.selfAssessmentRepo.GetVisibleToReviewers()
-	}
-
-	// Regular users see only their own
-	return s.selfAssessmentRepo.GetByUserID(userID)
 }
 
 // GetAllSelfAssessmentsWithFilters retrieves all self-assessments with optional filters (admin only)
@@ -428,11 +413,16 @@ func (s *SelfAssessmentService) SaveResponse(userID, assessmentID uint, response
 
 	response.AssessmentID = assessmentID
 
+	// Check if encryption service is available
+	if s.encryptedResponseSvc == nil {
+		return nil, fmt.Errorf("encryption service not available - Vault must be enabled")
+	}
+
 	if existing != nil {
-		// Update existing response
+		// Update existing response using encrypted service
 		response.ID = existing.ID
 		response.CreatedAt = existing.CreatedAt
-		if err := s.responseRepo.Update(response); err != nil {
+		if err := s.encryptedResponseSvc.UpdateResponse(response, userID); err != nil {
 			return nil, err
 		}
 
@@ -444,8 +434,8 @@ func (s *SelfAssessmentService) SaveResponse(userID, assessmentID uint, response
 			Details:  fmt.Sprintf("Updated response for assessment %d, category %d", assessmentID, response.CategoryID),
 		})
 	} else {
-		// Create new response
-		if err := s.responseRepo.Create(response); err != nil {
+		// Create new response using encrypted service
+		if err := s.encryptedResponseSvc.CreateResponse(response, userID); err != nil {
 			return nil, err
 		}
 
@@ -538,6 +528,25 @@ func (s *SelfAssessmentService) GetResponses(userID uint, assessmentID uint, use
 		return nil, err
 	}
 
+	// Decrypt justifications if encryption service is available
+	if s.encryptedResponseSvc != nil {
+		for i := range responses {
+			if responses[i].EncryptedJustificationID != nil {
+				decrypted, err := s.encryptedResponseSvc.DecryptJustification(*responses[i].EncryptedJustificationID)
+				if err != nil {
+					// Log error but continue - don't fail the whole request
+					slog.Error("Failed to decrypt justification",
+						"error", err,
+						"encrypted_justification_id", *responses[i].EncryptedJustificationID,
+						"response_id", responses[i].ID)
+					responses[i].Justification = "[Decryption failed]"
+				} else {
+					responses[i].Justification = decrypted
+				}
+			}
+		}
+	}
+
 	return responses, nil
 }
 
@@ -562,6 +571,79 @@ func (s *SelfAssessmentService) GetCompleteness(userID uint, assessmentID uint) 
 	}
 
 	return completeness, nil
+}
+
+// CalculateWeightedScore calculates the weighted average score for a self-assessment
+func (s *SelfAssessmentService) CalculateWeightedScore(userID uint, assessmentID uint) (*models.WeightedScore, error) {
+	// Verify ownership
+	assessment, err := s.selfAssessmentRepo.GetByID(assessmentID)
+	if err != nil {
+		return nil, err
+	}
+	if assessment == nil {
+		return nil, fmt.Errorf("assessment not found")
+	}
+	if assessment.UserID != userID {
+		return nil, fmt.Errorf("permission denied: not owner of assessment")
+	}
+
+	// Get catalog details including weights
+	catalogDetails, err := s.catalogRepo.GetCatalogWithDetails(assessment.CatalogID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get all responses for this assessment with details (includes level_number)
+	responses, err := s.responseRepo.GetAllByAssessment(assessmentID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Build map of responses by category ID
+	responseMap := make(map[uint]models.AssessmentResponseWithDetails)
+	for _, response := range responses {
+		responseMap[response.CategoryID] = response
+	}
+
+	// Calculate weighted score
+	weightedSum := 0.0
+	hasAllResponses := true
+
+	for _, category := range catalogDetails.Categories {
+		response, exists := responseMap[category.ID]
+		if !exists || category.Weight == nil {
+			hasAllResponses = false
+			continue
+		}
+
+		// weighted_sum += level_number * weight
+		weightedSum += float64(response.LevelNumber) * (*category.Weight)
+	}
+
+	// Determine overall level based on weighted average
+	overallLevelNumber := int(weightedSum + 0.5) // Round to nearest integer
+	if overallLevelNumber < 1 {
+		overallLevelNumber = 1
+	}
+	if overallLevelNumber > len(catalogDetails.Levels) {
+		overallLevelNumber = len(catalogDetails.Levels)
+	}
+
+	// Find the level name (letter)
+	overallLevelName := ""
+	for _, level := range catalogDetails.Levels {
+		if level.LevelNumber == overallLevelNumber {
+			overallLevelName = level.Name
+			break
+		}
+	}
+
+	return &models.WeightedScore{
+		WeightedAverage: weightedSum,
+		OverallLevel:    overallLevelName,
+		LevelNumber:     overallLevelNumber,
+		IsComplete:      hasAllResponses,
+	}, nil
 }
 
 // SubmitAssessment submits an assessment for review (changes status from draft to submitted)
