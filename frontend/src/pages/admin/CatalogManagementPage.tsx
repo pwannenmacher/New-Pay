@@ -187,7 +187,7 @@ export function CatalogManagementPage() {
     <Container size="xl" py="xl">
       <Stack gap="lg">
         <Group justify="space-between">
-          <Title order={2}>Kriterienkataloge</Title>
+          <Title order={2}>Kriterienkataloge verwalten</Title>
           <Button
             leftSection={<IconPlus size={16} />}
             onClick={() => navigate('/admin/catalogs/new/edit')}
@@ -211,11 +211,11 @@ export function CatalogManagementPage() {
             <Table.Thead>
               <Table.Tr>
                 <Table.Th>Name</Table.Th>
-                <Table.Th>Gültig von</Table.Th>
-                <Table.Th>Gültig bis</Table.Th>
-                <Table.Th>Phase</Table.Th>
-                <Table.Th>Erstellt am</Table.Th>
-                <Table.Th>Aktionen</Table.Th>
+                <Table.Th style={{ width: '90px' }}>Gültig von</Table.Th>
+                <Table.Th style={{ width: '90px' }}>Gültig bis</Table.Th>
+                <Table.Th style={{ width: '100px' }}>Phase</Table.Th>
+                <Table.Th style={{ width: '90px' }}>Erstellt am</Table.Th>
+                <Table.Th style={{ width: '100px' }}>Aktionen</Table.Th>
               </Table.Tr>
             </Table.Thead>
             <Table.Tbody>
@@ -229,16 +229,16 @@ export function CatalogManagementPage() {
                       </Text>
                     )}
                   </Table.Td>
-                  <Table.Td>{formatDate(catalog.valid_from)}</Table.Td>
-                  <Table.Td>{formatDate(catalog.valid_until)}</Table.Td>
+                  <Table.Td style={{ whiteSpace: 'nowrap' }}>{formatDate(catalog.valid_from)}</Table.Td>
+                  <Table.Td style={{ whiteSpace: 'nowrap' }}>{formatDate(catalog.valid_until)}</Table.Td>
                   <Table.Td>
-                    <Badge color={getPhaseColor(catalog.phase)}>
+                    <Badge color={getPhaseColor(catalog.phase)} size="md" style={{ minWidth: '90px' }}>
                       {getPhaseLabel(catalog.phase)}
                     </Badge>
                   </Table.Td>
-                  <Table.Td>{formatDate(catalog.created_at)}</Table.Td>
+                  <Table.Td style={{ whiteSpace: 'nowrap' }}>{formatDate(catalog.created_at)}</Table.Td>
                   <Table.Td>
-                    <Group gap="xs">
+                    <Group gap="xs" wrap="nowrap">
                       <ActionIcon
                         variant="light"
                         color="blue"

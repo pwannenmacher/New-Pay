@@ -239,6 +239,140 @@ func (h *UserHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// CreateUser creates a new user (admin only)
+// @Summary Create a new user
+// @Description Create a new user account (admin only)
+// @Tags Admin
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body map[string]interface{} true "User details"
+// @Success 201 {object} map[string]interface{} "User created successfully"
+// @Failure 400 {object} map[string]string "Invalid request"
+// @Failure 401 {object} map[string]string "Unauthorized"
+// @Failure 403 {object} map[string]string "Forbidden"
+// @Router /admin/users/create [post]
+func (h *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Email     string `json:"email"`
+		Password  string `json:"password"`
+		FirstName string `json:"first_name"`
+		LastName  string `json:"last_name"`
+		IsActive  bool   `json:"is_active"`
+		SendEmail bool   `json:"send_email"`
+		RoleIDs   []uint `json:"role_ids"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondWithJSON(w, http.StatusBadRequest, map[string]string{
+			"error": "Invalid request body",
+		})
+		return
+	}
+
+	// Validate required fields
+	if req.Email == "" || req.FirstName == "" || req.LastName == "" {
+		respondWithJSON(w, http.StatusBadRequest, map[string]string{
+			"error": "Email, first name, and last name are required",
+		})
+		return
+	}
+
+	// Get admin user ID for audit logging
+	adminUserID, _ := middleware.GetUserID(r)
+
+	// Check if user already exists
+	existingUser, _ := h.userRepo.GetByEmail(req.Email)
+	if existingUser != nil {
+		respondWithJSON(w, http.StatusBadRequest, map[string]string{
+			"error": "User with this email already exists",
+		})
+		_ = h.auditMw.LogAction(&adminUserID, "user.create.error", "users",
+			fmt.Sprintf("Failed to create user %s: email already exists", req.Email), getIP(r), r.UserAgent())
+		return
+	}
+
+	// Hash password if provided
+	var passwordHash string
+	if req.Password != "" {
+		hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+		if err != nil {
+			respondWithJSON(w, http.StatusInternalServerError, map[string]string{
+				"error": "Failed to hash password",
+			})
+			return
+		}
+		passwordHash = string(hash)
+	}
+
+	// Create user
+	user := &models.User{
+		Email:         req.Email,
+		PasswordHash:  passwordHash,
+		FirstName:     req.FirstName,
+		LastName:      req.LastName,
+		IsActive:      req.IsActive,
+		EmailVerified: false, // Admin can verify later if needed
+	}
+
+	if err := h.userRepo.Create(user); err != nil {
+		respondWithJSON(w, http.StatusInternalServerError, map[string]string{
+			"error": "Failed to create user",
+		})
+		_ = h.auditMw.LogAction(&adminUserID, "user.create.error", "users",
+			fmt.Sprintf("Failed to create user %s: %v", req.Email, err), getIP(r), r.UserAgent())
+		return
+	}
+
+	// Assign roles if provided
+	for _, roleID := range req.RoleIDs {
+		if err := h.userRepo.AssignRole(user.ID, roleID); err != nil {
+			// Log error but don't fail the user creation
+			_ = h.auditMw.LogAction(&adminUserID, "user.role.assign.error", "users",
+				fmt.Sprintf("Failed to assign role %d to user %s", roleID, req.Email), getIP(r), r.UserAgent())
+		} else {
+			// Get role name for audit log
+			role, _ := h.roleRepo.GetByID(roleID)
+			if role != nil {
+				_ = h.auditMw.LogAction(&adminUserID, "user.role.assigned", "users",
+					fmt.Sprintf("Assigned role '%s' to user %s", role.Name, req.Email), getIP(r), r.UserAgent())
+			}
+		}
+	}
+
+	// Send verification email if requested
+	if req.SendEmail {
+		if err := h.authSvc.SendVerificationEmailToUser(user.ID); err != nil {
+			// Log error but don't fail the user creation
+			_ = h.auditMw.LogAction(&adminUserID, "email.verification.error", "users",
+				fmt.Sprintf("Failed to send verification email to %s: %v", req.Email, err), getIP(r), r.UserAgent())
+		} else {
+			_ = h.auditMw.LogAction(&adminUserID, "email.verification.sent", "users",
+				fmt.Sprintf("Verification email sent to %s", req.Email), getIP(r), r.UserAgent())
+		}
+	}
+
+	// Log user creation
+	_ = h.auditMw.LogAction(&adminUserID, "user.create", "users",
+		fmt.Sprintf("User created: %s (ID: %d)", req.Email, user.ID), getIP(r), r.UserAgent())
+
+	// Get user with roles for response
+	roles, _ := h.authSvc.GetUserRoles(user.ID)
+
+	respondWithJSON(w, http.StatusCreated, map[string]interface{}{
+		"message": "User created successfully",
+		"user": map[string]interface{}{
+			"id":             user.ID,
+			"email":          user.Email,
+			"first_name":     user.FirstName,
+			"last_name":      user.LastName,
+			"is_active":      user.IsActive,
+			"email_verified": user.EmailVerified,
+			"roles":          roles,
+		},
+	})
+}
+
 // UpdateUserActiveStatus toggles a user's active status (admin only)
 // @Summary Update user active status
 // @Description Toggle a user's active/inactive status (admin only)

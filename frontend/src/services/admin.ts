@@ -50,6 +50,17 @@ export const adminApi = {
   getUser: (userId: number) =>
     apiClient.get<UserWithRoles>(`/admin/users/get?id=${userId}`),
   
+  createUser: (data: {
+    email: string;
+    password?: string;
+    first_name: string;
+    last_name: string;
+    is_active: boolean;
+    send_email: boolean;
+    role_ids?: number[];
+  }) =>
+    apiClient.post<{ message: string; user: UserWithRoles }>('/admin/users/create', data),
+  
   listUsers: (params: UserListParams = {}) => {
     const queryParams = new URLSearchParams();
     if (params.page) queryParams.append('page', params.page.toString());
@@ -141,13 +152,13 @@ export const adminApi = {
     apiClient.delete<{ message: string }>(`/admin/sessions/delete-all?user_id=${userId}`),
 
   // Catalog management
-  // List all catalogs (admin sees all, others see based on permissions)
+  // List all catalogs (admin can see all)
   listCatalogs: () =>
-    apiClient.get<CriteriaCatalog[]>('/catalogs'),
+    apiClient.get<CriteriaCatalog[]>('/admin/catalogs'),
   
   // Get catalog with full details
   getCatalog: (catalogId: number) =>
-    apiClient.get<CatalogWithDetails>(`/catalogs/${catalogId}`),
+    apiClient.get<CatalogWithDetails>(`/admin/catalogs/${catalogId}`),
   
   // Create new catalog (draft phase)
   createCatalog: (data: Partial<CriteriaCatalog>) =>

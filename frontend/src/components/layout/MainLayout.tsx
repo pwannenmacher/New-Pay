@@ -47,6 +47,8 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
 
   const isAdmin = user?.roles?.some((role) => role.name === 'admin');
   const isReviewer = user?.roles?.some((role) => role.name === 'reviewer');
+  const hasUserRole = user?.roles?.some((role) => role.name === 'user');
+  const hasAnyRole = user?.roles && user.roles.length > 0;
 
   return (
     <AppShell
@@ -119,54 +121,85 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
       <AppShell.Navbar p="md">
         {isAuthenticated && (
           <>
-            <Text size="sm" fw={500} mb="xs" c="dimmed">
-              Navigation
-            </Text>
-            <Button
-              variant="subtle"
-              component={Link}
-              to="/profile"
-              fullWidth
-              justify="flex-start"
-              leftSection={<IconUser size={16} />}
-              mb="xs"
-            >
-              Meine Daten
-            </Button>
-            <Button
-              variant="subtle"
-              component={Link}
-              to="/self-assessments"
-              fullWidth
-              justify="flex-start"
-              leftSection={<IconClipboardList size={16} />}
-              mb="xs"
-            >
-              Selbsteinschätzungen
-            </Button>
-            <Button
-              variant="subtle"
-              component={Link}
-              to="/catalogs"
-              fullWidth
-              justify="flex-start"
-              leftSection={<IconBook size={16} />}
-              mb="xs"
-            >
-              Kriterienkataloge
-            </Button>
-            <Button
-              variant="subtle"
-              component={Link}
-              to="/classifications"
-              fullWidth
-              justify="flex-start"
-              leftSection={<IconShieldCheck size={16} />}
-              mb="xs"
-              disabled
-            >
-              Einstufungen
-            </Button>
+            {/* Navigation for users with any role */}
+            {hasAnyRole && (
+              <>
+                <Text size="sm" fw={500} mb="xs" c="dimmed">
+                  Navigation
+                </Text>
+                <Button
+                  variant="subtle"
+                  component={Link}
+                  to="/profile"
+                  fullWidth
+                  justify="flex-start"
+                  leftSection={<IconUser size={16} />}
+                  mb="xs"
+                >
+                  Meine Daten
+                </Button>
+                {hasUserRole && (
+                  <Button
+                    variant="subtle"
+                    component={Link}
+                    to="/self-assessments"
+                    fullWidth
+                    justify="flex-start"
+                    leftSection={<IconClipboardList size={16} />}
+                    mb="xs"
+                  >
+                    Selbsteinschätzungen
+                  </Button>
+                )}
+                {hasUserRole && (
+                  <Button
+                    variant="subtle"
+                    component={Link}
+                    to="/catalogs"
+                    fullWidth
+                    justify="flex-start"
+                    leftSection={<IconBook size={16} />}
+                    mb="xs"
+                  >
+                    Kriterienkataloge
+                  </Button>
+                )}
+                {hasUserRole && (
+                  <Button
+                    variant="subtle"
+                    component={Link}
+                    to="/classifications"
+                    fullWidth
+                    justify="flex-start"
+                    leftSection={<IconShieldCheck size={16} />}
+                    mb="xs"
+                    disabled
+                  >
+                    Einstufungen
+                  </Button>
+                )}
+              </>
+            )}
+
+            {/* Show only profile link for users without roles */}
+            {!hasAnyRole && (
+              <>
+                <Text size="sm" fw={500} mb="xs" c="dimmed">
+                  Mein Profil
+                </Text>
+                <Button
+                  variant="subtle"
+                  component={Link}
+                  to="/profile"
+                  fullWidth
+                  justify="flex-start"
+                  leftSection={<IconUser size={16} />}
+                  mb="xs"
+                >
+                  Meine Daten
+                </Button>
+              </>
+            )}
 
             {isReviewer && (
               <>

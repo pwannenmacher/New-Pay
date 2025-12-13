@@ -21,7 +21,7 @@ func NewRBACMiddleware(db *sql.DB) *RBACMiddleware {
 	}
 }
 
-// RequireRole checks if the user has the required role
+// RequireRole checks if the user has the exact required role
 func (m *RBACMiddleware) RequireRole(roleName string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -38,7 +38,7 @@ func (m *RBACMiddleware) RequireRole(roleName string) func(http.Handler) http.Ha
 				return
 			}
 
-			// Check if user has the required role
+			// Check if user has the exact required role
 			hasRole := false
 			for _, role := range roles {
 				if role.Name == roleName {

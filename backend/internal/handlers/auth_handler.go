@@ -730,6 +730,35 @@ func (h *AuthHandler) OAuthCallback(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Extract groups from user info using configured claim name
+	var groups []string
+	groupsClaim := providerConfig.GroupsClaim
+	if groupsClaim == "" {
+		groupsClaim = "groups"
+	}
+
+	if groupsData, ok := userInfo[groupsClaim]; ok {
+		switch v := groupsData.(type) {
+		case []interface{}:
+			for _, g := range v {
+				if groupStr, ok := g.(string); ok {
+					groups = append(groups, groupStr)
+				}
+			}
+		case []string:
+			groups = v
+		case string:
+			// Single group as string
+			groups = append(groups, v)
+		}
+	}
+
+	slog.Debug("Extracted OAuth groups",
+		"provider", providerConfig.Name,
+		"groups", groups,
+		"claim", groupsClaim,
+	)
+
 	// Try to find or create user
 	user, isNewUser, err := h.authService.FindOrCreateOAuthUser(email, firstName, lastName, providerConfig.Name, oauthProviderID)
 	if err != nil {
@@ -773,6 +802,69 @@ func (h *AuthHandler) OAuthCallback(w http.ResponseWriter, r *http.Request) {
 			"email", user.Email,
 			"provider", providerConfig.Name,
 		)
+	}
+
+	// Sync roles from OAuth groups if mapping is configured
+	if len(providerConfig.GroupMapping) > 0 {
+		addedRoles, removedRoles, err := h.authService.SyncUserRolesFromGroups(user.ID, groups, providerConfig.GroupMapping)
+		if err != nil {
+			slog.Error("Failed to sync user roles from OAuth groups",
+				"user_id", user.ID,
+				"error", err,
+			)
+			_ = h.auditMw.LogAction(&user.ID, "user.roles.sync.error", "users",
+				fmt.Sprintf("Failed to sync roles from OAuth groups: %v", err), getIP(r), r.UserAgent())
+		} else if len(addedRoles) > 0 || len(removedRoles) > 0 {
+			// Log role changes to audit log
+			if len(addedRoles) > 0 {
+				details := fmt.Sprintf("Roles added from OAuth groups (%s): %v", providerConfig.Name, addedRoles)
+				_ = h.auditMw.LogAction(&user.ID, "user.roles.added", "users", details, getIP(r), r.UserAgent())
+				slog.Info("Roles added from OAuth groups",
+					"user_id", user.ID,
+					"roles", addedRoles,
+				)
+			}
+			if len(removedRoles) > 0 {
+				details := fmt.Sprintf("Roles removed based on OAuth groups (%s): %v", providerConfig.Name, removedRoles)
+				_ = h.auditMw.LogAction(&user.ID, "user.roles.removed", "users", details, getIP(r), r.UserAgent())
+				slog.Info("Roles removed based on OAuth groups",
+					"user_id", user.ID,
+					"roles", removedRoles,
+				)
+			}
+		} else {
+			slog.Debug("No role changes needed", "user_id", user.ID)
+		}
+	}
+
+	// Assign default role if configured and user has no roles
+	if providerConfig.DefaultRole != "" {
+		currentRoles, _ := h.authService.GetUserRoles(user.ID)
+		if len(currentRoles) == 0 {
+			role, err := h.authService.GetRoleByName(providerConfig.DefaultRole)
+			if err == nil {
+				if err := h.authService.AssignRoleToUser(user.ID, role.ID); err != nil {
+					slog.Error("Failed to assign default role",
+						"user_id", user.ID,
+						"role", providerConfig.DefaultRole,
+						"error", err,
+					)
+				} else {
+					slog.Info("Assigned default role to OAuth user",
+						"user_id", user.ID,
+						"role", providerConfig.DefaultRole,
+					)
+					_ = h.auditMw.LogAction(&user.ID, "user.role.assigned", "users",
+						fmt.Sprintf("Default role '%s' assigned via OAuth (%s)", providerConfig.DefaultRole, providerConfig.Name),
+						getIP(r), r.UserAgent())
+				}
+			} else {
+				slog.Warn("Default role not found",
+					"role", providerConfig.DefaultRole,
+					"error", err,
+				)
+			}
+		}
 	}
 
 	// Update last login time for OAuth login

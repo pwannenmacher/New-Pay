@@ -7,6 +7,9 @@ export const HomePage = () => {
   const { isAuthenticated, user } = useAuth();
   const { enableRegistration } = useAppConfig();
 
+  const hasAnyRole = user?.roles && user.roles.length > 0;
+  const userRoles = user?.roles?.map(r => r.name).join(', ') || 'keine';
+
   return (
     <Container size="md" my={40}>
       <Paper withBorder shadow="md" p={30} radius="md">
@@ -15,12 +18,32 @@ export const HomePage = () => {
           
           {isAuthenticated ? (
             <>
-              <Text size="lg" ta="center">
-                Hallo, {user?.first_name}! Willkommen auf Ihrer Plattform für Gehaltseinschätzungen und Peer-Reviews.
-              </Text>
-              <Button component={Link} to="/profile" size="lg">
-                View Profile
-              </Button>
+              {!hasAnyRole ? (
+                <>
+                  <Text size="lg" ta="center" c="orange">
+                    Hallo, {user?.first_name}!
+                  </Text>
+                  <Text size="md" ta="center">
+                    Ihrem Benutzerkonto wurde noch keine Rolle zugewiesen.
+                  </Text>
+                  <Text size="sm" ta="center" c="dimmed">
+                    Bitte kontaktieren Sie einen Administrator, um eine Rolle (user, reviewer oder admin) 
+                    zugewiesen zu bekommen. Nur dann können Sie auf die Funktionen dieser Anwendung zugreifen.
+                  </Text>
+                  <Button component={Link} to="/profile" size="lg">
+                    Zum Profil
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Text size="lg" ta="center">
+                    Hallo, {user?.first_name}! Willkommen auf Ihrer Plattform für Gehaltseinschätzungen und Peer-Reviews.
+                  </Text>
+                  <Button component={Link} to="/profile" size="lg">
+                    View Profile
+                  </Button>
+                </>
+              )}
             </>
           ) : (
             <>

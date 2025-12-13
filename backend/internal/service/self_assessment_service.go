@@ -217,9 +217,27 @@ func (s *SelfAssessmentService) UpdateSelfAssessmentStatus(assessmentID uint, ne
 		return fmt.Errorf("permission denied: only the owner can submit their self-assessment")
 	}
 
-	// Admins can only close assessments, not submit them
-	if isAdmin && !isOwner && newStatus != "closed" {
-		return fmt.Errorf("permission denied: admins can only close other users' self-assessments")
+	// Users can close their own draft self-assessments
+	// Users cannot close self-assessments that have been submitted
+	if newStatus == "closed" && isOwner && !isAdmin {
+		if oldStatus != "draft" {
+			return fmt.Errorf("permission denied: users can only close their own self-assessments in draft status")
+		}
+	}
+
+	// Admins can close assessments or reopen closed assessments (within 24h)
+	// Admins cannot submit assessments for other users
+	if isAdmin && !isOwner {
+		if newStatus == "submitted" {
+			return fmt.Errorf("permission denied: admins cannot submit self-assessments for other users")
+		}
+		// Allow reopening closed assessments
+		if oldStatus == "closed" && newStatus != "closed" {
+			// This is allowed - admin is reopening a closed assessment
+		} else if oldStatus != "closed" && newStatus != "closed" {
+			// Admin trying to change status from non-closed to non-closed (not allowed, except closing)
+			return fmt.Errorf("permission denied: admins can only close or reopen self-assessments")
+		}
 	}
 
 	// Validate status transitions
@@ -296,8 +314,8 @@ func (s *SelfAssessmentService) validateStatusTransition(fromStatus, toStatus st
 		}
 	}
 
-	// Owners can submit or close their own assessments
-	// Admins can only close (not submit) other users' assessments
+	// Owners can submit their own assessments or close them if still in draft
+	// Owners cannot close assessments that have been submitted
 	if toStatus == "submitted" && !isOwner {
 		return fmt.Errorf("permission denied: only the owner can submit their self-assessment")
 	}

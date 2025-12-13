@@ -716,3 +716,148 @@ func (s *AuthService) RevokeEmailVerification(userID uint) error {
 func timePtr(t time.Time) *time.Time {
 	return &t
 }
+
+// SyncUserRolesFromGroups synchronizes user roles based on OAuth group membership
+// Returns lists of added and removed roles for audit logging
+func (s *AuthService) SyncUserRolesFromGroups(userID uint, groups []string, groupMapping map[string]string) (added []string, removed []string, err error) {
+	if len(groupMapping) == 0 {
+		// No mapping configured, skip sync
+		return nil, nil, nil
+	}
+
+	// Determine target roles from OAuth groups
+	targetRoleNames := make(map[string]bool)
+	for _, group := range groups {
+		if roleName, ok := groupMapping[group]; ok {
+			targetRoleNames[roleName] = true
+		}
+	}
+
+	// Get current user roles
+	currentRoles, err := s.GetUserRoles(userID)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to get current roles: %w", err)
+	}
+
+	currentRoleNames := make(map[string]bool)
+	currentRoleIDs := make(map[string]uint)
+	for _, role := range currentRoles {
+		currentRoleNames[role.Name] = true
+		currentRoleIDs[role.Name] = role.ID
+	}
+
+	// Find roles to add
+	for roleName := range targetRoleNames {
+		if !currentRoleNames[roleName] {
+			added = append(added, roleName)
+		}
+	}
+
+	// Find roles to remove (but check admin protection)
+	for roleName := range currentRoleNames {
+		// Only remove roles that are in the mapping
+		inMapping := false
+		for _, mappedRole := range groupMapping {
+			if mappedRole == roleName {
+				inMapping = true
+				break
+			}
+		}
+
+		// If role is in mapping but not in target, it should be removed
+		if inMapping && !targetRoleNames[roleName] {
+			removed = append(removed, roleName)
+		}
+	}
+
+	// Check admin protection before removing admin role
+	if containsString(removed, "admin") {
+		canRemove, err := s.CanRemoveAdminRole(userID)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to check admin removal: %w", err)
+		}
+		if !canRemove {
+			slog.Warn("Cannot remove admin role - would leave system without admin", "user_id", userID)
+			removed = removeString(removed, "admin")
+		}
+	}
+
+	// Apply role changes
+	for _, roleName := range added {
+		role, err := s.roleRepo.GetByName(roleName)
+		if err != nil {
+			slog.Error("Failed to find role for assignment", "role", roleName, "error", err)
+			continue
+		}
+		if err := s.userRepo.AssignRole(userID, role.ID); err != nil {
+			slog.Error("Failed to assign role", "role", roleName, "user_id", userID, "error", err)
+		}
+	}
+
+	for _, roleName := range removed {
+		if roleID, ok := currentRoleIDs[roleName]; ok {
+			if err := s.userRepo.RemoveRole(userID, roleID); err != nil {
+				slog.Error("Failed to remove role", "role", roleName, "user_id", userID, "error", err)
+			}
+		}
+	}
+
+	return added, removed, nil
+}
+
+// CanRemoveAdminRole checks if an admin role can be removed from a user
+// Returns false if this is the last admin in the system
+func (s *AuthService) CanRemoveAdminRole(userID uint) (bool, error) {
+	// Get admin role
+	adminRole, err := s.roleRepo.GetByName("admin")
+	if err != nil {
+		return false, fmt.Errorf("failed to get admin role: %w", err)
+	}
+
+	// Count users with admin role
+	adminUsers, err := s.userRepo.GetUsersByRole(adminRole.ID)
+	if err != nil {
+		return false, fmt.Errorf("failed to get admin users: %w", err)
+	}
+
+	// If there's only one admin and it's this user, cannot remove
+	if len(adminUsers) <= 1 {
+		for _, admin := range adminUsers {
+			if admin.ID == userID {
+				return false, nil
+			}
+		}
+	}
+
+	return true, nil
+}
+
+// GetRoleByName retrieves a role by its name
+func (s *AuthService) GetRoleByName(name string) (*models.Role, error) {
+	return s.roleRepo.GetByName(name)
+}
+
+// AssignRoleToUser assigns a role to a user
+func (s *AuthService) AssignRoleToUser(userID, roleID uint) error {
+	return s.userRepo.AssignRole(userID, roleID)
+}
+
+// Helper functions
+func containsString(slice []string, item string) bool {
+	for _, s := range slice {
+		if s == item {
+			return true
+		}
+	}
+	return false
+}
+
+func removeString(slice []string, item string) []string {
+	result := []string{}
+	for _, s := range slice {
+		if s != item {
+			result = append(result, s)
+		}
+	}
+	return result
+}

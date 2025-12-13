@@ -21,13 +21,17 @@ Platform for salary estimates and peer reviews.
 - Session management
 - Rate limiting
 - OAuth 2.0 (Google, Microsoft, Keycloak, custom providers)
+- **OAuth Group to Role Mapping**: Automatic role synchronization based on OAuth provider groups
 
 ### User Management
 
 - Registration and login
 - Profile management
 - Role-based access control (admin, reviewer, user)
+- **Independent role system** without hierarchy
 - Permissions system
+- **Automatic role updates** from OAuth groups at each login
+- **Default role assignment** for OAuth users without group mappings
 
 ### Security
 
@@ -76,6 +80,8 @@ Required:
 
 ## Documentation
 
+- `docs/ROLE_BASED_ACCESS.md` - **Role hierarchy and access control**
+- `docs/OAUTH_GROUP_MAPPING.md` - **OAuth group to role mapping**
 - `docs/CATALOG_SYSTEM.md` - Catalog system and role-based visibility
 - `docs/ENCRYPTION.md` - Encryption system architecture
 - `docs/OAUTH_CONFIGURATION.md` - OAuth setup

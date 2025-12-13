@@ -53,6 +53,16 @@ export const UserManagementPage = () => {
   // Delete modal states
   const [deleteModalOpened, setDeleteModalOpened] = useState(false);
 
+  // Create user modal states
+  const [createModalOpened, setCreateModalOpened] = useState(false);
+  const [createEmail, setCreateEmail] = useState('');
+  const [createPassword, setCreatePassword] = useState('');
+  const [createFirstName, setCreateFirstName] = useState('');
+  const [createLastName, setCreateLastName] = useState('');
+  const [createIsActive, setCreateIsActive] = useState(true);
+  const [createSendEmail, setCreateSendEmail] = useState(false);
+  const [createRoleIds, setCreateRoleIds] = useState<string[]>([]);
+
   // Filter states
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedRoleFilters, setSelectedRoleFilters] = useState<string[]>([]);
@@ -370,6 +380,58 @@ export const UserManagementPage = () => {
     }
   };
 
+  const openCreateUserModal = () => {
+    setCreateEmail('');
+    setCreatePassword('');
+    setCreateFirstName('');
+    setCreateLastName('');
+    setCreateIsActive(true);
+    setCreateSendEmail(false);
+    setCreateRoleIds([]);
+    setCreateModalOpened(true);
+  };
+
+  const handleCreateUser = async () => {
+    if (!createEmail || !createFirstName || !createLastName) {
+      notifications.show({
+        title: 'Error',
+        message: 'Please fill in all required fields',
+        color: 'red',
+      });
+      return;
+    }
+
+    setActionLoading(true);
+    try {
+      await adminApi.createUser({
+        email: createEmail,
+        password: createPassword || undefined,
+        first_name: createFirstName,
+        last_name: createLastName,
+        is_active: createIsActive,
+        send_email: createSendEmail,
+        role_ids: createRoleIds.map(id => parseInt(id)),
+      });
+      
+      notifications.show({
+        title: 'Success',
+        message: 'User created successfully',
+        color: 'green',
+      });
+      setCreateModalOpened(false);
+      loadUsers();
+    } catch (error) {
+      const apiError = error as ApiError;
+      notifications.show({
+        title: 'Error',
+        message: apiError.error || 'Failed to create user',
+        color: 'red',
+      });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   const clearFilters = () => {
     setSearchQuery('');
     setSelectedRoleFilters([]);
@@ -397,7 +459,15 @@ export const UserManagementPage = () => {
   return (
     <Container size="xl" my={40}>
       <Paper withBorder shadow="md" p={30} radius="md">
-        <Title order={2} mb="xl">Benutzerverwaltung</Title>
+        <Group justify="space-between" mb="xl">
+          <Title order={2}>Benutzerverwaltung</Title>
+          <Button
+            leftSection={<IconUserPlus size={16} />}
+            onClick={openCreateUserModal}
+          >
+            Benutzer erstellen
+          </Button>
+        </Group>
 
         {/* Filters */}
         <Paper withBorder p="md" mb="md" bg="dark.6">
@@ -875,6 +945,94 @@ export const UserManagementPage = () => {
               color="red"
             >
               Delete User
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
+
+      {/* Create User Modal */}
+      <Modal
+        opened={createModalOpened}
+        onClose={() => setCreateModalOpened(false)}
+        title="Create New User"
+        size="lg"
+      >
+        <Stack>
+          <TextInput
+            label="Email"
+            placeholder="user@example.com"
+            value={createEmail}
+            onChange={(e) => setCreateEmail(e.currentTarget.value)}
+            required
+            type="email"
+          />
+
+          <Grid>
+            <Grid.Col span={6}>
+              <TextInput
+                label="First Name"
+                placeholder="John"
+                value={createFirstName}
+                onChange={(e) => setCreateFirstName(e.currentTarget.value)}
+                required
+              />
+            </Grid.Col>
+            <Grid.Col span={6}>
+              <TextInput
+                label="Last Name"
+                placeholder="Doe"
+                value={createLastName}
+                onChange={(e) => setCreateLastName(e.currentTarget.value)}
+                required
+              />
+            </Grid.Col>
+          </Grid>
+
+          <PasswordInput
+            label="Password (Optional)"
+            placeholder="Leave empty if using OAuth only"
+            value={createPassword}
+            onChange={(e) => setCreatePassword(e.currentTarget.value)}
+            description="If empty, user can only login via OAuth"
+          />
+
+          <MultiSelect
+            label="Roles"
+            placeholder="Select roles"
+            data={roles.map(role => ({
+              value: role.id.toString(),
+              label: role.name,
+            }))}
+            value={createRoleIds}
+            onChange={setCreateRoleIds}
+            description="Leave empty to assign default 'user' role"
+          />
+
+          <Switch
+            label="Active Account"
+            description="User can login if active"
+            checked={createIsActive}
+            onChange={(e) => setCreateIsActive(e.currentTarget.checked)}
+          />
+
+          <Switch
+            label="Send Verification Email"
+            description="Send email with verification link"
+            checked={createSendEmail}
+            onChange={(e) => setCreateSendEmail(e.currentTarget.checked)}
+            disabled={!createPassword}
+          />
+
+          <Group justify="flex-end" mt="md">
+            <Button variant="default" onClick={() => setCreateModalOpened(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleCreateUser}
+              loading={actionLoading}
+              leftSection={<IconUserPlus size={16} />}
+            >
+              Create User
             </Button>
           </Group>
         </Stack>
