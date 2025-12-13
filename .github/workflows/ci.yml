@@ -217,6 +217,9 @@ jobs:
     
     - name: Test Docker Compose
       run: |
-        cd docker
+        cd docker/development
         docker compose config
-        echo "Docker Compose configuration is valid"
+        echo "Development Docker Compose configuration is valid"
+        cd ../production
+        docker compose config
+        echo "Production Docker Compose configuration is valid"
