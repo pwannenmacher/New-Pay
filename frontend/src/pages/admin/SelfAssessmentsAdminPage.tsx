@@ -304,7 +304,7 @@ export default function SelfAssessmentsAdminPage() {
                         <Button
                           size="xs"
                           variant="light"
-                          onClick={() => navigate(`/self-assessments/${assessment.id}`)}
+                          onClick={() => navigate(`/admin/self-assessments/${assessment.id}`)}
                         >
                           Details
                         </Button>

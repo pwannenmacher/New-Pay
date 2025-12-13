@@ -80,7 +80,7 @@ func (s *CatalogService) GetCatalogsByPhase(phase string) ([]models.CriteriaCata
 }
 
 // GetVisibleCatalogs retrieves catalogs visible to a user based on their role
-func (s *CatalogService) GetVisibleCatalogs(userRoles []string) ([]models.CriteriaCatalog, error) {
+func (s *CatalogService) GetVisibleCatalogs(userRoles []string, userID uint) ([]models.CriteriaCatalog, error) {
 	isAdmin := contains(userRoles, "admin")
 	isReviewer := contains(userRoles, "reviewer")
 
@@ -90,7 +90,7 @@ func (s *CatalogService) GetVisibleCatalogs(userRoles []string) ([]models.Criter
 	}
 
 	if isReviewer {
-		// Reviewers see active and archived catalogs
+		// Reviewers see active, archived, and draft catalogs
 		activeCatalogs, err := s.catalogRepo.GetCatalogsByPhase("active")
 		if err != nil {
 			return nil, err
@@ -99,11 +99,43 @@ func (s *CatalogService) GetVisibleCatalogs(userRoles []string) ([]models.Criter
 		if err != nil {
 			return nil, err
 		}
-		return append(activeCatalogs, archivedCatalogs...), nil
+		draftCatalogs, err := s.catalogRepo.GetCatalogsByPhase("draft")
+		if err != nil {
+			return nil, err
+		}
+		result := append(activeCatalogs, archivedCatalogs...)
+		return append(result, draftCatalogs...), nil
 	}
 
-	// Regular users only see active phase catalogs
-	return s.catalogRepo.GetCatalogsByPhase("active")
+	// Regular users see active catalogs + archived catalogs where they have self-assessments
+	activeCatalogs, err := s.catalogRepo.GetCatalogsByPhase("active")
+	if err != nil {
+		return nil, err
+	}
+
+	// Get catalog IDs where user has self-assessments
+	userCatalogIDs, err := s.selfAssessmentRepo.GetCatalogIDsByUserID(userID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get archived catalogs and filter for user participation
+	archivedCatalogs, err := s.catalogRepo.GetCatalogsByPhase("archived")
+	if err != nil {
+		return nil, err
+	}
+
+	// Add archived catalogs where user has assessments
+	for _, archived := range archivedCatalogs {
+		for _, catalogID := range userCatalogIDs {
+			if archived.ID == catalogID {
+				activeCatalogs = append(activeCatalogs, archived)
+				break
+			}
+		}
+	}
+
+	return activeCatalogs, nil
 }
 
 // UpdateCatalog updates a catalog
@@ -825,8 +857,15 @@ func (s *CatalogService) validateCatalogCompleteness(catalogID uint) error {
 		return fmt.Errorf("catalog must have at least one level")
 	}
 
-	// Each category must have at least one path
+	// Each category must have at least one path and a weight
+	totalWeight := 0.0
 	for _, category := range catalogDetails.Categories {
+		// Check if category has a weight
+		if category.Weight == nil {
+			return fmt.Errorf("category '%s' must have a weight value", category.Name)
+		}
+		totalWeight += *category.Weight
+
 		if len(category.Paths) == 0 {
 			return fmt.Errorf("category '%s' must have at least one path", category.Name)
 		}
@@ -844,6 +883,11 @@ func (s *CatalogService) validateCatalogCompleteness(catalogID uint) error {
 				}
 			}
 		}
+	}
+
+	// Validate that weights sum to approximately 1.0 (allowing for small floating point errors)
+	if totalWeight < 0.99 || totalWeight > 1.01 {
+		return fmt.Errorf("category weights must sum to 1.00 (currently: %.4f)", totalWeight)
 	}
 
 	return nil

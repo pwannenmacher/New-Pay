@@ -147,6 +147,17 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
             <Button
               variant="subtle"
               component={Link}
+              to="/catalogs"
+              fullWidth
+              justify="flex-start"
+              leftSection={<IconBook size={16} />}
+              mb="xs"
+            >
+              Kriterienkataloge
+            </Button>
+            <Button
+              variant="subtle"
+              component={Link}
               to="/classifications"
               fullWidth
               justify="flex-start"
@@ -163,17 +174,6 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
                 <Text size="sm" fw={500} mb="xs" c="dimmed">
                   Review
                 </Text>
-                <Button
-                  variant="subtle"
-                  component={Link}
-                  to="/review/catalogs"
-                  fullWidth
-                  justify="flex-start"
-                  leftSection={<IconBook size={16} />}
-                  mb="xs"
-                >
-                  Kriterienkataloge
-                </Button>
                 <Button
                   variant="subtle"
                   component={Link}
@@ -230,7 +230,7 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
                   leftSection={<IconBook size={16} />}
                   mb="xs"
                 >
-                  Kriterienkataloge
+                  Kriterienkataloge verwalten
                 </Button>
                 <Button
                   variant="subtle"

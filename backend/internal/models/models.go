@@ -140,6 +140,7 @@ type Category struct {
 	Name        string    `json:"name" db:"name"`
 	Description *string   `json:"description,omitempty" db:"description"`
 	SortOrder   int       `json:"sort_order" db:"sort_order"`
+	Weight      *float64  `json:"weight,omitempty" db:"weight"`
 	CreatedAt   time.Time `json:"created_at" db:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at" db:"updated_at"`
 }
@@ -266,4 +267,12 @@ type AssessmentCompleteness struct {
 	PercentComplete     float64 `json:"percent_complete"`
 	IsComplete          bool    `json:"is_complete"`
 	MissingCategories   []uint  `json:"missing_categories,omitempty"`
+}
+
+// WeightedScore represents the calculated weighted average score for a self-assessment
+type WeightedScore struct {
+	WeightedAverage float64 `json:"weighted_average"` // The calculated weighted score
+	OverallLevel    string  `json:"overall_level"`    // The corresponding level letter (A, B, C, etc.)
+	LevelNumber     int     `json:"level_number"`     // The corresponding level number
+	IsComplete      bool    `json:"is_complete"`      // Whether all categories have responses
 }

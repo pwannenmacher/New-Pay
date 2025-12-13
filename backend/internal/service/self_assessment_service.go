@@ -186,25 +186,6 @@ func (s *SelfAssessmentService) GetActiveCatalogs() ([]models.CriteriaCatalog, e
 	return validCatalogs, nil
 }
 
-// GetVisibleSelfAssessments retrieves self-assessments visible to a user based on role
-func (s *SelfAssessmentService) GetVisibleSelfAssessments(userID uint, userRoles []string) ([]models.SelfAssessment, error) {
-	isReviewer := contains(userRoles, "reviewer")
-	isAdmin := contains(userRoles, "admin")
-
-	if isAdmin {
-		// Admins see all metadata
-		return s.selfAssessmentRepo.GetAllMetadata()
-	}
-
-	if isReviewer {
-		// Reviewers see submitted and later assessments
-		return s.selfAssessmentRepo.GetVisibleToReviewers()
-	}
-
-	// Regular users see only their own
-	return s.selfAssessmentRepo.GetByUserID(userID)
-}
-
 // GetAllSelfAssessmentsWithFilters retrieves all self-assessments with optional filters (admin only)
 func (s *SelfAssessmentService) GetAllSelfAssessmentsWithFilters(status, username string, fromDate, toDate *time.Time) ([]models.SelfAssessment, error) {
 	return s.selfAssessmentRepo.GetAllWithFilters(status, username, fromDate, toDate)
@@ -590,6 +571,79 @@ func (s *SelfAssessmentService) GetCompleteness(userID uint, assessmentID uint) 
 	}
 
 	return completeness, nil
+}
+
+// CalculateWeightedScore calculates the weighted average score for a self-assessment
+func (s *SelfAssessmentService) CalculateWeightedScore(userID uint, assessmentID uint) (*models.WeightedScore, error) {
+	// Verify ownership
+	assessment, err := s.selfAssessmentRepo.GetByID(assessmentID)
+	if err != nil {
+		return nil, err
+	}
+	if assessment == nil {
+		return nil, fmt.Errorf("assessment not found")
+	}
+	if assessment.UserID != userID {
+		return nil, fmt.Errorf("permission denied: not owner of assessment")
+	}
+
+	// Get catalog details including weights
+	catalogDetails, err := s.catalogRepo.GetCatalogWithDetails(assessment.CatalogID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get all responses for this assessment with details (includes level_number)
+	responses, err := s.responseRepo.GetAllByAssessment(assessmentID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Build map of responses by category ID
+	responseMap := make(map[uint]models.AssessmentResponseWithDetails)
+	for _, response := range responses {
+		responseMap[response.CategoryID] = response
+	}
+
+	// Calculate weighted score
+	weightedSum := 0.0
+	hasAllResponses := true
+
+	for _, category := range catalogDetails.Categories {
+		response, exists := responseMap[category.ID]
+		if !exists || category.Weight == nil {
+			hasAllResponses = false
+			continue
+		}
+
+		// weighted_sum += level_number * weight
+		weightedSum += float64(response.LevelNumber) * (*category.Weight)
+	}
+
+	// Determine overall level based on weighted average
+	overallLevelNumber := int(weightedSum + 0.5) // Round to nearest integer
+	if overallLevelNumber < 1 {
+		overallLevelNumber = 1
+	}
+	if overallLevelNumber > len(catalogDetails.Levels) {
+		overallLevelNumber = len(catalogDetails.Levels)
+	}
+
+	// Find the level name (letter)
+	overallLevelName := ""
+	for _, level := range catalogDetails.Levels {
+		if level.LevelNumber == overallLevelNumber {
+			overallLevelName = level.Name
+			break
+		}
+	}
+
+	return &models.WeightedScore{
+		WeightedAverage: weightedSum,
+		OverallLevel:    overallLevelName,
+		LevelNumber:     overallLevelNumber,
+		IsComplete:      hasAllResponses,
+	}, nil
 }
 
 // SubmitAssessment submits an assessment for review (changes status from draft to submitted)

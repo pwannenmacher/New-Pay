@@ -156,6 +156,7 @@ export interface Category {
   name: string;
   description?: string;
   sort_order: number;
+  weight?: number;
   created_at: string;
   updated_at: string;
 }
@@ -266,5 +267,12 @@ export interface AssessmentCompleteness {
   percent_complete: number;
   is_complete: boolean;
   missing_categories?: number[];
+}
+
+export interface WeightedScore {
+  weighted_average: number;
+  overall_level: string;
+  level_number: number;
+  is_complete: boolean;
 }
 

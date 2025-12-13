@@ -438,12 +438,6 @@ func main() {
 			http.HandlerFunc(selfAssessmentHandler.GetUserSelfAssessments),
 		),
 	)
-	// Get visible self-assessments (role-based)
-	mux.Handle("GET /api/v1/self-assessments",
-		authMw.Authenticate(
-			http.HandlerFunc(selfAssessmentHandler.GetVisibleSelfAssessments),
-		),
-	)
 
 	// Create self-assessment for a catalog (using POST to base + query parameter alternative approach)
 	mux.Handle("POST /api/v1/catalogs/{catalogId}/self-assessments",
@@ -475,6 +469,12 @@ func main() {
 	mux.Handle("GET /api/v1/self-assessments/{id}/completeness",
 		authMw.Authenticate(
 			http.HandlerFunc(selfAssessmentHandler.GetCompleteness),
+		),
+	)
+	// Get weighted score
+	mux.Handle("GET /api/v1/self-assessments/{id}/weighted-score",
+		authMw.Authenticate(
+			http.HandlerFunc(selfAssessmentHandler.GetWeightedScore),
 		),
 	)
 	// Submit assessment for review

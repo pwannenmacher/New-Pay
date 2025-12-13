@@ -178,35 +178,6 @@ func (h *SelfAssessmentHandler) GetSelfAssessment(w http.ResponseWriter, r *http
 	}
 }
 
-// GetVisibleSelfAssessments returns self-assessments visible to the user based on role
-// @Summary Get visible self-assessments
-// @Description Retrieve self-assessments based on user role (user: own, reviewer: submitted+, admin: metadata only)
-// @Tags Self-Assessments
-// @Security BearerAuth
-// @Success 200 {array} models.SelfAssessment
-// @Failure 401 {object} map[string]string "Unauthorized"
-// @Router /self-assessments [get]
-func (h *SelfAssessmentHandler) GetVisibleSelfAssessments(w http.ResponseWriter, r *http.Request) {
-	userID, ok := middleware.GetUserID(r)
-	if !ok {
-		http.Error(w, "User ID not found", http.StatusUnauthorized)
-		return
-	}
-
-	userRoles, ok := middleware.GetUserRoles(r)
-	if !ok {
-		userRoles = []string{}
-	}
-
-	assessments, err := h.selfAssessmentService.GetVisibleSelfAssessments(userID, userRoles)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	JSONResponse(w, assessments)
-}
-
 // UpdateStatus updates the status of a self-assessment
 // @Summary Update self-assessment status
 // @Description Transition a self-assessment to a new status
@@ -541,6 +512,46 @@ func (h *SelfAssessmentHandler) GetCompleteness(w http.ResponseWriter, r *http.R
 	}
 
 	JSONResponse(w, completeness)
+}
+
+// GetWeightedScore retrieves the weighted average score for an assessment
+// @Summary Get weighted score
+// @Description Calculate and retrieve the weighted average score for a self-assessment
+// @Tags Self-Assessments
+// @Security BearerAuth
+// @Param id path int true "Assessment ID"
+// @Success 200 {object} models.WeightedScore
+// @Failure 400 {object} map[string]string "Invalid request"
+// @Failure 401 {object} map[string]string "Unauthorized"
+// @Failure 403 {object} map[string]string "Permission denied"
+// @Router /self-assessments/{id}/weighted-score [get]
+func (h *SelfAssessmentHandler) GetWeightedScore(w http.ResponseWriter, r *http.Request) {
+	idStr := r.PathValue("id")
+	assessmentID, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		http.Error(w, "Invalid assessment ID", http.StatusBadRequest)
+		return
+	}
+
+	userID, ok := middleware.GetUserID(r)
+	if !ok {
+		http.Error(w, "User ID not found", http.StatusUnauthorized)
+		return
+	}
+
+	score, err := h.selfAssessmentService.CalculateWeightedScore(userID, uint(assessmentID))
+	if err != nil {
+		if strings.Contains(err.Error(), "permission denied") {
+			http.Error(w, err.Error(), http.StatusForbidden)
+		} else if strings.Contains(err.Error(), "not found") {
+			http.Error(w, err.Error(), http.StatusNotFound)
+		} else {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
+		return
+	}
+
+	JSONResponse(w, score)
 }
 
 // SubmitAssessment submits an assessment for review

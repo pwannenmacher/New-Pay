@@ -25,10 +25,11 @@ import { SessionsPage } from './pages/admin/SessionsPage';
 import { CatalogManagementPage } from './pages/admin/CatalogManagementPage';
 import { CatalogEditorPage } from './pages/admin/CatalogEditorPage';
 import { CatalogViewPage } from './pages/admin/CatalogViewPage';
+import { CatalogsPage } from './pages/CatalogsPage';
 import SelfAssessmentsPage from './pages/self-assessments/SelfAssessmentsPage';
-import SelfAssessmentDetailPage from './pages/self-assessments/SelfAssessmentDetailPage';
 import SelfAssessmentPage from './pages/SelfAssessmentPage';
 import SelfAssessmentsAdminPage from './pages/admin/SelfAssessmentsAdminPage';
+import AdminSelfAssessmentDetailPage from './pages/admin/AdminSelfAssessmentDetailPage';
 
 import 'dayjs/locale/de';
 
@@ -56,6 +57,15 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <ProfilePage />
+                  </ProtectedRoute>
+                }
+              />
+              
+              <Route
+                path="/catalogs"
+                element={
+                  <ProtectedRoute>
+                    <CatalogsPage />
                   </ProtectedRoute>
                 }
               />
@@ -124,6 +134,15 @@ function App() {
               />
               
               <Route
+                path="/admin/self-assessments/:id"
+                element={
+                  <ProtectedRoute requireAdmin>
+                    <AdminSelfAssessmentDetailPage />
+                  </ProtectedRoute>
+                }
+              />
+              
+              <Route
                 path="/self-assessments"
                 element={
                   <ProtectedRoute>
@@ -134,15 +153,6 @@ function App() {
               
               <Route
                 path="/self-assessments/:id"
-                element={
-                  <ProtectedRoute>
-                    <SelfAssessmentDetailPage />
-                  </ProtectedRoute>
-                }
-              />
-              
-              <Route
-                path="/self-assessments/:id/edit"
                 element={
                   <ProtectedRoute>
                     <SelfAssessmentPage />
