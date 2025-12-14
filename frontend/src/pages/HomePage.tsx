@@ -8,7 +8,6 @@ export const HomePage = () => {
   const { enableRegistration } = useAppConfig();
 
   const hasAnyRole = user?.roles && user.roles.length > 0;
-  const userRoles = user?.roles?.map(r => r.name).join(', ') || 'keine';
 
   return (
     <Container size="md" my={40}>
