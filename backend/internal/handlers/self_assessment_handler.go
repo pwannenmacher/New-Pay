@@ -24,6 +24,29 @@ func NewSelfAssessmentHandler(selfAssessmentService *service.SelfAssessmentServi
 	}
 }
 
+// Helper methods to reduce cognitive complexity
+
+// checkUserIsAdminOrReviewer checks if a user has admin or reviewer role
+func checkUserIsAdminOrReviewer(userRoles []string) bool {
+	for _, role := range userRoles {
+		if role == "admin" || role == "reviewer" {
+			return true
+		}
+	}
+	return false
+}
+
+// handleAssessmentError handles different types of assessment errors
+func handleAssessmentError(w http.ResponseWriter, err error) {
+	if strings.Contains(err.Error(), ErrMsgPermissionDenied) {
+		http.Error(w, err.Error(), http.StatusForbidden)
+	} else if strings.Contains(err.Error(), ErrMsgNotFound) {
+		http.Error(w, err.Error(), http.StatusNotFound)
+	} else {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+}
+
 // GetActiveCatalogs returns catalogs that are active and valid for current date
 // @Summary Get active catalogs
 // @Description Retrieve catalogs that users can create self-assessments for
@@ -62,7 +85,7 @@ func (h *SelfAssessmentHandler) CreateSelfAssessment(w http.ResponseWriter, r *h
 
 	userID, ok := middleware.GetUserID(r)
 	if !ok {
-		http.Error(w, "User ID not found", http.StatusUnauthorized)
+		http.Error(w, ErrMsgUserIDNotFound, http.StatusUnauthorized)
 		return
 	}
 
@@ -94,7 +117,7 @@ func (h *SelfAssessmentHandler) CreateSelfAssessment(w http.ResponseWriter, r *h
 func (h *SelfAssessmentHandler) GetUserSelfAssessments(w http.ResponseWriter, r *http.Request) {
 	userID, ok := middleware.GetUserID(r)
 	if !ok {
-		http.Error(w, "User ID not found", http.StatusUnauthorized)
+		http.Error(w, ErrMsgUserIDNotFound, http.StatusUnauthorized)
 		return
 	}
 
@@ -123,13 +146,13 @@ func (h *SelfAssessmentHandler) GetSelfAssessment(w http.ResponseWriter, r *http
 	idStr := r.PathValue("id")
 	id, err := strconv.ParseUint(idStr, 10, 32)
 	if err != nil {
-		http.Error(w, "Invalid assessment ID", http.StatusBadRequest)
+		http.Error(w, ErrMsgInvalidAssessmentID, http.StatusBadRequest)
 		return
 	}
 
 	userID, ok := middleware.GetUserID(r)
 	if !ok {
-		http.Error(w, "User ID not found", http.StatusUnauthorized)
+		http.Error(w, ErrMsgUserIDNotFound, http.StatusUnauthorized)
 		return
 	}
 
@@ -138,26 +161,13 @@ func (h *SelfAssessmentHandler) GetSelfAssessment(w http.ResponseWriter, r *http
 		userRoles = []string{}
 	}
 
-	// Check if user is admin or reviewer to return details
-	isAdminOrReviewer := false
-	for _, role := range userRoles {
-		if role == "admin" || role == "reviewer" {
-			isAdminOrReviewer = true
-			break
-		}
-	}
+	isAdminOrReviewer := checkUserIsAdminOrReviewer(userRoles)
 
 	if isAdminOrReviewer {
 		// Return with details for admin/reviewer
 		assessment, err := h.selfAssessmentService.GetSelfAssessmentWithDetails(uint(id), userID, userRoles)
 		if err != nil {
-			if strings.Contains(err.Error(), "permission denied") {
-				http.Error(w, err.Error(), http.StatusForbidden)
-			} else if strings.Contains(err.Error(), "not found") {
-				http.Error(w, err.Error(), http.StatusNotFound)
-			} else {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-			}
+			handleAssessmentError(w, err)
 			return
 		}
 		JSONResponse(w, assessment)
@@ -165,13 +175,7 @@ func (h *SelfAssessmentHandler) GetSelfAssessment(w http.ResponseWriter, r *http
 		// Return basic info for regular users
 		assessment, err := h.selfAssessmentService.GetSelfAssessment(uint(id), userID, userRoles)
 		if err != nil {
-			if strings.Contains(err.Error(), "permission denied") {
-				http.Error(w, err.Error(), http.StatusForbidden)
-			} else if strings.Contains(err.Error(), "not found") {
-				http.Error(w, err.Error(), http.StatusNotFound)
-			} else {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-			}
+			handleAssessmentError(w, err)
 			return
 		}
 		JSONResponse(w, assessment)
@@ -194,7 +198,7 @@ func (h *SelfAssessmentHandler) UpdateStatus(w http.ResponseWriter, r *http.Requ
 	idStr := r.PathValue("id")
 	id, err := strconv.ParseUint(idStr, 10, 32)
 	if err != nil {
-		http.Error(w, "Invalid assessment ID", http.StatusBadRequest)
+		http.Error(w, ErrMsgInvalidAssessmentID, http.StatusBadRequest)
 		return
 	}
 
@@ -208,7 +212,7 @@ func (h *SelfAssessmentHandler) UpdateStatus(w http.ResponseWriter, r *http.Requ
 
 	userID, ok := middleware.GetUserID(r)
 	if !ok {
-		http.Error(w, "User ID not found", http.StatusUnauthorized)
+		http.Error(w, ErrMsgUserIDNotFound, http.StatusUnauthorized)
 		return
 	}
 
@@ -218,7 +222,7 @@ func (h *SelfAssessmentHandler) UpdateStatus(w http.ResponseWriter, r *http.Requ
 	}
 
 	if err := h.selfAssessmentService.UpdateSelfAssessmentStatus(uint(id), req.Status, userID, userRoles); err != nil {
-		if strings.Contains(err.Error(), "permission denied") {
+		if strings.Contains(err.Error(), ErrMsgPermissionDenied) {
 			http.Error(w, err.Error(), http.StatusForbidden)
 		} else {
 			http.Error(w, err.Error(), http.StatusBadRequest)
@@ -303,13 +307,13 @@ func (h *SelfAssessmentHandler) DeleteSelfAssessment(w http.ResponseWriter, r *h
 	idStr := r.PathValue("id")
 	id, err := strconv.ParseUint(idStr, 10, 32)
 	if err != nil {
-		http.Error(w, "Invalid assessment ID", http.StatusBadRequest)
+		http.Error(w, ErrMsgInvalidAssessmentID, http.StatusBadRequest)
 		return
 	}
 
 	userID, ok := middleware.GetUserID(r)
 	if !ok {
-		http.Error(w, "User ID not found", http.StatusUnauthorized)
+		http.Error(w, ErrMsgUserIDNotFound, http.StatusUnauthorized)
 		return
 	}
 
@@ -319,7 +323,7 @@ func (h *SelfAssessmentHandler) DeleteSelfAssessment(w http.ResponseWriter, r *h
 	}
 
 	if err := h.selfAssessmentService.DeleteSelfAssessment(uint(id), userID, userRoles); err != nil {
-		if strings.Contains(err.Error(), "permission denied") {
+		if strings.Contains(err.Error(), ErrMsgPermissionDenied) {
 			http.Error(w, err.Error(), http.StatusForbidden)
 		} else {
 			http.Error(w, err.Error(), http.StatusBadRequest)
@@ -348,13 +352,13 @@ func (h *SelfAssessmentHandler) SaveResponse(w http.ResponseWriter, r *http.Requ
 	idStr := r.PathValue("id")
 	assessmentID, err := strconv.ParseUint(idStr, 10, 32)
 	if err != nil {
-		http.Error(w, "Invalid assessment ID", http.StatusBadRequest)
+		http.Error(w, ErrMsgInvalidAssessmentID, http.StatusBadRequest)
 		return
 	}
 
 	userID, ok := middleware.GetUserID(r)
 	if !ok {
-		http.Error(w, "User ID not found", http.StatusUnauthorized)
+		http.Error(w, ErrMsgUserIDNotFound, http.StatusUnauthorized)
 		return
 	}
 
@@ -367,9 +371,9 @@ func (h *SelfAssessmentHandler) SaveResponse(w http.ResponseWriter, r *http.Requ
 	savedResponse, err := h.selfAssessmentService.SaveResponse(userID, uint(assessmentID), &response)
 	if err != nil {
 		slog.Error("Failed to save response", "error", err, "assessment_id", assessmentID, "user_id", userID)
-		if strings.Contains(err.Error(), "permission denied") {
+		if strings.Contains(err.Error(), ErrMsgPermissionDenied) {
 			http.Error(w, err.Error(), http.StatusForbidden)
-		} else if strings.Contains(err.Error(), "not found") {
+		} else if strings.Contains(err.Error(), ErrMsgNotFound) {
 			http.Error(w, err.Error(), http.StatusNotFound)
 		} else {
 			http.Error(w, err.Error(), http.StatusBadRequest)
@@ -396,7 +400,7 @@ func (h *SelfAssessmentHandler) DeleteResponse(w http.ResponseWriter, r *http.Re
 	idStr := r.PathValue("id")
 	assessmentID, err := strconv.ParseUint(idStr, 10, 32)
 	if err != nil {
-		http.Error(w, "Invalid assessment ID", http.StatusBadRequest)
+		http.Error(w, ErrMsgInvalidAssessmentID, http.StatusBadRequest)
 		return
 	}
 
@@ -409,14 +413,14 @@ func (h *SelfAssessmentHandler) DeleteResponse(w http.ResponseWriter, r *http.Re
 
 	userID, ok := middleware.GetUserID(r)
 	if !ok {
-		http.Error(w, "User ID not found", http.StatusUnauthorized)
+		http.Error(w, ErrMsgUserIDNotFound, http.StatusUnauthorized)
 		return
 	}
 
 	if err := h.selfAssessmentService.DeleteResponse(userID, uint(assessmentID), uint(categoryID)); err != nil {
-		if strings.Contains(err.Error(), "permission denied") {
+		if strings.Contains(err.Error(), ErrMsgPermissionDenied) {
 			http.Error(w, err.Error(), http.StatusForbidden)
-		} else if strings.Contains(err.Error(), "not found") {
+		} else if strings.Contains(err.Error(), ErrMsgNotFound) {
 			http.Error(w, err.Error(), http.StatusNotFound)
 		} else {
 			http.Error(w, err.Error(), http.StatusBadRequest)
@@ -444,13 +448,13 @@ func (h *SelfAssessmentHandler) GetResponses(w http.ResponseWriter, r *http.Requ
 	idStr := r.PathValue("id")
 	assessmentID, err := strconv.ParseUint(idStr, 10, 32)
 	if err != nil {
-		http.Error(w, "Invalid assessment ID", http.StatusBadRequest)
+		http.Error(w, ErrMsgInvalidAssessmentID, http.StatusBadRequest)
 		return
 	}
 
 	userID, ok := middleware.GetUserID(r)
 	if !ok {
-		http.Error(w, "User ID not found", http.StatusUnauthorized)
+		http.Error(w, ErrMsgUserIDNotFound, http.StatusUnauthorized)
 		return
 	}
 
@@ -461,9 +465,9 @@ func (h *SelfAssessmentHandler) GetResponses(w http.ResponseWriter, r *http.Requ
 
 	responses, err := h.selfAssessmentService.GetResponses(userID, uint(assessmentID), userRoles)
 	if err != nil {
-		if strings.Contains(err.Error(), "permission denied") {
+		if strings.Contains(err.Error(), ErrMsgPermissionDenied) {
 			http.Error(w, err.Error(), http.StatusForbidden)
-		} else if strings.Contains(err.Error(), "not found") {
+		} else if strings.Contains(err.Error(), ErrMsgNotFound) {
 			http.Error(w, err.Error(), http.StatusNotFound)
 		} else {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -489,21 +493,21 @@ func (h *SelfAssessmentHandler) GetCompleteness(w http.ResponseWriter, r *http.R
 	idStr := r.PathValue("id")
 	assessmentID, err := strconv.ParseUint(idStr, 10, 32)
 	if err != nil {
-		http.Error(w, "Invalid assessment ID", http.StatusBadRequest)
+		http.Error(w, ErrMsgInvalidAssessmentID, http.StatusBadRequest)
 		return
 	}
 
 	userID, ok := middleware.GetUserID(r)
 	if !ok {
-		http.Error(w, "User ID not found", http.StatusUnauthorized)
+		http.Error(w, ErrMsgUserIDNotFound, http.StatusUnauthorized)
 		return
 	}
 
 	completeness, err := h.selfAssessmentService.GetCompleteness(userID, uint(assessmentID))
 	if err != nil {
-		if strings.Contains(err.Error(), "permission denied") {
+		if strings.Contains(err.Error(), ErrMsgPermissionDenied) {
 			http.Error(w, err.Error(), http.StatusForbidden)
-		} else if strings.Contains(err.Error(), "not found") {
+		} else if strings.Contains(err.Error(), ErrMsgNotFound) {
 			http.Error(w, err.Error(), http.StatusNotFound)
 		} else {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -529,21 +533,21 @@ func (h *SelfAssessmentHandler) GetWeightedScore(w http.ResponseWriter, r *http.
 	idStr := r.PathValue("id")
 	assessmentID, err := strconv.ParseUint(idStr, 10, 32)
 	if err != nil {
-		http.Error(w, "Invalid assessment ID", http.StatusBadRequest)
+		http.Error(w, ErrMsgInvalidAssessmentID, http.StatusBadRequest)
 		return
 	}
 
 	userID, ok := middleware.GetUserID(r)
 	if !ok {
-		http.Error(w, "User ID not found", http.StatusUnauthorized)
+		http.Error(w, ErrMsgUserIDNotFound, http.StatusUnauthorized)
 		return
 	}
 
 	score, err := h.selfAssessmentService.CalculateWeightedScore(userID, uint(assessmentID))
 	if err != nil {
-		if strings.Contains(err.Error(), "permission denied") {
+		if strings.Contains(err.Error(), ErrMsgPermissionDenied) {
 			http.Error(w, err.Error(), http.StatusForbidden)
-		} else if strings.Contains(err.Error(), "not found") {
+		} else if strings.Contains(err.Error(), ErrMsgNotFound) {
 			http.Error(w, err.Error(), http.StatusNotFound)
 		} else {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -569,21 +573,21 @@ func (h *SelfAssessmentHandler) SubmitAssessment(w http.ResponseWriter, r *http.
 	idStr := r.PathValue("id")
 	assessmentID, err := strconv.ParseUint(idStr, 10, 32)
 	if err != nil {
-		http.Error(w, "Invalid assessment ID", http.StatusBadRequest)
+		http.Error(w, ErrMsgInvalidAssessmentID, http.StatusBadRequest)
 		return
 	}
 
 	userID, ok := middleware.GetUserID(r)
 	if !ok {
-		http.Error(w, "User ID not found", http.StatusUnauthorized)
+		http.Error(w, ErrMsgUserIDNotFound, http.StatusUnauthorized)
 		return
 	}
 
 	if err := h.selfAssessmentService.SubmitAssessment(userID, uint(assessmentID)); err != nil {
 		slog.Error("Failed to submit assessment", "error", err, "assessment_id", assessmentID, "user_id", userID)
-		if strings.Contains(err.Error(), "permission denied") {
+		if strings.Contains(err.Error(), ErrMsgPermissionDenied) {
 			http.Error(w, err.Error(), http.StatusForbidden)
-		} else if strings.Contains(err.Error(), "not found") {
+		} else if strings.Contains(err.Error(), ErrMsgNotFound) {
 			http.Error(w, err.Error(), http.StatusNotFound)
 		} else {
 			http.Error(w, err.Error(), http.StatusBadRequest)

@@ -90,7 +90,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 
 	var req RegisterRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondWithError(w, http.StatusBadRequest, "Invalid request body")
+		respondWithError(w, http.StatusBadRequest, ErrMsgInvalidRequestBody)
 		return
 	}
 
@@ -152,7 +152,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     "refresh_token",
 		Value:    refreshToken,
-		Path:     "/api/v1/auth",
+		Path:     AuthAPIBasePath,
 		MaxAge:   7 * 24 * 60 * 60, // 7 days
 		HttpOnly: true,
 		Secure:   r.TLS != nil, // Only send over HTTPS in production
@@ -197,7 +197,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	var req LoginRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondWithError(w, http.StatusBadRequest, "Invalid request body")
+		respondWithError(w, http.StatusBadRequest, ErrMsgInvalidRequestBody)
 		return
 	}
 
@@ -243,7 +243,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     "refresh_token",
 		Value:    refreshToken,
-		Path:     "/api/v1/auth",
+		Path:     AuthAPIBasePath,
 		MaxAge:   7 * 24 * 60 * 60, // 7 days
 		HttpOnly: true,
 		Secure:   r.TLS != nil, // Only send over HTTPS in production
@@ -325,7 +325,7 @@ func (h *AuthHandler) VerifyEmail(w http.ResponseWriter, r *http.Request) {
 func (h *AuthHandler) RequestPasswordReset(w http.ResponseWriter, r *http.Request) {
 	var req PasswordResetRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondWithError(w, http.StatusBadRequest, "Invalid request body")
+		respondWithError(w, http.StatusBadRequest, ErrMsgInvalidRequestBody)
 		return
 	}
 
@@ -428,7 +428,7 @@ func (h *AuthHandler) RefreshToken(w http.ResponseWriter, r *http.Request) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     "refresh_token",
 		Value:    newRefreshToken,
-		Path:     "/api/v1/auth",
+		Path:     AuthAPIBasePath,
 		MaxAge:   7 * 24 * 60 * 60, // 7 days
 		HttpOnly: true,
 		Secure:   r.TLS != nil,
@@ -494,7 +494,7 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     "refresh_token",
 		Value:    "",
-		Path:     "/api/v1/auth",
+		Path:     AuthAPIBasePath,
 		MaxAge:   -1,
 		HttpOnly: true,
 		Secure:   r.TLS != nil,
@@ -767,7 +767,7 @@ func (h *AuthHandler) OAuthCallback(w http.ResponseWriter, r *http.Request) {
 			"provider", providerConfig.Name,
 			"error", err,
 		)
-		_ = h.auditMw.LogAction(nil, "user.oauth.error", "users", fmt.Sprintf("OAuth user creation failed for %s via %s: %v", email, providerConfig.Name, err), getIP(r), r.UserAgent())
+		_ = h.auditMw.LogAction(nil, AuditActionOAuthError, "users", fmt.Sprintf("OAuth user creation failed for %s via %s: %v", email, providerConfig.Name, err), getIP(r), r.UserAgent())
 		redirectURL := fmt.Sprintf("%s/login?error=user_creation_failed", h.getBaseLoginURL())
 		http.Redirect(w, r, redirectURL, http.StatusTemporaryRedirect)
 		return
@@ -877,7 +877,7 @@ func (h *AuthHandler) OAuthCallback(w http.ResponseWriter, r *http.Request) {
 	accessToken, refreshToken, accessJTI, refreshJTI, err := h.authService.GenerateTokensForUser(user)
 	if err != nil {
 		slog.Error("OAuth callback failed: token generation failed", "error", err, "user_id", user.ID)
-		_ = h.auditMw.LogAction(&user.ID, "user.oauth.error", "users", "Token generation failed: "+err.Error(), getIP(r), r.UserAgent())
+		_ = h.auditMw.LogAction(&user.ID, AuditActionOAuthError, "users", "Token generation failed: "+err.Error(), getIP(r), r.UserAgent())
 		http.Redirect(w, r, "http://localhost:5173/login?error=token_generation_failed", http.StatusTemporaryRedirect)
 		return
 	}
@@ -886,7 +886,7 @@ func (h *AuthHandler) OAuthCallback(w http.ResponseWriter, r *http.Request) {
 	sessionID, err := h.authService.GenerateSessionID()
 	if err != nil {
 		slog.Error("OAuth callback failed: session ID generation failed", "error", err, "user_id", user.ID)
-		_ = h.auditMw.LogAction(&user.ID, "user.oauth.error", "users", "Session ID generation failed: "+err.Error(), getIP(r), r.UserAgent())
+		_ = h.auditMw.LogAction(&user.ID, AuditActionOAuthError, "users", "Session ID generation failed: "+err.Error(), getIP(r), r.UserAgent())
 		http.Redirect(w, r, "http://localhost:5173/login?error=session_failed", http.StatusTemporaryRedirect)
 		return
 	}
@@ -904,7 +904,7 @@ func (h *AuthHandler) OAuthCallback(w http.ResponseWriter, r *http.Request) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     "refresh_token",
 		Value:    refreshToken,
-		Path:     "/api/v1/auth",
+		Path:     AuthAPIBasePath,
 		MaxAge:   7 * 24 * 60 * 60, // 7 days
 		HttpOnly: true,
 		Secure:   r.TLS != nil,

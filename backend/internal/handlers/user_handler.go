@@ -51,13 +51,13 @@ func NewUserHandler(
 func (h *UserHandler) GetProfile(w http.ResponseWriter, r *http.Request) {
 	userID, ok := middleware.GetUserID(r)
 	if !ok {
-		respondWithError(w, http.StatusUnauthorized, "Unauthorized")
+		respondWithError(w, http.StatusUnauthorized, ErrMsgUnauthorized)
 		return
 	}
 
 	user, err := h.userRepo.GetByID(userID)
 	if err != nil {
-		respondWithError(w, http.StatusNotFound, "User not found")
+		respondWithError(w, http.StatusNotFound, ErrMsgUserNotFound)
 		return
 	}
 
@@ -101,7 +101,7 @@ func (h *UserHandler) GetProfile(w http.ResponseWriter, r *http.Request) {
 func (h *UserHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 	userID, ok := middleware.GetUserID(r)
 	if !ok {
-		respondWithError(w, http.StatusUnauthorized, "Unauthorized")
+		respondWithError(w, http.StatusUnauthorized, ErrMsgUnauthorized)
 		return
 	}
 
@@ -111,13 +111,13 @@ func (h *UserHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondWithError(w, http.StatusBadRequest, "Invalid request body")
+		respondWithError(w, http.StatusBadRequest, ErrMsgInvalidRequestBody)
 		return
 	}
 
 	user, err := h.userRepo.GetByID(userID)
 	if err != nil {
-		respondWithError(w, http.StatusNotFound, "User not found")
+		respondWithError(w, http.StatusNotFound, ErrMsgUserNotFound)
 		return
 	}
 
@@ -176,7 +176,7 @@ func (h *UserHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 func (h *UserHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 	userID, ok := middleware.GetUserID(r)
 	if !ok {
-		respondWithError(w, http.StatusUnauthorized, "Unauthorized")
+		respondWithError(w, http.StatusUnauthorized, ErrMsgUnauthorized)
 		return
 	}
 
@@ -186,7 +186,7 @@ func (h *UserHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondWithError(w, http.StatusBadRequest, "Invalid request body")
+		respondWithError(w, http.StatusBadRequest, ErrMsgInvalidRequestBody)
 		return
 	}
 
@@ -199,7 +199,7 @@ func (h *UserHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 	// Get current user
 	user, err := h.userRepo.GetByID(userID)
 	if err != nil {
-		respondWithError(w, http.StatusNotFound, "User not found")
+		respondWithError(w, http.StatusNotFound, ErrMsgUserNotFound)
 		return
 	}
 
@@ -220,7 +220,7 @@ func (h *UserHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 	hashedBytes, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
 	if err != nil {
 		_ = h.auditMw.LogAction(&userID, "user.password.change.error", "users", "Password hash failed: "+err.Error(), getIP(r), r.UserAgent())
-		respondWithError(w, http.StatusInternalServerError, "Failed to hash password")
+		respondWithError(w, http.StatusInternalServerError, ErrMsgFailedToHashPassword)
 		return
 	}
 
@@ -237,6 +237,130 @@ func (h *UserHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 	respondWithJSON(w, http.StatusOK, map[string]string{
 		"message": "Password changed successfully",
 	})
+}
+
+// Helper methods to reduce cognitive complexity
+
+// assignRolesToNewUser assigns roles to a newly created user and logs the actions
+func (h *UserHandler) assignRolesToNewUser(userID uint, roleIDs []uint, userEmail string, adminUserID uint, r *http.Request) {
+	for _, roleID := range roleIDs {
+		if err := h.userRepo.AssignRole(userID, roleID); err != nil {
+			_ = h.auditMw.LogAction(&adminUserID, "user.role.assign.error", "users",
+				fmt.Sprintf("Failed to assign role %d to user %s", roleID, userEmail), getIP(r), r.UserAgent())
+		} else {
+			role, _ := h.roleRepo.GetByID(roleID)
+			if role != nil {
+				_ = h.auditMw.LogAction(&adminUserID, "user.role.assigned", "users",
+					fmt.Sprintf("Assigned role '%s' to user %s", role.Name, userEmail), getIP(r), r.UserAgent())
+			}
+		}
+	}
+}
+
+// sendVerificationEmailIfRequested sends verification email if requested and logs the action
+func (h *UserHandler) sendVerificationEmailIfRequested(userID uint, userEmail string, sendEmail bool, adminUserID uint, r *http.Request) {
+	if !sendEmail {
+		return
+	}
+
+	if err := h.authSvc.SendVerificationEmailToUser(userID); err != nil {
+		_ = h.auditMw.LogAction(&adminUserID, "email.verification.error", "users",
+			fmt.Sprintf("Failed to send verification email to %s: %v", userEmail, err), getIP(r), r.UserAgent())
+	} else {
+		_ = h.auditMw.LogAction(&adminUserID, "email.verification.sent", "users",
+			fmt.Sprintf("Verification email sent to %s", userEmail), getIP(r), r.UserAgent())
+	}
+}
+
+// buildUserListResponse builds the response for listing users with roles and OAuth connections
+func (h *UserHandler) buildUserListResponse(users []models.User) []map[string]interface{} {
+	var userList []map[string]interface{}
+	for _, user := range users {
+		roles, err := h.userRepo.GetUserRoles(user.ID)
+		if err != nil {
+			roles = []models.Role{}
+		}
+
+		oauthConnections, err := h.authSvc.GetUserOAuthConnections(user.ID)
+		if err != nil {
+			oauthConnections = []models.OAuthConnection{}
+		}
+
+		hasLocalPassword := user.PasswordHash != ""
+
+		userList = append(userList, map[string]interface{}{
+			"id":                 user.ID,
+			"email":              user.Email,
+			"first_name":         user.FirstName,
+			"last_name":          user.LastName,
+			"email_verified":     user.EmailVerified,
+			"email_verified_at":  user.EmailVerifiedAt,
+			"is_active":          user.IsActive,
+			"last_login_at":      user.LastLoginAt,
+			"created_at":         user.CreatedAt,
+			"updated_at":         user.UpdatedAt,
+			"roles":              roles,
+			"oauth_connections":  oauthConnections,
+			"has_local_password": hasLocalPassword,
+		})
+	}
+	return userList
+}
+
+// parsePaginationParams parses and validates pagination parameters from the request
+func parsePaginationParams(r *http.Request) (page, limit, offset int) {
+	page = 1
+	limit = 20
+
+	if pageStr := r.URL.Query().Get("page"); pageStr != "" {
+		if p, err := strconv.Atoi(pageStr); err == nil && p > 0 {
+			page = p
+		}
+	}
+
+	if limitStr := r.URL.Query().Get("limit"); limitStr != "" {
+		if l, err := strconv.Atoi(limitStr); err == nil && l > 0 && l <= 100 {
+			limit = l
+		}
+	}
+
+	offset = (page - 1) * limit
+	return page, limit, offset
+}
+
+// parseUserFilters parses filter parameters from the request
+func parseUserFilters(r *http.Request) repository.UserFilters {
+	filters := repository.UserFilters{
+		Search:    r.URL.Query().Get("search"),
+		SortBy:    r.URL.Query().Get("sort_by"),
+		SortOrder: r.URL.Query().Get("sort_order"),
+	}
+
+	// Parse role IDs filter
+	if roleIDsStr := r.URL.Query().Get("role_ids"); roleIDsStr != "" {
+		roleIDsStrs := strings.Split(roleIDsStr, ",")
+		for _, idStr := range roleIDsStrs {
+			if id, err := strconv.Atoi(strings.TrimSpace(idStr)); err == nil {
+				filters.RoleIDs = append(filters.RoleIDs, id)
+			}
+		}
+	}
+
+	// Parse active filter
+	if activeStr := r.URL.Query().Get("is_active"); activeStr != "" {
+		if active, err := strconv.ParseBool(activeStr); err == nil {
+			filters.IsActive = &active
+		}
+	}
+
+	// Parse email verified filter
+	if verifiedStr := r.URL.Query().Get("email_verified"); verifiedStr != "" {
+		if verified, err := strconv.ParseBool(verifiedStr); err == nil {
+			filters.EmailVerified = &verified
+		}
+	}
+
+	return filters
 }
 
 // CreateUser creates a new user (admin only)
@@ -265,7 +389,7 @@ func (h *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respondWithJSON(w, http.StatusBadRequest, map[string]string{
-			"error": "Invalid request body",
+			"error": ErrMsgInvalidRequestBody,
 		})
 		return
 	}
@@ -298,7 +422,7 @@ func (h *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 		hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 		if err != nil {
 			respondWithJSON(w, http.StatusInternalServerError, map[string]string{
-				"error": "Failed to hash password",
+				"error": ErrMsgFailedToHashPassword,
 			})
 			return
 		}
@@ -325,32 +449,10 @@ func (h *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Assign roles if provided
-	for _, roleID := range req.RoleIDs {
-		if err := h.userRepo.AssignRole(user.ID, roleID); err != nil {
-			// Log error but don't fail the user creation
-			_ = h.auditMw.LogAction(&adminUserID, "user.role.assign.error", "users",
-				fmt.Sprintf("Failed to assign role %d to user %s", roleID, req.Email), getIP(r), r.UserAgent())
-		} else {
-			// Get role name for audit log
-			role, _ := h.roleRepo.GetByID(roleID)
-			if role != nil {
-				_ = h.auditMw.LogAction(&adminUserID, "user.role.assigned", "users",
-					fmt.Sprintf("Assigned role '%s' to user %s", role.Name, req.Email), getIP(r), r.UserAgent())
-			}
-		}
-	}
+	h.assignRolesToNewUser(user.ID, req.RoleIDs, req.Email, adminUserID, r)
 
 	// Send verification email if requested
-	if req.SendEmail {
-		if err := h.authSvc.SendVerificationEmailToUser(user.ID); err != nil {
-			// Log error but don't fail the user creation
-			_ = h.auditMw.LogAction(&adminUserID, "email.verification.error", "users",
-				fmt.Sprintf("Failed to send verification email to %s: %v", req.Email, err), getIP(r), r.UserAgent())
-		} else {
-			_ = h.auditMw.LogAction(&adminUserID, "email.verification.sent", "users",
-				fmt.Sprintf("Verification email sent to %s", req.Email), getIP(r), r.UserAgent())
-		}
-	}
+	h.sendVerificationEmailIfRequested(user.ID, req.Email, req.SendEmail, adminUserID, r)
 
 	// Log user creation
 	_ = h.auditMw.LogAction(&adminUserID, "user.create", "users",
@@ -394,14 +496,14 @@ func (h *UserHandler) UpdateUserActiveStatus(w http.ResponseWriter, r *http.Requ
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondWithError(w, http.StatusBadRequest, "Invalid request body")
+		respondWithError(w, http.StatusBadRequest, ErrMsgInvalidRequestBody)
 		return
 	}
 
 	// Check if user exists
 	user, err := h.userRepo.GetByID(req.UserID)
 	if err != nil {
-		respondWithError(w, http.StatusNotFound, "User not found")
+		respondWithError(w, http.StatusNotFound, ErrMsgUserNotFound)
 		return
 	}
 
@@ -410,8 +512,8 @@ func (h *UserHandler) UpdateUserActiveStatus(w http.ResponseWriter, r *http.Requ
 		isLastAdmin, err := h.userRepo.IsLastActiveAdmin(req.UserID)
 		if err != nil {
 			actorID, _ := middleware.GetUserID(r)
-			_ = h.auditMw.LogAction(&actorID, "user.status.update.error", "users", "Failed to check admin status: "+err.Error(), getIP(r), r.UserAgent())
-			respondWithError(w, http.StatusInternalServerError, "Failed to verify admin status")
+			_ = h.auditMw.LogAction(&actorID, "user.status.update.error", "users", ErrMsgFailedToCheckAdminStatus+err.Error(), getIP(r), r.UserAgent())
+			respondWithError(w, http.StatusInternalServerError, ErrMsgFailedToVerifyAdminStatus)
 			return
 		}
 
@@ -467,7 +569,7 @@ func (h *UserHandler) GetUser(w http.ResponseWriter, r *http.Request) {
 
 	user, err := h.userRepo.GetByID(uint(id))
 	if err != nil {
-		respondWithError(w, http.StatusNotFound, "User not found")
+		respondWithError(w, http.StatusNotFound, ErrMsgUserNotFound)
 		return
 	}
 
@@ -517,14 +619,14 @@ func (h *UserHandler) AssignRole(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondWithError(w, http.StatusBadRequest, "Invalid request body")
+		respondWithError(w, http.StatusBadRequest, ErrMsgInvalidRequestBody)
 		return
 	}
 
 	// Verify user exists
 	_, err := h.userRepo.GetByID(req.UserID)
 	if err != nil {
-		respondWithError(w, http.StatusNotFound, "User not found")
+		respondWithError(w, http.StatusNotFound, ErrMsgUserNotFound)
 		return
 	}
 
@@ -572,7 +674,7 @@ func (h *UserHandler) RemoveRole(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondWithError(w, http.StatusBadRequest, "Invalid request body")
+		respondWithError(w, http.StatusBadRequest, ErrMsgInvalidRequestBody)
 		return
 	}
 
@@ -588,8 +690,8 @@ func (h *UserHandler) RemoveRole(w http.ResponseWriter, r *http.Request) {
 		isLastAdmin, err := h.userRepo.IsLastActiveAdmin(req.UserID)
 		if err != nil {
 			adminID, _ := middleware.GetUserID(r)
-			_ = h.auditMw.LogAction(&adminID, "user.role.remove.error", "users", "Failed to check admin status: "+err.Error(), getIP(r), r.UserAgent())
-			respondWithError(w, http.StatusInternalServerError, "Failed to verify admin status")
+			_ = h.auditMw.LogAction(&adminID, "user.role.remove.error", "users", ErrMsgFailedToCheckAdminStatus+err.Error(), getIP(r), r.UserAgent())
+			respondWithError(w, http.StatusInternalServerError, ErrMsgFailedToVerifyAdminStatus)
 			return
 		}
 
@@ -631,53 +733,10 @@ func (h *UserHandler) RemoveRole(w http.ResponseWriter, r *http.Request) {
 // @Router /admin/users/list [get]
 func (h *UserHandler) ListUsers(w http.ResponseWriter, r *http.Request) {
 	// Get pagination parameters
-	page := 1
-	limit := 20
-
-	if pageStr := r.URL.Query().Get("page"); pageStr != "" {
-		if p, err := strconv.Atoi(pageStr); err == nil && p > 0 {
-			page = p
-		}
-	}
-
-	if limitStr := r.URL.Query().Get("limit"); limitStr != "" {
-		if l, err := strconv.Atoi(limitStr); err == nil && l > 0 && l <= 100 {
-			limit = l
-		}
-	}
-
-	offset := (page - 1) * limit
+	page, limit, offset := parsePaginationParams(r)
 
 	// Build filters
-	filters := repository.UserFilters{
-		Search:    r.URL.Query().Get("search"),
-		SortBy:    r.URL.Query().Get("sort_by"),
-		SortOrder: r.URL.Query().Get("sort_order"),
-	}
-
-	// Parse role IDs filter
-	if roleIDsStr := r.URL.Query().Get("role_ids"); roleIDsStr != "" {
-		roleIDsStrs := strings.Split(roleIDsStr, ",")
-		for _, idStr := range roleIDsStrs {
-			if id, err := strconv.Atoi(strings.TrimSpace(idStr)); err == nil {
-				filters.RoleIDs = append(filters.RoleIDs, id)
-			}
-		}
-	}
-
-	// Parse active filter
-	if activeStr := r.URL.Query().Get("is_active"); activeStr != "" {
-		if active, err := strconv.ParseBool(activeStr); err == nil {
-			filters.IsActive = &active
-		}
-	}
-
-	// Parse email verified filter
-	if verifiedStr := r.URL.Query().Get("email_verified"); verifiedStr != "" {
-		if verified, err := strconv.ParseBool(verifiedStr); err == nil {
-			filters.EmailVerified = &verified
-		}
-	}
+	filters := parseUserFilters(r)
 
 	// Get total count
 	totalCount, err := h.userRepo.CountWithFilters(filters)
@@ -694,39 +753,7 @@ func (h *UserHandler) ListUsers(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Build response with user roles, OAuth connections, and password status
-	var userList []map[string]interface{}
-	for _, user := range users {
-		roles, err := h.userRepo.GetUserRoles(user.ID)
-		if err != nil {
-			// Log error but continue with empty roles array
-			roles = []models.Role{}
-		}
-
-		// Get OAuth connections
-		oauthConnections, err := h.authSvc.GetUserOAuthConnections(user.ID)
-		if err != nil {
-			oauthConnections = []models.OAuthConnection{}
-		}
-
-		// Check if user has local password
-		hasLocalPassword := user.PasswordHash != ""
-
-		userList = append(userList, map[string]interface{}{
-			"id":                 user.ID,
-			"email":              user.Email,
-			"first_name":         user.FirstName,
-			"last_name":          user.LastName,
-			"email_verified":     user.EmailVerified,
-			"email_verified_at":  user.EmailVerifiedAt,
-			"is_active":          user.IsActive,
-			"last_login_at":      user.LastLoginAt,
-			"created_at":         user.CreatedAt,
-			"updated_at":         user.UpdatedAt,
-			"roles":              roles,
-			"oauth_connections":  oauthConnections,
-			"has_local_password": hasLocalPassword,
-		})
-	}
+	userList := h.buildUserListResponse(users)
 
 	// Calculate total pages
 	totalPages := (totalCount + limit - 1) / limit
@@ -785,14 +812,14 @@ func (h *UserHandler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondWithError(w, http.StatusBadRequest, "Invalid request body")
+		respondWithError(w, http.StatusBadRequest, ErrMsgInvalidRequestBody)
 		return
 	}
 
 	// Get existing user
 	user, err := h.userRepo.GetByID(req.UserID)
 	if err != nil {
-		respondWithError(w, http.StatusNotFound, "User not found")
+		respondWithError(w, http.StatusNotFound, ErrMsgUserNotFound)
 		return
 	}
 
@@ -847,7 +874,7 @@ func (h *UserHandler) SetUserPassword(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondWithError(w, http.StatusBadRequest, "Invalid request body")
+		respondWithError(w, http.StatusBadRequest, ErrMsgInvalidRequestBody)
 		return
 	}
 
@@ -860,7 +887,7 @@ func (h *UserHandler) SetUserPassword(w http.ResponseWriter, r *http.Request) {
 	// Check if user exists
 	user, err := h.userRepo.GetByID(req.UserID)
 	if err != nil {
-		respondWithError(w, http.StatusNotFound, "User not found")
+		respondWithError(w, http.StatusNotFound, ErrMsgUserNotFound)
 		return
 	}
 
@@ -869,7 +896,7 @@ func (h *UserHandler) SetUserPassword(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		adminID, _ := middleware.GetUserID(r)
 		_ = h.auditMw.LogAction(&adminID, "set_user_password.error", "users", "Password hash failed: "+err.Error(), getIP(r), r.UserAgent())
-		respondWithError(w, http.StatusInternalServerError, "Failed to hash password")
+		respondWithError(w, http.StatusInternalServerError, ErrMsgFailedToHashPassword)
 		return
 	}
 
@@ -911,14 +938,14 @@ func (h *UserHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondWithError(w, http.StatusBadRequest, "Invalid request body")
+		respondWithError(w, http.StatusBadRequest, ErrMsgInvalidRequestBody)
 		return
 	}
 
 	// Check if user exists
 	user, err := h.userRepo.GetByID(req.UserID)
 	if err != nil {
-		respondWithError(w, http.StatusNotFound, "User not found")
+		respondWithError(w, http.StatusNotFound, ErrMsgUserNotFound)
 		return
 	}
 
@@ -932,8 +959,8 @@ func (h *UserHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
 	// Check if they are the last active admin
 	isLastAdmin, err := h.userRepo.IsLastActiveAdmin(req.UserID)
 	if err != nil {
-		_ = h.auditMw.LogAction(&actorID, "delete_user.error", "users", "Failed to check admin status: "+err.Error(), getIP(r), r.UserAgent())
-		respondWithError(w, http.StatusInternalServerError, "Failed to verify admin status")
+		_ = h.auditMw.LogAction(&actorID, "delete_user.error", "users", ErrMsgFailedToCheckAdminStatus+err.Error(), getIP(r), r.UserAgent())
+		respondWithError(w, http.StatusInternalServerError, ErrMsgFailedToVerifyAdminStatus)
 		return
 	}
 
@@ -973,7 +1000,7 @@ func (h *UserHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
 func (h *UserHandler) ResendVerificationEmail(w http.ResponseWriter, r *http.Request) {
 	userID, ok := middleware.GetUserID(r)
 	if !ok {
-		respondWithError(w, http.StatusUnauthorized, "Unauthorized")
+		respondWithError(w, http.StatusUnauthorized, ErrMsgUnauthorized)
 		return
 	}
 
@@ -1014,7 +1041,7 @@ func (h *UserHandler) AdminSendVerificationEmail(w http.ResponseWriter, r *http.
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondWithError(w, http.StatusBadRequest, "Invalid request body")
+		respondWithError(w, http.StatusBadRequest, ErrMsgInvalidRequestBody)
 		return
 	}
 
@@ -1052,7 +1079,7 @@ func (h *UserHandler) AdminCancelVerification(w http.ResponseWriter, r *http.Req
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondWithError(w, http.StatusBadRequest, "Invalid request body")
+		respondWithError(w, http.StatusBadRequest, ErrMsgInvalidRequestBody)
 		return
 	}
 
@@ -1090,7 +1117,7 @@ func (h *UserHandler) AdminRevokeVerification(w http.ResponseWriter, r *http.Req
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondWithError(w, http.StatusBadRequest, "Invalid request body")
+		respondWithError(w, http.StatusBadRequest, ErrMsgInvalidRequestBody)
 		return
 	}
 
