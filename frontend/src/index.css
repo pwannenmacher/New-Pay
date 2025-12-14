@@ -13,8 +13,8 @@ body {
 
 /* Mantine DatePickerInput Calendar Fixes */
 /* Fix calendar header navigation buttons - make them compact */
-.mantine-DatePickerInput-dropdown [class*="calendarHeader"] [class*="ActionIcon"],
-.mantine-PickersCalendar [class*="calendarHeader"] [class*="ActionIcon"] {
+.mantine-DatePickerInput-dropdown [class*='calendarHeader'] [class*='ActionIcon'],
+.mantine-PickersCalendar [class*='calendarHeader'] [class*='ActionIcon'] {
   width: 2rem !important;
   height: 2rem !important;
   min-width: 2rem !important;
@@ -23,8 +23,8 @@ body {
 }
 
 /* Fix navigation arrow SVG icons - make them smaller */
-.mantine-DatePickerInput-dropdown [class*="calendarHeader"] [class*="ActionIcon"] svg,
-.mantine-PickersCalendar [class*="calendarHeader"] [class*="ActionIcon"] svg {
+.mantine-DatePickerInput-dropdown [class*='calendarHeader'] [class*='ActionIcon'] svg,
+.mantine-PickersCalendar [class*='calendarHeader'] [class*='ActionIcon'] svg {
   width: 1rem !important;
   height: 1rem !important;
 }
@@ -36,8 +36,8 @@ body {
 }
 
 /* Ensure day cells are consistent */
-.mantine-DatePickerInput-dropdown [class*="day"],
-.mantine-PickersCalendar [class*="day"] {
+.mantine-DatePickerInput-dropdown [class*='day'],
+.mantine-PickersCalendar [class*='day'] {
   width: 2.25rem !important;
   height: 2.25rem !important;
   font-size: 0.875rem !important;

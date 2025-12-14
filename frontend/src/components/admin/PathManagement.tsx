@@ -14,13 +14,7 @@ import {
   Alert,
   Progress,
 } from '@mantine/core';
-import {
-  IconPlus,
-  IconEdit,
-  IconTrash,
-  IconArrowUp,
-  IconArrowDown,
-} from '@tabler/icons-react';
+import { IconPlus, IconEdit, IconTrash, IconArrowUp, IconArrowDown } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 import { adminApi } from '../../services/admin';
 import type { Category, Path, Level } from '../../types';
@@ -33,7 +27,13 @@ interface PathManagementProps {
   onUpdate?: () => void;
 }
 
-export function PathManagement({ catalogId, categories, levels, phase, onUpdate }: PathManagementProps) {
+export function PathManagement({
+  catalogId,
+  categories,
+  levels,
+  phase,
+  onUpdate,
+}: PathManagementProps) {
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
   const [paths, setPaths] = useState<Path[]>([]);
   const [pathModalOpened, setPathModalOpened] = useState(false);
@@ -41,7 +41,7 @@ export function PathManagement({ catalogId, categories, levels, phase, onUpdate 
   const [newPathName, setNewPathName] = useState('');
   const [newPathDescription, setNewPathDescription] = useState('');
   const [categoryPathCounts, setCategoryPathCounts] = useState<Record<number, number>>({});
-  
+
   const [descriptionModalOpened, setDescriptionModalOpened] = useState(false);
   const [editingPathForDescriptions, setEditingPathForDescriptions] = useState<Path | null>(null);
   const [descriptionTexts, setDescriptionTexts] = useState<Record<number, string>>({});
@@ -50,7 +50,7 @@ export function PathManagement({ catalogId, categories, levels, phase, onUpdate 
     try {
       const catalog = await adminApi.getCatalog(catalogId);
       const counts: Record<number, number> = {};
-      catalog.categories?.forEach(cat => {
+      catalog.categories?.forEach((cat) => {
         counts[cat.id] = cat.paths?.length || 0;
       });
       setCategoryPathCounts(counts);
@@ -68,7 +68,7 @@ export function PathManagement({ catalogId, categories, levels, phase, onUpdate 
   const loadPathsForCategory = async (category: Category) => {
     try {
       const catalog = await adminApi.getCatalog(catalogId);
-      const cat = catalog.categories?.find(c => c.id === category.id);
+      const cat = catalog.categories?.find((c) => c.id === category.id);
       setPaths(cat?.paths || []);
       setSelectedCategory(category);
       loadAllPathCounts(); // Refresh counts
@@ -111,7 +111,7 @@ export function PathManagement({ catalogId, categories, levels, phase, onUpdate 
             sort_order: editingPath.sort_order,
           }
         );
-        setPaths(paths.map(p => p.id === editingPath.id ? updatedPath : p));
+        setPaths(paths.map((p) => (p.id === editingPath.id ? updatedPath : p)));
         notifications.show({
           title: 'Erfolg',
           message: 'Pfad erfolgreich aktualisiert',
@@ -129,7 +129,7 @@ export function PathManagement({ catalogId, categories, levels, phase, onUpdate 
           message: 'Pfad erfolgreich hinzugefügt',
           color: 'green',
         });
-        
+
         // Refresh catalog data to update progress
         if (onUpdate) {
           onUpdate();
@@ -150,7 +150,8 @@ export function PathManagement({ catalogId, categories, levels, phase, onUpdate 
 
   const handleMovePath = async (index: number, direction: 'up' | 'down') => {
     if (!selectedCategory) return;
-    if ((direction === 'up' && index === 0) || (direction === 'down' && index === paths.length - 1)) return;
+    if ((direction === 'up' && index === 0) || (direction === 'down' && index === paths.length - 1))
+      return;
 
     const newPaths = [...paths];
     const targetIndex = direction === 'up' ? index - 1 : index + 1;
@@ -198,7 +199,7 @@ export function PathManagement({ catalogId, categories, levels, phase, onUpdate 
 
     try {
       await adminApi.deletePath(catalogId, selectedCategory.id, pathId);
-      const remainingPaths = paths.filter(p => p.id !== pathId);
+      const remainingPaths = paths.filter((p) => p.id !== pathId);
 
       const updatedPaths = remainingPaths.map((path, index) => ({
         ...path,
@@ -206,7 +207,7 @@ export function PathManagement({ catalogId, categories, levels, phase, onUpdate 
       }));
 
       await Promise.all(
-        updatedPaths.map(path =>
+        updatedPaths.map((path) =>
           adminApi.updatePath(catalogId, selectedCategory.id, path.id, {
             name: path.name,
             description: path.description,
@@ -221,7 +222,7 @@ export function PathManagement({ catalogId, categories, levels, phase, onUpdate 
         message: 'Pfad erfolgreich gelöscht',
         color: 'green',
       });
-      
+
       // Refresh catalog data to update progress
       if (onUpdate) {
         onUpdate();
@@ -237,16 +238,16 @@ export function PathManagement({ catalogId, categories, levels, phase, onUpdate 
 
   const handleOpenDescriptionsModal = async (path: Path) => {
     setEditingPathForDescriptions(path);
-    
+
     try {
       const catalog = await adminApi.getCatalog(catalogId);
-      const cat = catalog.categories?.find(c => c.id === selectedCategory?.id);
-      const pathWithDescriptions = cat?.paths?.find(p => p.id === path.id);
-      
+      const cat = catalog.categories?.find((c) => c.id === selectedCategory?.id);
+      const pathWithDescriptions = cat?.paths?.find((p) => p.id === path.id);
+
       // Initialize description texts
       const texts: Record<number, string> = {};
-      levels.forEach(level => {
-        const desc = pathWithDescriptions?.descriptions?.find(d => d.level_id === level.id);
+      levels.forEach((level) => {
+        const desc = pathWithDescriptions?.descriptions?.find((d) => d.level_id === level.id);
         texts[level.id] = desc?.description || '';
       });
       setDescriptionTexts(texts);
@@ -278,7 +279,7 @@ export function PathManagement({ catalogId, categories, levels, phase, onUpdate 
       setDescriptionModalOpened(false);
       setEditingPathForDescriptions(null);
       setDescriptionTexts({});
-      
+
       notifications.show({
         title: 'Erfolg',
         message: 'Beschreibungen erfolgreich gespeichert',
@@ -300,10 +301,11 @@ export function PathManagement({ catalogId, categories, levels, phase, onUpdate 
 
   const calculatePathProgress = (path: Path) => {
     const totalDescriptions = levels.length;
-    const filledDescriptions = (path as any).descriptions?.filter(
-      (d: any) => d.description && d.description.trim()
-    ).length || 0;
-    const percentage = totalDescriptions > 0 ? Math.round((filledDescriptions / totalDescriptions) * 100) : 0;
+    const filledDescriptions =
+      (path as any).descriptions?.filter((d: any) => d.description && d.description.trim())
+        .length || 0;
+    const percentage =
+      totalDescriptions > 0 ? Math.round((filledDescriptions / totalDescriptions) * 100) : 0;
     return { filledDescriptions, totalDescriptions, percentage };
   };
 
@@ -318,7 +320,7 @@ export function PathManagement({ catalogId, categories, levels, phase, onUpdate 
   return (
     <Stack gap="md">
       <Accordion>
-        {categories.map(category => (
+        {categories.map((category) => (
           <Accordion.Item key={category.id} value={category.id.toString()}>
             <Accordion.Control onClick={() => loadPathsForCategory(category)}>
               <Group justify="space-between">
@@ -360,67 +362,68 @@ export function PathManagement({ catalogId, categories, levels, phase, onUpdate 
                         {paths.map((path, index) => {
                           const progress = calculatePathProgress(path);
                           return (
-                          <Table.Tr key={path.id}>
-                            <Table.Td>{path.name}</Table.Td>
-                            <Table.Td>{path.description || '-'}</Table.Td>
-                            <Table.Td>
-                              <Stack gap={4}>
-                                <Progress
-                                  value={progress.percentage}
-                                  color={progress.percentage === 100 ? 'green' : 'blue'}
-                                  size="sm"
-                                />
-                                <Text size="xs" c="dimmed">
-                                  {progress.filledDescriptions}/{progress.totalDescriptions} ({progress.percentage}%)
-                                </Text>
-                              </Stack>
-                            </Table.Td>
-                            <Table.Td>{path.sort_order}</Table.Td>
-                            <Table.Td>
-                              <Group gap="xs">
-                                <ActionIcon
-                                  variant="light"
-                                  color="gray"
-                                  onClick={() => handleMovePath(index, 'up')}
-                                  disabled={index === 0 || phase !== 'draft'}
-                                >
-                                  <IconArrowUp size={16} />
-                                </ActionIcon>
-                                <ActionIcon
-                                  variant="light"
-                                  color="gray"
-                                  onClick={() => handleMovePath(index, 'down')}
-                                  disabled={index === paths.length - 1 || phase !== 'draft'}
-                                >
-                                  <IconArrowDown size={16} />
-                                </ActionIcon>
-                                <Button
-                                  variant="light"
-                                  color="green"
-                                  size="xs"
-                                  onClick={() => handleOpenDescriptionsModal(path)}
-                                >
-                                  Level-Beschreibungen
-                                </Button>
-                                <ActionIcon
-                                  variant="light"
-                                  color="blue"
-                                  onClick={() => handleOpenEditPathModal(path)}
-                                  disabled={phase !== 'draft'}
-                                >
-                                  <IconEdit size={16} />
-                                </ActionIcon>
-                                <ActionIcon
-                                  variant="light"
-                                  color="red"
-                                  onClick={() => handleDeletePath(path.id)}
-                                  disabled={phase !== 'draft'}
-                                >
-                                  <IconTrash size={16} />
-                                </ActionIcon>
-                              </Group>
-                            </Table.Td>
-                          </Table.Tr>
+                            <Table.Tr key={path.id}>
+                              <Table.Td>{path.name}</Table.Td>
+                              <Table.Td>{path.description || '-'}</Table.Td>
+                              <Table.Td>
+                                <Stack gap={4}>
+                                  <Progress
+                                    value={progress.percentage}
+                                    color={progress.percentage === 100 ? 'green' : 'blue'}
+                                    size="sm"
+                                  />
+                                  <Text size="xs" c="dimmed">
+                                    {progress.filledDescriptions}/{progress.totalDescriptions} (
+                                    {progress.percentage}%)
+                                  </Text>
+                                </Stack>
+                              </Table.Td>
+                              <Table.Td>{path.sort_order}</Table.Td>
+                              <Table.Td>
+                                <Group gap="xs">
+                                  <ActionIcon
+                                    variant="light"
+                                    color="gray"
+                                    onClick={() => handleMovePath(index, 'up')}
+                                    disabled={index === 0 || phase !== 'draft'}
+                                  >
+                                    <IconArrowUp size={16} />
+                                  </ActionIcon>
+                                  <ActionIcon
+                                    variant="light"
+                                    color="gray"
+                                    onClick={() => handleMovePath(index, 'down')}
+                                    disabled={index === paths.length - 1 || phase !== 'draft'}
+                                  >
+                                    <IconArrowDown size={16} />
+                                  </ActionIcon>
+                                  <Button
+                                    variant="light"
+                                    color="green"
+                                    size="xs"
+                                    onClick={() => handleOpenDescriptionsModal(path)}
+                                  >
+                                    Level-Beschreibungen
+                                  </Button>
+                                  <ActionIcon
+                                    variant="light"
+                                    color="blue"
+                                    onClick={() => handleOpenEditPathModal(path)}
+                                    disabled={phase !== 'draft'}
+                                  >
+                                    <IconEdit size={16} />
+                                  </ActionIcon>
+                                  <ActionIcon
+                                    variant="light"
+                                    color="red"
+                                    onClick={() => handleDeletePath(path.id)}
+                                    disabled={phase !== 'draft'}
+                                  >
+                                    <IconTrash size={16} />
+                                  </ActionIcon>
+                                </Group>
+                              </Table.Td>
+                            </Table.Tr>
                           );
                         })}
                       </Table.Tbody>
@@ -444,12 +447,14 @@ export function PathManagement({ catalogId, categories, levels, phase, onUpdate 
         }}
         title={editingPath ? 'Pfad bearbeiten' : 'Neuen Pfad hinzufügen'}
       >
-        <form onSubmit={(e) => {
-          e.preventDefault();
-          if (newPathName.trim()) {
-            handleSavePath();
-          }
-        }}>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (newPathName.trim()) {
+              handleSavePath();
+            }
+          }}
+        >
           <Stack gap="md">
             <TextInput
               label="Pfad-Name"
@@ -487,10 +492,7 @@ export function PathManagement({ catalogId, categories, levels, phase, onUpdate 
               >
                 Abbrechen
               </Button>
-              <Button
-                type="submit"
-                disabled={!newPathName.trim()}
-              >
+              <Button type="submit" disabled={!newPathName.trim()}>
                 {editingPath ? 'Speichern' : 'Hinzufügen'}
               </Button>
             </Group>
@@ -510,16 +512,18 @@ export function PathManagement({ catalogId, categories, levels, phase, onUpdate 
         size="lg"
       >
         <Stack gap="md">
-          {levels.map(level => (
+          {levels.map((level) => (
             <Textarea
               key={level.id}
               label={`${level.name} (Level ${level.level_number})`}
               placeholder={`Beschreibung für ${level.name}...`}
               value={descriptionTexts[level.id] || ''}
-              onChange={(e) => setDescriptionTexts({
-                ...descriptionTexts,
-                [level.id]: e.target.value,
-              })}
+              onChange={(e) =>
+                setDescriptionTexts({
+                  ...descriptionTexts,
+                  [level.id]: e.target.value,
+                })
+              }
               rows={3}
               onKeyDown={(e) => {
                 if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
@@ -540,9 +544,7 @@ export function PathManagement({ catalogId, categories, levels, phase, onUpdate 
             >
               Abbrechen
             </Button>
-            <Button onClick={handleSaveDescriptions}>
-              Alle Beschreibungen speichern
-            </Button>
+            <Button onClick={handleSaveDescriptions}>Alle Beschreibungen speichern</Button>
           </Group>
         </Stack>
       </Modal>

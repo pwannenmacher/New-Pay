@@ -52,7 +52,7 @@ export const RegisterPage = () => {
 
   const handleSubmit = async (values: RegisterRequest) => {
     setIsLoading(true);
-    
+
     try {
       await register(values);
       notifications.show({

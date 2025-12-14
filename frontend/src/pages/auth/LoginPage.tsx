@@ -40,7 +40,7 @@ export const LoginPage = () => {
 
   const handleSubmit = async (values: LoginRequest) => {
     setIsLoading(true);
-    
+
     try {
       await login(values);
       notifications.show({

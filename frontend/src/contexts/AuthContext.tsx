@@ -26,17 +26,17 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     // Check if user is already logged in on mount
     const initAuth = async () => {
       const token = tokenService.getAccessToken();
-      
+
       if (token) {
         try {
           // Fetch current user profile
           const response = await fetch('http://localhost:8080/api/v1/users/profile', {
             headers: {
-              'Authorization': `Bearer ${token}`,
+              Authorization: `Bearer ${token}`,
             },
             credentials: 'include',
           });
-          
+
           if (response.ok) {
             const userData = await response.json();
             setUser(userData);
@@ -48,7 +48,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           tokenService.clearTokens();
         }
       }
-      
+
       setIsLoading(false);
     };
 
@@ -105,10 +105,10 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  
+
   if (context === undefined) {
     throw new Error('useAuth must be used within an AuthProvider');
   }
-  
+
   return context;
 };

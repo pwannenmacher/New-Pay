@@ -34,12 +34,7 @@ import { DatePickerInput } from '@mantine/dates';
 import { notifications } from '@mantine/notifications';
 import { adminApi } from '../../services/admin';
 import { PathManagement } from '../../components/admin/PathManagement';
-import type {
-  CatalogWithDetails,
-  Category,
-  CategoryWithPaths,
-  Level,
-} from '../../types';
+import type { CatalogWithDetails, Category, CategoryWithPaths, Level } from '../../types';
 
 export function CatalogEditorPage() {
   const { id } = useParams<{ id: string }>();
@@ -111,11 +106,11 @@ export function CatalogEditorPage() {
   const calculateCompletionStats = () => {
     const totalPaths = categories.reduce((sum, cat) => sum + (cat.paths?.length || 0), 0);
     const totalDescriptionsNeeded = totalPaths * levels.length;
-    
+
     let filledDescriptions = 0;
-    categories.forEach(cat => {
-      cat.paths?.forEach(path => {
-        path.descriptions?.forEach(desc => {
+    categories.forEach((cat) => {
+      cat.paths?.forEach((path) => {
+        path.descriptions?.forEach((desc) => {
           if (desc.description && desc.description.trim()) {
             filledDescriptions++;
           }
@@ -123,9 +118,13 @@ export function CatalogEditorPage() {
       });
     });
 
-    const allCategoriesHavePaths = categories.length > 0 && categories.every(cat => (cat.paths?.length || 0) > 0);
-    const percentage = totalDescriptionsNeeded > 0 ? Math.round((filledDescriptions / totalDescriptionsNeeded) * 100) : 0;
-    
+    const allCategoriesHavePaths =
+      categories.length > 0 && categories.every((cat) => (cat.paths?.length || 0) > 0);
+    const percentage =
+      totalDescriptionsNeeded > 0
+        ? Math.round((filledDescriptions / totalDescriptionsNeeded) * 100)
+        : 0;
+
     return {
       totalPaths,
       totalDescriptionsNeeded,
@@ -141,7 +140,7 @@ export function CatalogEditorPage() {
     if (!name.trim()) errors.push('Name');
     if (!validFrom) errors.push('Gültig von');
     if (!validUntil) errors.push('Gültig bis');
-    
+
     if (errors.length > 0) {
       notifications.show({
         title: 'Fehler',
@@ -155,11 +154,11 @@ export function CatalogEditorPage() {
     try {
       // TypeScript doesn't know these are non-null after validation, so we assert
       if (!validFrom || !validUntil) return; // Double check for TypeScript
-      
+
       // Ensure we have Date objects
       const fromDate = validFrom instanceof Date ? validFrom : new Date(validFrom);
       const untilDate = validUntil instanceof Date ? validUntil : new Date(validUntil);
-      
+
       const data = {
         name,
         description: description || undefined,
@@ -180,13 +179,13 @@ export function CatalogEditorPage() {
         setDescription(result.description || '');
         setValidFrom(new Date(result.valid_from));
         setValidUntil(new Date(result.valid_until));
-        
+
         notifications.show({
           title: 'Erfolg',
           message: 'Katalog erfolgreich erstellt',
           color: 'green',
         });
-        
+
         // Navigate to edit page without reloading
         navigate(`/admin/catalogs/${result.id}/edit`, { replace: true });
       } else if (id) {
@@ -202,9 +201,13 @@ export function CatalogEditorPage() {
       console.error('Error saving catalog:', err);
       console.error('Error response:', err.response);
       console.error('Error data:', err.response?.data);
-      
-      const errorMessage = err.response?.data?.error || err.response?.data?.message || err.message || 'Fehler beim Speichern';
-      
+
+      const errorMessage =
+        err.response?.data?.error ||
+        err.response?.data?.message ||
+        err.message ||
+        'Fehler beim Speichern';
+
       notifications.show({
         title: 'Fehler beim Speichern',
         message: errorMessage,
@@ -241,7 +244,7 @@ export function CatalogEditorPage() {
           level_number: editingLevel.level_number, // Muss mitgesendet werden
           description: newLevelDescription.trim() || undefined,
         });
-        setLevels(levels.map(l => l.id === editingLevel.id ? updatedLevel : l));
+        setLevels(levels.map((l) => (l.id === editingLevel.id ? updatedLevel : l)));
         notifications.show({
           title: 'Erfolg',
           message: 'Level erfolgreich aktualisiert',
@@ -261,7 +264,7 @@ export function CatalogEditorPage() {
           message: 'Level erfolgreich hinzugefügt',
           color: 'green',
         });
-        
+
         // Reload catalog to update progress
         await loadCatalog(catalog.id);
       }
@@ -280,14 +283,18 @@ export function CatalogEditorPage() {
 
   const handleMoveLevel = async (index: number, direction: 'up' | 'down') => {
     if (!catalog) return;
-    if ((direction === 'up' && index === 0) || (direction === 'down' && index === levels.length - 1)) return;
+    if (
+      (direction === 'up' && index === 0) ||
+      (direction === 'down' && index === levels.length - 1)
+    )
+      return;
 
     const newLevels = [...levels];
     const targetIndex = direction === 'up' ? index - 1 : index + 1;
-    
+
     // Swap positions
     [newLevels[index], newLevels[targetIndex]] = [newLevels[targetIndex], newLevels[index]];
-    
+
     try {
       // Step 1: Set all levels to temporary high numbers (1000+) to avoid conflicts
       for (let i = 0; i < newLevels.length; i++) {
@@ -297,7 +304,7 @@ export function CatalogEditorPage() {
           description: newLevels[i].description,
         });
       }
-      
+
       // Step 2: Set correct final numbers
       const updatedLevels = [];
       for (let i = 0; i < newLevels.length; i++) {
@@ -308,9 +315,9 @@ export function CatalogEditorPage() {
         });
         updatedLevels.push(updated);
       }
-      
+
       setLevels(updatedLevels);
-      
+
       notifications.show({
         title: 'Erfolg',
         message: 'Reihenfolge erfolgreich geändert',
@@ -334,16 +341,16 @@ export function CatalogEditorPage() {
     try {
       await adminApi.deleteLevel(catalog.id, levelId);
       const remainingLevels = levels.filter((l) => l.id !== levelId);
-      
+
       // Renumber remaining levels
       const updatedLevels = remainingLevels.map((level, index) => ({
         ...level,
         level_number: index + 1,
       }));
-      
+
       // Update all levels in backend to fix numbering
       await Promise.all(
-        updatedLevels.map(level =>
+        updatedLevels.map((level) =>
           adminApi.updateLevel(catalog.id, level.id, {
             name: level.name,
             level_number: level.level_number,
@@ -351,14 +358,14 @@ export function CatalogEditorPage() {
           })
         )
       );
-      
+
       setLevels(updatedLevels);
       notifications.show({
         title: 'Erfolg',
         message: 'Level erfolgreich gelöscht',
         color: 'green',
       });
-      
+
       // Reload catalog to update progress
       await loadCatalog(catalog.id);
     } catch (err: any) {
@@ -409,7 +416,7 @@ export function CatalogEditorPage() {
           sort_order: editingCategory.sort_order,
           weight: weightValue,
         });
-        setCategories(categories.map(c => c.id === editingCategory.id ? updatedCategory : c));
+        setCategories(categories.map((c) => (c.id === editingCategory.id ? updatedCategory : c)));
         notifications.show({
           title: 'Erfolg',
           message: 'Kategorie erfolgreich aktualisiert',
@@ -446,14 +453,21 @@ export function CatalogEditorPage() {
 
   const handleMoveCategory = async (index: number, direction: 'up' | 'down') => {
     if (!catalog) return;
-    if ((direction === 'up' && index === 0) || (direction === 'down' && index === categories.length - 1)) return;
+    if (
+      (direction === 'up' && index === 0) ||
+      (direction === 'down' && index === categories.length - 1)
+    )
+      return;
 
     const newCategories = [...categories];
     const targetIndex = direction === 'up' ? index - 1 : index + 1;
-    
+
     // Swap positions
-    [newCategories[index], newCategories[targetIndex]] = [newCategories[targetIndex], newCategories[index]];
-    
+    [newCategories[index], newCategories[targetIndex]] = [
+      newCategories[targetIndex],
+      newCategories[index],
+    ];
+
     try {
       // Step 1: Set temporary high numbers
       for (let i = 0; i < newCategories.length; i++) {
@@ -463,7 +477,7 @@ export function CatalogEditorPage() {
           sort_order: 1000 + i,
         });
       }
-      
+
       // Step 2: Set correct final numbers
       const updatedCategories = [];
       for (let i = 0; i < newCategories.length; i++) {
@@ -474,9 +488,9 @@ export function CatalogEditorPage() {
         });
         updatedCategories.push(updated);
       }
-      
+
       setCategories(updatedCategories);
-      
+
       notifications.show({
         title: 'Erfolg',
         message: 'Reihenfolge erfolgreich geändert',
@@ -499,16 +513,16 @@ export function CatalogEditorPage() {
     try {
       await adminApi.deleteCategory(catalog.id, categoryId);
       const remainingCategories = categories.filter((c) => c.id !== categoryId);
-      
+
       // Renumber remaining categories
       const updatedCategories = remainingCategories.map((category, index) => ({
         ...category,
         sort_order: index,
       }));
-      
+
       // Update all categories in backend
       await Promise.all(
-        updatedCategories.map(category =>
+        updatedCategories.map((category) =>
           adminApi.updateCategory(catalog.id, category.id, {
             name: category.name,
             description: category.description,
@@ -516,7 +530,7 @@ export function CatalogEditorPage() {
           })
         )
       );
-      
+
       setCategories(updatedCategories);
       notifications.show({
         title: 'Erfolg',
@@ -551,20 +565,32 @@ export function CatalogEditorPage() {
               <IconArrowLeft size={20} />
             </ActionIcon>
             <div>
-              <Title order={2}>
-                {isNew ? 'Neuer Kriterienkatalog' : name}
-              </Title>
+              <Title order={2}>{isNew ? 'Neuer Kriterienkatalog' : name}</Title>
               {!isNew && catalog && (
                 <Text c="dimmed" size="sm">
-                  ID: {catalog.id} • Erstellt am: {new Date(catalog.created_at).toLocaleDateString('de-DE')}
+                  ID: {catalog.id} • Erstellt am:{' '}
+                  {new Date(catalog.created_at).toLocaleDateString('de-DE')}
                 </Text>
               )}
             </div>
           </Group>
           <Stack gap="xs" style={{ minWidth: 300 }}>
             {catalog && (
-              <Badge color={catalog.phase === 'draft' ? 'gray' : catalog.phase === 'active' ? 'blue' : 'orange'} size="lg">
-                {catalog.phase === 'draft' ? 'Entwurf' : catalog.phase === 'active' ? 'Aktiv' : 'Archiviert'}
+              <Badge
+                color={
+                  catalog.phase === 'draft'
+                    ? 'gray'
+                    : catalog.phase === 'active'
+                      ? 'blue'
+                      : 'orange'
+                }
+                size="lg"
+              >
+                {catalog.phase === 'draft'
+                  ? 'Entwurf'
+                  : catalog.phase === 'active'
+                    ? 'Aktiv'
+                    : 'Archiviert'}
               </Badge>
             )}
             {!isNew && levels.length > 0 && categories.length > 0 && (
@@ -581,15 +607,13 @@ export function CatalogEditorPage() {
                     />
                     <Text size="xs" c="dimmed">
                       {calculateCompletionStats().filledDescriptions} von{' '}
-                      {calculateCompletionStats().totalDescriptionsNeeded} Beschreibungen ausgefüllt (
-                      {calculateCompletionStats().percentage}%)
+                      {calculateCompletionStats().totalDescriptionsNeeded} Beschreibungen ausgefüllt
+                      ({calculateCompletionStats().percentage}%)
                     </Text>
                   </>
                 ) : (
                   <Alert color="yellow" p="xs">
-                    <Text size="xs">
-                      Es gibt Kategorien ohne Pfade
-                    </Text>
+                    <Text size="xs">Es gibt Kategorien ohne Pfade</Text>
                   </Alert>
                 )}
               </Stack>
@@ -690,8 +714,8 @@ export function CatalogEditorPage() {
               <Stack gap="md">
                 <Group justify="space-between">
                   <Title order={4}>Levels</Title>
-                  <Button 
-                    leftSection={<IconPlus size={16} />} 
+                  <Button
+                    leftSection={<IconPlus size={16} />}
                     onClick={handleOpenLevelModal}
                     disabled={phase !== 'draft'}
                   >
@@ -767,8 +791,8 @@ export function CatalogEditorPage() {
               <Stack gap="md">
                 <Group justify="space-between">
                   <Title order={4}>Kategorien</Title>
-                  <Button 
-                    leftSection={<IconPlus size={16} />} 
+                  <Button
+                    leftSection={<IconPlus size={16} />}
                     onClick={handleOpenCategoryModal}
                     disabled={phase !== 'draft'}
                   >
@@ -861,57 +885,56 @@ export function CatalogEditorPage() {
           }}
           title={editingLevel ? 'Level bearbeiten' : 'Neues Level hinzufügen'}
         >
-          <form onSubmit={(e) => {
-            e.preventDefault();
-            if (newLevelName.trim()) {
-              handleSaveLevel();
-            }
-          }}>
-          <Stack gap="md">
-            <TextInput
-              label="Level-Name"
-              placeholder="z.B. Junior, Senior, Expert"
-              value={newLevelName}
-              onChange={(e) => setNewLevelName(e.target.value)}
-              required
-              data-autofocus
-            />
-            <Textarea
-              label="Beschreibung"
-              placeholder="Optionale Beschreibung des Levels"
-              value={newLevelDescription}
-              onChange={(e) => setNewLevelDescription(e.target.value)}
-              rows={3}
-              onKeyDown={(e) => {
-                if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
-                  e.preventDefault();
-                  if (newLevelName.trim()) {
-                    handleSaveLevel();
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (newLevelName.trim()) {
+                handleSaveLevel();
+              }
+            }}
+          >
+            <Stack gap="md">
+              <TextInput
+                label="Level-Name"
+                placeholder="z.B. Junior, Senior, Expert"
+                value={newLevelName}
+                onChange={(e) => setNewLevelName(e.target.value)}
+                required
+                data-autofocus
+              />
+              <Textarea
+                label="Beschreibung"
+                placeholder="Optionale Beschreibung des Levels"
+                value={newLevelDescription}
+                onChange={(e) => setNewLevelDescription(e.target.value)}
+                rows={3}
+                onKeyDown={(e) => {
+                  if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+                    e.preventDefault();
+                    if (newLevelName.trim()) {
+                      handleSaveLevel();
+                    }
                   }
-                }
-              }}
-            />
-            <Group justify="flex-end">
-              <Button
-                variant="subtle"
-                onClick={() => {
-                  setLevelModalOpened(false);
-                  setEditingLevel(null);
-                  setNewLevelName('');
-                  setNewLevelDescription('');
                 }}
-                type="button"
-              >
-                Abbrechen
-              </Button>
-              <Button
-                type="submit"
-                disabled={!newLevelName.trim()}
-              >
-                {editingLevel ? 'Speichern' : 'Hinzufügen'}
-              </Button>
-            </Group>
-          </Stack>
+              />
+              <Group justify="flex-end">
+                <Button
+                  variant="subtle"
+                  onClick={() => {
+                    setLevelModalOpened(false);
+                    setEditingLevel(null);
+                    setNewLevelName('');
+                    setNewLevelDescription('');
+                  }}
+                  type="button"
+                >
+                  Abbrechen
+                </Button>
+                <Button type="submit" disabled={!newLevelName.trim()}>
+                  {editingLevel ? 'Speichern' : 'Hinzufügen'}
+                </Button>
+              </Group>
+            </Stack>
           </form>
         </Modal>
 
@@ -927,69 +950,68 @@ export function CatalogEditorPage() {
           }}
           title={editingCategory ? 'Kategorie bearbeiten' : 'Neue Kategorie hinzufügen'}
         >
-          <form onSubmit={(e) => {
-            e.preventDefault();
-            if (newCategoryName.trim()) {
-              handleSaveCategory();
-            }
-          }}>
-          <Stack gap="md">
-            <TextInput
-              label="Kategorie-Name"
-              placeholder="z.B. Fachkompetenz, Sozialkompetenz"
-              value={newCategoryName}
-              onChange={(e) => setNewCategoryName(e.target.value)}
-              required
-              data-autofocus
-            />
-            <Textarea
-              label="Beschreibung"
-              placeholder="Optionale Beschreibung der Kategorie"
-              value={newCategoryDescription}
-              onChange={(e) => setNewCategoryDescription(e.target.value)}
-              rows={3}
-              onKeyDown={(e) => {
-                if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
-                  e.preventDefault();
-                  if (newCategoryName.trim()) {
-                    handleSaveCategory();
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (newCategoryName.trim()) {
+                handleSaveCategory();
+              }
+            }}
+          >
+            <Stack gap="md">
+              <TextInput
+                label="Kategorie-Name"
+                placeholder="z.B. Fachkompetenz, Sozialkompetenz"
+                value={newCategoryName}
+                onChange={(e) => setNewCategoryName(e.target.value)}
+                required
+                data-autofocus
+              />
+              <Textarea
+                label="Beschreibung"
+                placeholder="Optionale Beschreibung der Kategorie"
+                value={newCategoryDescription}
+                onChange={(e) => setNewCategoryDescription(e.target.value)}
+                rows={3}
+                onKeyDown={(e) => {
+                  if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+                    e.preventDefault();
+                    if (newCategoryName.trim()) {
+                      handleSaveCategory();
+                    }
                   }
-                }
-              }}
-            />
-            <TextInput
-              label="Gewichtung"
-              placeholder="z.B. 0,25"
-              description="Dezimalwert von 0,00 bis 1,00. Summe aller Kategorien muss 1,00 ergeben."
-              value={newCategoryWeight}
-              onChange={(e) => setNewCategoryWeight(e.target.value)}
-              type="number"
-              step="0.01"
-              min="0"
-              max="1"
-            />
-            <Group justify="flex-end">
-              <Button
-                variant="subtle"
-                onClick={() => {
-                  setCategoryModalOpened(false);
-                  setEditingCategory(null);
-                  setNewCategoryName('');
-                  setNewCategoryDescription('');
-                  setNewCategoryWeight('');
                 }}
-                type="button"
-              >
-                Abbrechen
-              </Button>
-              <Button
-                type="submit"
-                disabled={!newCategoryName.trim()}
-              >
-                {editingCategory ? 'Speichern' : 'Hinzufügen'}
-              </Button>
-            </Group>
-          </Stack>
+              />
+              <TextInput
+                label="Gewichtung"
+                placeholder="z.B. 0,25"
+                description="Dezimalwert von 0,00 bis 1,00. Summe aller Kategorien muss 1,00 ergeben."
+                value={newCategoryWeight}
+                onChange={(e) => setNewCategoryWeight(e.target.value)}
+                type="number"
+                step="0.01"
+                min="0"
+                max="1"
+              />
+              <Group justify="flex-end">
+                <Button
+                  variant="subtle"
+                  onClick={() => {
+                    setCategoryModalOpened(false);
+                    setEditingCategory(null);
+                    setNewCategoryName('');
+                    setNewCategoryDescription('');
+                    setNewCategoryWeight('');
+                  }}
+                  type="button"
+                >
+                  Abbrechen
+                </Button>
+                <Button type="submit" disabled={!newCategoryName.trim()}>
+                  {editingCategory ? 'Speichern' : 'Hinzufügen'}
+                </Button>
+              </Group>
+            </Stack>
           </form>
         </Modal>
       </Stack>

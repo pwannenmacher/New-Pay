@@ -1,7 +1,20 @@
 import { AppShell, Burger, Group, Button, Menu, Avatar, Text, Alert, Divider } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { Link, useNavigate } from 'react-router-dom';
-import { IconUser, IconLogout, IconSettings, IconAlertCircle, IconMail, IconBook, IconClipboardList, IconUsers, IconShieldCheck, IconFileText, IconClock, IconCheckbox } from '@tabler/icons-react';
+import {
+  IconUser,
+  IconLogout,
+  IconSettings,
+  IconAlertCircle,
+  IconMail,
+  IconBook,
+  IconClipboardList,
+  IconUsers,
+  IconShieldCheck,
+  IconFileText,
+  IconClock,
+  IconCheckbox,
+} from '@tabler/icons-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useAppConfig } from '../../contexts/AppConfigContext';
 import { ThemeToggle } from './ThemeToggle';
@@ -64,7 +77,13 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
         <Group h="100%" px="md" justify="space-between">
           <Group>
             <Burger opened={opened} onClick={toggle} hiddenFrom="sm" size="sm" />
-            <Text size="xl" fw={700} component={Link} to="/" style={{ textDecoration: 'none', color: 'inherit' }}>
+            <Text
+              size="xl"
+              fw={700}
+              component={Link}
+              to="/"
+              style={{ textDecoration: 'none', color: 'inherit' }}
+            >
               New Pay
             </Text>
           </Group>
@@ -73,34 +92,28 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
             <Group>
               <ThemeToggle />
               <Menu shadow="md" width={200}>
-              <Menu.Target>
-                <Button variant="subtle" leftSection={<Avatar size="sm" radius="xl" />}>
-                  {user?.first_name}
-                </Button>
-              </Menu.Target>
+                <Menu.Target>
+                  <Button variant="subtle" leftSection={<Avatar size="sm" radius="xl" />}>
+                    {user?.first_name}
+                  </Button>
+                </Menu.Target>
 
-              <Menu.Dropdown>
-                <Menu.Label>{user?.email}</Menu.Label>
-                <Menu.Item
-                  leftSection={<IconUser size={14} />}
-                  component={Link}
-                  to="/profile"
-                >
-                  Meine Daten
-                </Menu.Item>
-                <Menu.Item leftSection={<IconSettings size={14} />}>
-                  Einstellungen
-                </Menu.Item>
-                <Menu.Divider />
-                <Menu.Item
-                  color="red"
-                  leftSection={<IconLogout size={14} />}
-                  onClick={handleLogout}
-                >
-                  Abmelden
-                </Menu.Item>
-              </Menu.Dropdown>
-            </Menu>
+                <Menu.Dropdown>
+                  <Menu.Label>{user?.email}</Menu.Label>
+                  <Menu.Item leftSection={<IconUser size={14} />} component={Link} to="/profile">
+                    Meine Daten
+                  </Menu.Item>
+                  <Menu.Item leftSection={<IconSettings size={14} />}>Einstellungen</Menu.Item>
+                  <Menu.Divider />
+                  <Menu.Item
+                    color="red"
+                    leftSection={<IconLogout size={14} />}
+                    onClick={handleLogout}
+                  >
+                    Abmelden
+                  </Menu.Item>
+                </Menu.Dropdown>
+              </Menu>
             </Group>
           ) : (
             <Group>
@@ -229,7 +242,7 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
                   styles={{
                     root: { height: 'auto', padding: '8px 12px' },
                     inner: { whiteSpace: 'normal', justifyContent: 'flex-start' },
-                    label: { whiteSpace: 'normal', wordBreak: 'break-word', textAlign: 'left' }
+                    label: { whiteSpace: 'normal', wordBreak: 'break-word', textAlign: 'left' },
                   }}
                 >
                   Abgeschlossene Selbsteinschätzungen
@@ -327,7 +340,8 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
           >
             <Group justify="space-between" align="center">
               <Text size="sm">
-                Your email address has not been verified yet. Please check your inbox for the verification email.
+                Your email address has not been verified yet. Please check your inbox for the
+                verification email.
               </Text>
               <Button
                 size="xs"

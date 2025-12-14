@@ -59,7 +59,7 @@ export default function AdminSelfAssessmentDetailPage() {
       setLoading(true);
       const data = await selfAssessmentService.getSelfAssessment(parseInt(id!));
       setAssessment(data);
-      
+
       // Load catalog information
       try {
         const catalogData = await adminService.getCatalog(data.catalog_id);
@@ -174,9 +174,9 @@ export default function AdminSelfAssessmentDetailPage() {
     const deadline = new Date(closedAt.getTime() + 24 * 60 * 60 * 1000);
     const now = new Date();
     const remaining = deadline.getTime() - now.getTime();
-    
+
     if (remaining <= 0) return null;
-    
+
     const hours = Math.floor(remaining / (1000 * 60 * 60));
     const minutes = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60));
     return `${hours}h ${minutes}m`;
@@ -205,7 +205,8 @@ export default function AdminSelfAssessmentDetailPage() {
       console.error('Error reopening assessment:', error);
       notifications.show({
         title: 'Fehler',
-        message: error.response?.data?.error || 'Selbsteinschätzung konnte nicht wiedereröffnet werden',
+        message:
+          error.response?.data?.error || 'Selbsteinschätzung konnte nicht wiedereröffnet werden',
         color: 'red',
       });
     } finally {
@@ -242,7 +243,8 @@ export default function AdminSelfAssessmentDetailPage() {
                 {assessment.catalog_name || catalog?.name || 'Selbsteinschätzung'}
               </Title>
               <Text c="dimmed" size="sm">
-                Benutzer: {assessment.user_name || 'Unbekannt'} ({assessment.user_email || 'keine E-Mail'})
+                Benutzer: {assessment.user_name || 'Unbekannt'} (
+                {assessment.user_email || 'keine E-Mail'})
               </Text>
             </div>
           </Group>
@@ -258,7 +260,9 @@ export default function AdminSelfAssessmentDetailPage() {
               <Table withColumnBorders>
                 <Table.Tbody>
                   <Table.Tr>
-                    <Table.Td fw={500} w="200px">Benutzer</Table.Td>
+                    <Table.Td fw={500} w="200px">
+                      Benutzer
+                    </Table.Td>
                     <Table.Td>
                       {assessment.user_name || 'Unbekannt'} (ID: {assessment.user_id})
                     </Table.Td>
@@ -266,7 +270,8 @@ export default function AdminSelfAssessmentDetailPage() {
                   <Table.Tr>
                     <Table.Td fw={500}>Katalog</Table.Td>
                     <Table.Td>
-                      {assessment.catalog_name || catalog?.name || 'Unbekannt'} (ID: {assessment.catalog_id})
+                      {assessment.catalog_name || catalog?.name || 'Unbekannt'} (ID:{' '}
+                      {assessment.catalog_id})
                     </Table.Td>
                   </Table.Tr>
                   <Table.Tr>
@@ -305,7 +310,7 @@ export default function AdminSelfAssessmentDetailPage() {
               <Text fw={500} size="sm" c="dimmed" mb="md">
                 Administrative Aktionen
               </Text>
-              
+
               <Stack gap="sm">
                 {assessment.status === 'submitted' && (
                   <Group>
@@ -387,11 +392,7 @@ export default function AdminSelfAssessmentDetailPage() {
                       )}
                     </Alert>
                     <Group>
-                      <Button
-                        onClick={handleReopen}
-                        loading={updating}
-                        color="orange"
-                      >
+                      <Button onClick={handleReopen} loading={updating} color="orange">
                         Wiedereröffnen
                       </Button>
                     </Group>
@@ -400,11 +401,7 @@ export default function AdminSelfAssessmentDetailPage() {
 
                 {canDelete() && (
                   <Group>
-                    <Button
-                      onClick={handleDelete}
-                      variant="light"
-                      color="red"
-                    >
+                    <Button onClick={handleDelete} variant="light" color="red">
                       Löschen
                     </Button>
                   </Group>
@@ -472,7 +469,9 @@ export default function AdminSelfAssessmentDetailPage() {
                 </Text>
                 {assessment.previous_status && (
                   <Text c="dimmed" size="xs">
-                    Vorheriger Status: {statusConfig[assessment.previous_status as keyof typeof statusConfig]?.label || assessment.previous_status}
+                    Vorheriger Status:{' '}
+                    {statusConfig[assessment.previous_status as keyof typeof statusConfig]?.label ||
+                      assessment.previous_status}
                   </Text>
                 )}
               </Timeline.Item>
@@ -481,11 +480,13 @@ export default function AdminSelfAssessmentDetailPage() {
         </Paper>
 
         <Alert icon={<IconAlertCircle size={16} />} color="blue">
-          <Text fw={500} mb="xs">Hinweis zu sensiblen Informationen</Text>
+          <Text fw={500} mb="xs">
+            Hinweis zu sensiblen Informationen
+          </Text>
           <Text size="sm">
-            Diese Ansicht zeigt keine Details zu den spezifischen Level-Einschätzungen des Benutzers,
-            um die Vertraulichkeit der Selbsteinschätzung zu wahren. Als Administrator können Sie den
-            Status verwalten und administrative Aktionen durchführen.
+            Diese Ansicht zeigt keine Details zu den spezifischen Level-Einschätzungen des
+            Benutzers, um die Vertraulichkeit der Selbsteinschätzung zu wahren. Als Administrator
+            können Sie den Status verwalten und administrative Aktionen durchführen.
           </Text>
         </Alert>
       </Stack>

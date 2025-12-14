@@ -21,7 +21,22 @@ import {
   PasswordInput,
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
-import { IconUserPlus, IconUserMinus, IconSearch, IconX, IconChevronUp, IconChevronDown, IconLock, IconLockOpen, IconEdit, IconTrash, IconKey, IconMail, IconMailOff, IconMailX } from '@tabler/icons-react';
+import {
+  IconUserPlus,
+  IconUserMinus,
+  IconSearch,
+  IconX,
+  IconChevronUp,
+  IconChevronDown,
+  IconLock,
+  IconLockOpen,
+  IconEdit,
+  IconTrash,
+  IconKey,
+  IconMail,
+  IconMailOff,
+  IconMailX,
+} from '@tabler/icons-react';
 import { adminApi, type UserListParams } from '../../services/admin';
 import type { UserWithRoles, Role, ApiError } from '../../types';
 
@@ -73,7 +88,16 @@ export const UserManagementPage = () => {
 
   useEffect(() => {
     loadUsers();
-  }, [currentPage, searchQuery, selectedRoleFilters, activeFilter, verifiedFilter, sortBy, sortOrder, pageSize]);
+  }, [
+    currentPage,
+    searchQuery,
+    selectedRoleFilters,
+    activeFilter,
+    verifiedFilter,
+    sortBy,
+    sortOrder,
+    pageSize,
+  ]);
 
   useEffect(() => {
     loadRoles();
@@ -91,7 +115,7 @@ export const UserManagementPage = () => {
 
       if (searchQuery) params.search = searchQuery;
       if (selectedRoleFilters.length > 0) {
-        params.role_ids = selectedRoleFilters.map(id => parseInt(id));
+        params.role_ids = selectedRoleFilters.map((id) => parseInt(id));
       }
       if (activeFilter !== undefined) params.is_active = activeFilter;
       if (verifiedFilter !== undefined) params.email_verified = verifiedFilter;
@@ -410,9 +434,9 @@ export const UserManagementPage = () => {
         last_name: createLastName,
         is_active: createIsActive,
         send_email: createSendEmail,
-        role_ids: createRoleIds.map(id => parseInt(id)),
+        role_ids: createRoleIds.map((id) => parseInt(id)),
       });
-      
+
       notifications.show({
         title: 'Success',
         message: 'User created successfully',
@@ -447,9 +471,10 @@ export const UserManagementPage = () => {
     }
   };
 
-  const availableRoles = actionType === 'assign'
-    ? roles.filter(role => !selectedUser?.roles?.some(ur => ur.id === role.id))
-    : selectedUser?.roles || [];
+  const availableRoles =
+    actionType === 'assign'
+      ? roles.filter((role) => !selectedUser?.roles?.some((ur) => ur.id === role.id))
+      : selectedUser?.roles || [];
 
   const SortIcon = ({ column }: { column: string }) => {
     if (sortBy !== column) return null;
@@ -461,10 +486,7 @@ export const UserManagementPage = () => {
       <Paper withBorder shadow="md" p={30} radius="md">
         <Group justify="space-between" mb="xl">
           <Title order={2}>Benutzerverwaltung</Title>
-          <Button
-            leftSection={<IconUserPlus size={16} />}
-            onClick={openCreateUserModal}
-          >
+          <Button leftSection={<IconUserPlus size={16} />} onClick={openCreateUserModal}>
             Benutzer erstellen
           </Button>
         </Group>
@@ -494,7 +516,7 @@ export const UserManagementPage = () => {
               <Grid.Col span={{ base: 12, md: 6 }}>
                 <MultiSelect
                   placeholder="Filter by roles"
-                  data={roles.map(role => ({ value: role.id.toString(), label: role.name }))}
+                  data={roles.map((role) => ({ value: role.id.toString(), label: role.name }))}
                   value={selectedRoleFilters}
                   onChange={(values) => {
                     setSelectedRoleFilters(values);
@@ -538,7 +560,10 @@ export const UserManagementPage = () => {
                   setCurrentPage(1);
                 }}
               />
-              {(searchQuery || selectedRoleFilters.length > 0 || activeFilter !== undefined || verifiedFilter !== undefined) && (
+              {(searchQuery ||
+                selectedRoleFilters.length > 0 ||
+                activeFilter !== undefined ||
+                verifiedFilter !== undefined) && (
                 <Button variant="subtle" onClick={clearFilters} leftSection={<IconX size={14} />}>
                   Clear filters
                 </Button>
@@ -598,33 +623,44 @@ export const UserManagementPage = () => {
                 <Table.Tr key={user.id}>
                   <Table.Td>{user.id}</Table.Td>
                   <Table.Td>
-                    <div>{user.first_name} {user.last_name}</div>
+                    <div>
+                      {user.first_name} {user.last_name}
+                    </div>
                   </Table.Td>
                   <Table.Td>
                     <Stack gap={4}>
                       <Text size="sm">{user.email}</Text>
                       {user.email_verified ? (
-                        <Badge size="xs" color="green" variant="dot">Verified</Badge>
+                        <Badge size="xs" color="green" variant="dot">
+                          Verified
+                        </Badge>
                       ) : (
-                        <Badge size="xs" color="gray" variant="dot">Not verified</Badge>
+                        <Badge size="xs" color="gray" variant="dot">
+                          Not verified
+                        </Badge>
                       )}
                     </Stack>
                   </Table.Td>
                   <Table.Td>
                     <Stack gap={4}>
                       {user.has_local_password && (
-                        <Badge size="xs" variant="light" color="blue">Email/Password</Badge>
+                        <Badge size="xs" variant="light" color="blue">
+                          Email/Password
+                        </Badge>
                       )}
-                      {user.oauth_connections && user.oauth_connections.length > 0 ? (
-                        user.oauth_connections.map((conn) => (
-                          <Badge key={conn.id} size="xs" variant="light" color="grape">
-                            {conn.provider}
-                          </Badge>
-                        ))
-                      ) : null}
-                      {!user.has_local_password && (!user.oauth_connections || user.oauth_connections.length === 0) && (
-                        <Text c="dimmed" size="xs">No login method</Text>
-                      )}
+                      {user.oauth_connections && user.oauth_connections.length > 0
+                        ? user.oauth_connections.map((conn) => (
+                            <Badge key={conn.id} size="xs" variant="light" color="grape">
+                              {conn.provider}
+                            </Badge>
+                          ))
+                        : null}
+                      {!user.has_local_password &&
+                        (!user.oauth_connections || user.oauth_connections.length === 0) && (
+                          <Text c="dimmed" size="xs">
+                            No login method
+                          </Text>
+                        )}
                     </Stack>
                   </Table.Td>
                   <Table.Td>
@@ -636,7 +672,9 @@ export const UserManagementPage = () => {
                           </Badge>
                         ))
                       ) : (
-                        <Text c="dimmed" size="sm">No roles</Text>
+                        <Text c="dimmed" size="sm">
+                          No roles
+                        </Text>
                       )}
                     </Group>
                   </Table.Td>
@@ -647,10 +685,10 @@ export const UserManagementPage = () => {
                   </Table.Td>
                   <Table.Td>
                     <Text size="sm" c="dimmed">
-                      {user.last_login_at 
+                      {user.last_login_at
                         ? new Date(user.last_login_at).toLocaleString('de-DE', {
                             dateStyle: 'short',
-                            timeStyle: 'short'
+                            timeStyle: 'short',
                           })
                         : 'Never'}
                     </Text>
@@ -772,11 +810,7 @@ export const UserManagementPage = () => {
               von {totalCount} Einträgen | Seite {currentPage} von {totalPages}
             </Text>
           </Group>
-          <Pagination
-            value={currentPage}
-            onChange={setCurrentPage}
-            total={totalPages}
-          />
+          <Pagination value={currentPage} onChange={setCurrentPage} total={totalPages} />
         </Group>
       </Paper>
 
@@ -789,7 +823,8 @@ export const UserManagementPage = () => {
         <Stack>
           {selectedUser && (
             <Text>
-              {actionType === 'assign' ? 'Assign role to' : 'Remove role from'}: {selectedUser.first_name} {selectedUser.last_name}
+              {actionType === 'assign' ? 'Assign role to' : 'Remove role from'}:{' '}
+              {selectedUser.first_name} {selectedUser.last_name}
             </Text>
           )}
 
@@ -820,11 +855,7 @@ export const UserManagementPage = () => {
       </Modal>
 
       {/* Edit User Modal */}
-      <Modal
-        opened={editModalOpened}
-        onClose={() => setEditModalOpened(false)}
-        title="Edit User"
-      >
+      <Modal opened={editModalOpened} onClose={() => setEditModalOpened(false)} title="Edit User">
         <Stack>
           {selectedUser && (
             <Text size="sm" c="dimmed">
@@ -860,10 +891,7 @@ export const UserManagementPage = () => {
             <Button variant="default" onClick={() => setEditModalOpened(false)}>
               Cancel
             </Button>
-            <Button
-              onClick={handleUpdateUser}
-              loading={actionLoading}
-            >
+            <Button onClick={handleUpdateUser} loading={actionLoading}>
               Update
             </Button>
           </Group>
@@ -903,11 +931,7 @@ export const UserManagementPage = () => {
             <Button variant="default" onClick={() => setPasswordModalOpened(false)}>
               Cancel
             </Button>
-            <Button
-              onClick={handleSetPassword}
-              loading={actionLoading}
-              color="violet"
-            >
+            <Button onClick={handleSetPassword} loading={actionLoading} color="violet">
               Set Password
             </Button>
           </Group>
@@ -923,9 +947,7 @@ export const UserManagementPage = () => {
         <Stack>
           {selectedUser && (
             <>
-              <Text>
-                Are you sure you want to delete this user?
-              </Text>
+              <Text>Are you sure you want to delete this user?</Text>
               <Text fw={500}>
                 {selectedUser.first_name} {selectedUser.last_name} ({selectedUser.email})
               </Text>
@@ -939,11 +961,7 @@ export const UserManagementPage = () => {
             <Button variant="default" onClick={() => setDeleteModalOpened(false)}>
               Cancel
             </Button>
-            <Button
-              onClick={handleDeleteUser}
-              loading={actionLoading}
-              color="red"
-            >
+            <Button onClick={handleDeleteUser} loading={actionLoading} color="red">
               Delete User
             </Button>
           </Group>
@@ -999,7 +1017,7 @@ export const UserManagementPage = () => {
           <MultiSelect
             label="Roles"
             placeholder="Select roles"
-            data={roles.map(role => ({
+            data={roles.map((role) => ({
               value: role.id.toString(),
               label: role.name,
             }))}

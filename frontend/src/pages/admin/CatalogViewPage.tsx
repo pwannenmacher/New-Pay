@@ -117,13 +117,12 @@ export function CatalogViewPage() {
             <div>
               <Title order={2}>{catalog.name}</Title>
               <Text c="dimmed" size="sm">
-                ID: {catalog.id} • Erstellt am: {new Date(catalog.created_at).toLocaleDateString('de-DE')}
+                ID: {catalog.id} • Erstellt am:{' '}
+                {new Date(catalog.created_at).toLocaleDateString('de-DE')}
               </Text>
             </div>
           </Group>
-          <Badge color={getPhaseColor(catalog.phase)}>
-            {getPhaseLabel(catalog.phase)}
-          </Badge>
+          <Badge color={getPhaseColor(catalog.phase)}>{getPhaseLabel(catalog.phase)}</Badge>
         </Group>
 
         <Paper p="md" withBorder>
@@ -217,14 +216,10 @@ export function CatalogViewPage() {
                               </Table.Thead>
                               <Table.Tbody>
                                 {path.descriptions.map((desc) => {
-                                  const level = catalog.levels?.find(
-                                    (l) => l.id === desc.level_id
-                                  );
+                                  const level = catalog.levels?.find((l) => l.id === desc.level_id);
                                   return (
                                     <Table.Tr key={desc.id}>
-                                      <Table.Td>
-                                        {level?.name || `Level ${desc.level_id}`}
-                                      </Table.Td>
+                                      <Table.Td>{level?.name || `Level ${desc.level_id}`}</Table.Td>
                                       <Table.Td>{desc.description}</Table.Td>
                                     </Table.Tr>
                                   );

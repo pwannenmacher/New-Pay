@@ -14,7 +14,7 @@ export const HomePage = () => {
       <Paper withBorder shadow="md" p={30} radius="md">
         <Stack align="center" gap="lg">
           <Title order={1}>Willkommen bei New Pay</Title>
-          
+
           {isAuthenticated ? (
             <>
               {!hasAnyRole ? (
@@ -26,8 +26,9 @@ export const HomePage = () => {
                     Ihrem Benutzerkonto wurde noch keine Rolle zugewiesen.
                   </Text>
                   <Text size="sm" ta="center" c="dimmed">
-                    Bitte kontaktieren Sie einen Administrator, um eine Rolle (user, reviewer oder admin) 
-                    zugewiesen zu bekommen. Nur dann können Sie auf die Funktionen dieser Anwendung zugreifen.
+                    Bitte kontaktieren Sie einen Administrator, um eine Rolle (user, reviewer oder
+                    admin) zugewiesen zu bekommen. Nur dann können Sie auf die Funktionen dieser
+                    Anwendung zugreifen.
                   </Text>
                   <Button component={Link} to="/profile" size="lg">
                     Zum Profil
@@ -36,7 +37,8 @@ export const HomePage = () => {
               ) : (
                 <>
                   <Text size="lg" ta="center">
-                    Hallo, {user?.first_name}! Willkommen auf Ihrer Plattform für Gehaltseinschätzungen und Peer-Reviews.
+                    Hallo, {user?.first_name}! Willkommen auf Ihrer Plattform für
+                    Gehaltseinschätzungen und Peer-Reviews.
                   </Text>
                   <Button component={Link} to="/profile" size="lg">
                     View Profile
@@ -50,7 +52,7 @@ export const HomePage = () => {
                 A modern platform for salary estimates and peer reviews.
               </Text>
               <Text size="md" ta="center">
-                {enableRegistration 
+                {enableRegistration
                   ? 'Sign up today to get started with salary insights and professional peer reviews.'
                   : 'Sign in to access salary insights and professional peer reviews.'}
               </Text>
@@ -60,7 +62,12 @@ export const HomePage = () => {
                     Get Started
                   </Button>
                 )}
-                <Button component={Link} to="/login" variant={enableRegistration ? "outline" : "filled"} size="lg">
+                <Button
+                  component={Link}
+                  to="/login"
+                  variant={enableRegistration ? 'outline' : 'filled'}
+                  size="lg"
+                >
                   Sign In
                 </Button>
               </Button.Group>

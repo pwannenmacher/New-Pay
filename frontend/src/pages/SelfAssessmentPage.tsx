@@ -97,8 +97,8 @@ export default function SelfAssessmentPage() {
     // Load existing response for active category
     if (activeCategory && responses && responses.length > 0) {
       const categoryId = parseInt(activeCategory);
-      const existingResponse = responses.find(r => r.category_id === categoryId);
-      
+      const existingResponse = responses.find((r) => r.category_id === categoryId);
+
       if (existingResponse) {
         setSelectedPath(existingResponse.path_id);
         setSelectedLevel(existingResponse.level_id);
@@ -176,7 +176,7 @@ export default function SelfAssessmentPage() {
         selfAssessmentService.getResponses(assessmentId),
         selfAssessmentService.getCompleteness(assessmentId),
       ]);
-      
+
       setResponses(responsesData);
       setCompleteness(completenessData);
 
@@ -236,11 +236,12 @@ export default function SelfAssessmentPage() {
       await selfAssessmentService.updateStatus(assessment.id, newStatus);
       notifications.show({
         title: 'Erfolg',
-        message: newStatus === 'submitted' 
-          ? 'Selbsteinschätzung wurde eingereicht'
-          : newStatus === 'closed'
-          ? 'Selbsteinschätzung wurde storniert'
-          : 'Status wurde aktualisiert',
+        message:
+          newStatus === 'submitted'
+            ? 'Selbsteinschätzung wurde eingereicht'
+            : newStatus === 'closed'
+              ? 'Selbsteinschätzung wurde storniert'
+              : 'Status wurde aktualisiert',
         color: 'green',
       });
       await loadData();
@@ -272,9 +273,9 @@ export default function SelfAssessmentPage() {
     const deadline = new Date(closedAt.getTime() + 24 * 60 * 60 * 1000);
     const now = new Date();
     const remaining = deadline.getTime() - now.getTime();
-    
+
     if (remaining <= 0) return null;
-    
+
     const hours = Math.floor(remaining / (1000 * 60 * 60));
     const minutes = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60));
     return `${hours}h ${minutes}m`;
@@ -303,7 +304,8 @@ export default function SelfAssessmentPage() {
       console.error('Error reopening assessment:', error);
       notifications.show({
         title: 'Fehler',
-        message: error.response?.data?.error || 'Selbsteinschätzung konnte nicht wiedereröffnet werden',
+        message:
+          error.response?.data?.error || 'Selbsteinschätzung konnte nicht wiedereröffnet werden',
         color: 'red',
       });
     } finally {
@@ -313,7 +315,7 @@ export default function SelfAssessmentPage() {
 
   const getCurrentCategory = (): CategoryWithPaths | null => {
     if (!catalog?.categories || !activeCategory) return null;
-    return catalog.categories.find(c => c.id.toString() === activeCategory) || null;
+    return catalog.categories.find((c) => c.id.toString() === activeCategory) || null;
   };
 
   const getVisibleLevels = (): Level[] => {
@@ -332,20 +334,20 @@ export default function SelfAssessmentPage() {
 
   const scrollLevels = (direction: 'left' | 'right') => {
     if (direction === 'left' && canScrollLeft()) {
-      setLevelViewStart(prev => Math.max(0, prev - 1));
+      setLevelViewStart((prev) => Math.max(0, prev - 1));
     } else if (direction === 'right' && canScrollRight()) {
-      setLevelViewStart(prev => prev + 1);
+      setLevelViewStart((prev) => prev + 1);
     }
   };
 
   const getLevelDescription = (pathId: number, levelId: number): string => {
-    const path = getCurrentCategory()?.paths?.find(p => p.id === pathId);
-    const desc = path?.descriptions?.find(d => d.level_id === levelId);
+    const path = getCurrentCategory()?.paths?.find((p) => p.id === pathId);
+    const desc = path?.descriptions?.find((d) => d.level_id === levelId);
     return desc?.description || 'Keine Beschreibung verfügbar';
   };
 
   const isCategoryComplete = (categoryId: number): boolean => {
-    return responses.some(r => r.category_id === categoryId);
+    return responses.some((r) => r.category_id === categoryId);
   };
 
   const getProgressColor = (): string => {
@@ -435,13 +437,18 @@ export default function SelfAssessmentPage() {
                 <div>
                   <Group justify="space-between" mb="xs">
                     <Text size="sm" fw={500}>
-                      Fortschritt: {completeness.completed_categories} von {completeness.total_categories} Kategorien
+                      Fortschritt: {completeness.completed_categories} von{' '}
+                      {completeness.total_categories} Kategorien
                     </Text>
                     <Text size="sm" fw={500}>
                       {completeness.percent_complete.toFixed(0)}%
                     </Text>
                   </Group>
-                  <Progress value={completeness.percent_complete} color={getProgressColor()} size="lg" />
+                  <Progress
+                    value={completeness.percent_complete}
+                    color={getProgressColor()}
+                    size="lg"
+                  />
                 </div>
               )}
 
@@ -476,7 +483,8 @@ export default function SelfAssessmentPage() {
 
               {!completeness?.is_complete && (
                 <Alert icon={<IconAlertCircle size={16} />} color="orange">
-                  Sie müssen alle Kategorien ausfüllen, bevor Sie die Selbsteinschätzung einreichen können.
+                  Sie müssen alle Kategorien ausfüllen, bevor Sie die Selbsteinschätzung einreichen
+                  können.
                 </Alert>
               )}
             </>
@@ -485,8 +493,11 @@ export default function SelfAssessmentPage() {
           {!canSubmit && (
             <>
               <Alert icon={<IconAlertCircle size={16} />} color="yellow">
-                Diese Selbsteinschätzung ist nicht mehr editierbar (Status: {statusConfig[assessment.status as keyof typeof statusConfig]?.label || assessment.status}).
-                Sie können die ausgefüllten Antworten ansehen, aber keine Änderungen mehr vornehmen.
+                Diese Selbsteinschätzung ist nicht mehr editierbar (Status:{' '}
+                {statusConfig[assessment.status as keyof typeof statusConfig]?.label ||
+                  assessment.status}
+                ). Sie können die ausgefüllten Antworten ansehen, aber keine Änderungen mehr
+                vornehmen.
               </Alert>
             </>
           )}
@@ -589,9 +600,7 @@ export default function SelfAssessmentPage() {
               key={category.id}
               value={category.id.toString()}
               rightSection={
-                isCategoryComplete(category.id) ? (
-                  <IconCheck size={16} color="green" />
-                ) : null
+                isCategoryComplete(category.id) ? <IconCheck size={16} color="green" /> : null
               }
             >
               {category.name}
@@ -614,8 +623,8 @@ export default function SelfAssessmentPage() {
                 <Title order={4} mb="md">
                   {isReadOnly ? 'Gewählter Pfad:' : 'Wählen Sie Ihren Pfad:'}
                 </Title>
-                <Radio.Group 
-                  value={selectedPath?.toString() || ''} 
+                <Radio.Group
+                  value={selectedPath?.toString() || ''}
                   onChange={(val) => !isReadOnly && setSelectedPath(parseInt(val))}
                 >
                   <Stack gap="xs">
@@ -668,7 +677,10 @@ export default function SelfAssessmentPage() {
                             style={{
                               flex: 1,
                               maxWidth: '300px',
-                              border: selectedLevel === level.id ? '2px solid var(--mantine-color-blue-6)' : undefined,
+                              border:
+                                selectedLevel === level.id
+                                  ? '2px solid var(--mantine-color-blue-6)'
+                                  : undefined,
                             }}
                           >
                             <Stack gap="sm">
@@ -714,8 +726,9 @@ export default function SelfAssessmentPage() {
 
                   {!isReadOnly && (
                     <Text size="sm" c="dimmed" ta="center">
-                      Level {levelViewStart + 1} bis {Math.min(levelViewStart + LEVELS_PER_VIEW, catalog.levels?.length || 0)}{' '}
-                      von {catalog.levels?.length || 0}
+                      Level {levelViewStart + 1} bis{' '}
+                      {Math.min(levelViewStart + LEVELS_PER_VIEW, catalog.levels?.length || 0)} von{' '}
+                      {catalog.levels?.length || 0}
                     </Text>
                   )}
 
@@ -723,7 +736,7 @@ export default function SelfAssessmentPage() {
                     <Card shadow="sm" p="md" withBorder>
                       <Stack gap="sm">
                         {(() => {
-                          const level = catalog.levels?.find(l => l.id === selectedLevel);
+                          const level = catalog.levels?.find((l) => l.id === selectedLevel);
                           return level ? (
                             <>
                               <div>
@@ -737,9 +750,7 @@ export default function SelfAssessmentPage() {
                                   {level.description}
                                 </Text>
                               )}
-                              <Text size="sm">
-                                {getLevelDescription(selectedPath, level.id)}
-                              </Text>
+                              <Text size="sm">{getLevelDescription(selectedPath, level.id)}</Text>
                             </>
                           ) : null;
                         })()}
@@ -761,7 +772,11 @@ export default function SelfAssessmentPage() {
                     minRows={6}
                     value={justification}
                     onChange={(e) => setJustification(e.target.value)}
-                    error={!isReadOnly && justification.length > 0 && justification.length < 150 ? `Noch ${150 - justification.length} Zeichen erforderlich` : undefined}
+                    error={
+                      !isReadOnly && justification.length > 0 && justification.length < 150
+                        ? `Noch ${150 - justification.length} Zeichen erforderlich`
+                        : undefined
+                    }
                     readOnly={isReadOnly}
                     disabled={isReadOnly}
                   />
@@ -795,9 +810,7 @@ export default function SelfAssessmentPage() {
         title="Selbsteinschätzung einreichen"
       >
         <Stack gap="md">
-          <Text>
-            Möchten Sie Ihre Selbsteinschätzung wirklich zur Prüfung einreichen?
-          </Text>
+          <Text>Möchten Sie Ihre Selbsteinschätzung wirklich zur Prüfung einreichen?</Text>
           <Alert icon={<IconAlertCircle size={16} />} color="blue">
             Nach dem Einreichen können Sie keine Änderungen mehr vornehmen.
           </Alert>

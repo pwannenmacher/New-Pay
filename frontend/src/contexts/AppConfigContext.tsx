@@ -50,9 +50,5 @@ export function AppConfigProvider({ children }: AppConfigProviderProps) {
     fetchConfig();
   }, []);
 
-  return (
-    <AppConfigContext.Provider value={config}>
-      {children}
-    </AppConfigContext.Provider>
-  );
+  return <AppConfigContext.Provider value={config}>{children}</AppConfigContext.Provider>;
 }

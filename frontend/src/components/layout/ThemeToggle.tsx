@@ -27,37 +27,49 @@ export function ThemeToggle() {
         <Menu.Item
           leftSection={<IconSun size={16} />}
           onClick={() => toggleTheme('light')}
-          style={{ 
-            backgroundColor: themeMode === 'light' ? 'var(--mantine-color-blue-light)' : undefined 
+          style={{
+            backgroundColor: themeMode === 'light' ? 'var(--mantine-color-blue-light)' : undefined,
           }}
         >
           <Group justify="space-between">
             <Text>Hell</Text>
-            {themeMode === 'light' && <Text size="xs" c="dimmed">✓</Text>}
+            {themeMode === 'light' && (
+              <Text size="xs" c="dimmed">
+                ✓
+              </Text>
+            )}
           </Group>
         </Menu.Item>
         <Menu.Item
           leftSection={<IconMoon size={16} />}
           onClick={() => toggleTheme('dark')}
-          style={{ 
-            backgroundColor: themeMode === 'dark' ? 'var(--mantine-color-blue-light)' : undefined 
+          style={{
+            backgroundColor: themeMode === 'dark' ? 'var(--mantine-color-blue-light)' : undefined,
           }}
         >
           <Group justify="space-between">
             <Text>Dunkel</Text>
-            {themeMode === 'dark' && <Text size="xs" c="dimmed">✓</Text>}
+            {themeMode === 'dark' && (
+              <Text size="xs" c="dimmed">
+                ✓
+              </Text>
+            )}
           </Group>
         </Menu.Item>
         <Menu.Item
           leftSection={<IconDeviceDesktop size={16} />}
           onClick={() => toggleTheme('auto')}
-          style={{ 
-            backgroundColor: themeMode === 'auto' ? 'var(--mantine-color-blue-light)' : undefined 
+          style={{
+            backgroundColor: themeMode === 'auto' ? 'var(--mantine-color-blue-light)' : undefined,
           }}
         >
           <Group justify="space-between">
             <Text>System</Text>
-            {themeMode === 'auto' && <Text size="xs" c="dimmed">✓</Text>}
+            {themeMode === 'auto' && (
+              <Text size="xs" c="dimmed">
+                ✓
+              </Text>
+            )}
           </Group>
         </Menu.Item>
       </Menu.Dropdown>

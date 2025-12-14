@@ -105,7 +105,9 @@ export const AuditLogsPage = () => {
   return (
     <Container size="xl" my={40}>
       <Paper withBorder shadow="md" p={30} radius="md">
-        <Title order={2} mb="xl">Audit Logs</Title>
+        <Title order={2} mb="xl">
+          Audit Logs
+        </Title>
 
         {/* Filters */}
         <Paper withBorder p="md" mb="md" bg="dark.6">
@@ -226,7 +228,9 @@ export const AuditLogsPage = () => {
                         </Text>
                       </div>
                     ) : (
-                      <Text c="dimmed" size="sm">N/A</Text>
+                      <Text c="dimmed" size="sm">
+                        N/A
+                      </Text>
                     )}
                   </Table.Td>
                   <Table.Td>
@@ -274,11 +278,7 @@ export const AuditLogsPage = () => {
               von {totalCount} Einträgen | Seite {currentPage} von {totalPages}
             </Text>
           </Group>
-          <Pagination
-            value={currentPage}
-            onChange={setCurrentPage}
-            total={totalPages}
-          />
+          <Pagination value={currentPage} onChange={setCurrentPage} total={totalPages} />
         </Group>
       </Paper>
     </Container>

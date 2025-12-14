@@ -62,8 +62,6 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
   };
 
   return (
-    <ThemeContext.Provider value={{ themeMode, toggleTheme }}>
-      {children}
-    </ThemeContext.Provider>
+    <ThemeContext.Provider value={{ themeMode, toggleTheme }}>{children}</ThemeContext.Provider>
   );
 }

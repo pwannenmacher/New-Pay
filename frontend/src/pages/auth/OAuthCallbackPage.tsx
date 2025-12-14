@@ -34,7 +34,7 @@ export function OAuthCallbackPage() {
         // Fetch user profile
         const userData = await apiClient.get<User>('/users/profile');
         updateUser(userData);
-        
+
         // Redirect to home page
         navigate('/');
       } catch (error) {
