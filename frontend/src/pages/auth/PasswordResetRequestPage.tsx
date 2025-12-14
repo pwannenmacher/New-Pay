@@ -32,7 +32,7 @@ export const PasswordResetRequestPage = () => {
 
   const handleSubmit = async (values: PasswordResetRequest) => {
     setIsLoading(true);
-    
+
     try {
       await authApi.requestPasswordReset(values);
       setIsSuccess(true);
@@ -70,8 +70,8 @@ export const PasswordResetRequestPage = () => {
             </Center>
             <Title order={2}>Prüfen Sie Ihre E-Mails</Title>
             <Text c="dimmed" ta="center">
-              Wir haben Ihnen Anweisungen zum Zurücksetzen des Passworts an Ihre E-Mail-Adresse gesendet.
-              Bitte überprüfen Sie Ihren Posteingang und folgen Sie dem Link.
+              Wir haben Ihnen Anweisungen zum Zurücksetzen des Passworts an Ihre E-Mail-Adresse
+              gesendet. Bitte überprüfen Sie Ihren Posteingang und folgen Sie dem Link.
             </Text>
             <Anchor component={Link} to="/login" mt="md">
               Zurück zur Anmeldung

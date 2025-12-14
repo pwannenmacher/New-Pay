@@ -62,13 +62,13 @@ export default function SelfAssessmentsPage() {
       ]);
       const assessmentsList = Array.isArray(assessmentsData) ? assessmentsData : [];
       const catalogsList = Array.isArray(catalogsData) ? catalogsData : [];
-      
+
       setAssessments(assessmentsList);
       setActiveCatalog(catalogsList.length > 0 ? catalogsList[0] : null);
-      
+
       // Check if user has any active assessment (not archived or closed)
       const activeStatuses = ['draft', 'submitted', 'in_review', 'reviewed', 'discussion'];
-      const hasActive = assessmentsList.some(a => activeStatuses.includes(a.status));
+      const hasActive = assessmentsList.some((a) => activeStatuses.includes(a.status));
       setHasActiveAssessment(hasActive);
     } catch (error) {
       console.error('Error loading data:', error);
@@ -135,11 +135,11 @@ export default function SelfAssessmentsPage() {
   };
 
   const canCreateAssessment = !hasActiveAssessment && activeCatalog !== null;
-  const buttonTooltip = hasActiveAssessment 
+  const buttonTooltip = hasActiveAssessment
     ? 'Sie haben bereits eine aktive Selbsteinschätzung. Schließen oder archivieren Sie diese zuerst.'
     : !activeCatalog
-    ? 'Zurzeit ist kein aktiver Kriterienkatalog verfügbar.'
-    : '';
+      ? 'Zurzeit ist kein aktiver Kriterienkatalog verfügbar.'
+      : '';
 
   if (loading) {
     return (
@@ -223,7 +223,10 @@ export default function SelfAssessmentsPage() {
                 <IconFileCheck size={48} stroke={1.5} />
                 <Text c="dimmed">Sie haben noch keine Selbsteinschätzungen erstellt</Text>
                 {activeCatalog && (
-                  <Button onClick={() => setCreateModalOpen(true)} leftSection={<IconPlus size={16} />}>
+                  <Button
+                    onClick={() => setCreateModalOpen(true)}
+                    leftSection={<IconPlus size={16} />}
+                  >
                     Erste Selbsteinschätzung erstellen
                   </Button>
                 )}
@@ -243,10 +246,13 @@ export default function SelfAssessmentsPage() {
         <Stack>
           {activeCatalog && (
             <div>
-              <Text size="sm" fw={500} mb="xs">Aktiver Kriterienkatalog</Text>
+              <Text size="sm" fw={500} mb="xs">
+                Aktiver Kriterienkatalog
+              </Text>
               <Text size="sm">{activeCatalog.name}</Text>
               <Text size="xs" c="dimmed">
-                Gültig von {formatDate(activeCatalog.valid_from)} bis {formatDate(activeCatalog.valid_until)}
+                Gültig von {formatDate(activeCatalog.valid_from)} bis{' '}
+                {formatDate(activeCatalog.valid_until)}
               </Text>
             </div>
           )}
@@ -255,11 +261,7 @@ export default function SelfAssessmentsPage() {
             <Button variant="subtle" onClick={() => setCreateModalOpen(false)} disabled={creating}>
               Abbrechen
             </Button>
-            <Button
-              onClick={handleCreateAssessment}
-              disabled={!activeCatalog}
-              loading={creating}
-            >
+            <Button onClick={handleCreateAssessment} disabled={!activeCatalog} loading={creating}>
               Erstellen
             </Button>
           </Group>

@@ -100,7 +100,8 @@ export default function SelfAssessmentsAdminPage() {
     } catch (error: any) {
       notifications.show({
         title: 'Fehler',
-        message: error.response?.data?.error || 'Selbsteinschätzung konnte nicht geschlossen werden',
+        message:
+          error.response?.data?.error || 'Selbsteinschätzung konnte nicht geschlossen werden',
         color: 'red',
       });
     }
@@ -163,7 +164,8 @@ export default function SelfAssessmentsAdminPage() {
     } catch (error: any) {
       notifications.show({
         title: 'Fehler',
-        message: error.response?.data?.error || 'Selbsteinschätzung konnte nicht wiedereröffnet werden',
+        message:
+          error.response?.data?.error || 'Selbsteinschätzung konnte nicht wiedereröffnet werden',
         color: 'red',
       });
     }
@@ -251,10 +253,7 @@ export default function SelfAssessmentsAdminPage() {
               />
             </Group>
             <Group>
-              <Button
-                leftSection={<IconFilter size={16} />}
-                onClick={handleFilter}
-              >
+              <Button leftSection={<IconFilter size={16} />} onClick={handleFilter}>
                 Filtern
               </Button>
               <Button variant="subtle" onClick={handleReset}>
@@ -286,13 +285,17 @@ export default function SelfAssessmentsAdminPage() {
                     <Table.Td>
                       <div>
                         <Text size="sm">{assessment.catalog_name || 'Unbekannt'}</Text>
-                        <Text size="xs" c="dimmed">ID: {assessment.catalog_id}</Text>
+                        <Text size="xs" c="dimmed">
+                          ID: {assessment.catalog_id}
+                        </Text>
                       </div>
                     </Table.Td>
                     <Table.Td>
                       <div>
                         <Text size="sm">{assessment.user_name || 'Unbekannt'}</Text>
-                        <Text size="xs" c="dimmed">ID: {assessment.user_id}</Text>
+                        <Text size="xs" c="dimmed">
+                          ID: {assessment.user_id}
+                        </Text>
                       </div>
                     </Table.Td>
                     <Table.Td>{getStatusBadge(assessment.status)}</Table.Td>

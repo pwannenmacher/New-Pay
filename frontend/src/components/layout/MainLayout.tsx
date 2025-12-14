@@ -1,7 +1,20 @@
 import { AppShell, Burger, Group, Button, Menu, Avatar, Text, Alert, Divider } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { Link, useNavigate } from 'react-router-dom';
-import { IconUser, IconLogout, IconSettings, IconAlertCircle, IconMail, IconBook, IconClipboardList, IconUsers, IconShieldCheck, IconFileText, IconClock, IconCheckbox } from '@tabler/icons-react';
+import {
+  IconUser,
+  IconLogout,
+  IconSettings,
+  IconAlertCircle,
+  IconMail,
+  IconBook,
+  IconClipboardList,
+  IconUsers,
+  IconShieldCheck,
+  IconFileText,
+  IconClock,
+  IconCheckbox,
+} from '@tabler/icons-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useAppConfig } from '../../contexts/AppConfigContext';
 import { ThemeToggle } from './ThemeToggle';
@@ -47,6 +60,8 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
 
   const isAdmin = user?.roles?.some((role) => role.name === 'admin');
   const isReviewer = user?.roles?.some((role) => role.name === 'reviewer');
+  const hasUserRole = user?.roles?.some((role) => role.name === 'user');
+  const hasAnyRole = user?.roles && user.roles.length > 0;
 
   return (
     <AppShell
@@ -62,7 +77,13 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
         <Group h="100%" px="md" justify="space-between">
           <Group>
             <Burger opened={opened} onClick={toggle} hiddenFrom="sm" size="sm" />
-            <Text size="xl" fw={700} component={Link} to="/" style={{ textDecoration: 'none', color: 'inherit' }}>
+            <Text
+              size="xl"
+              fw={700}
+              component={Link}
+              to="/"
+              style={{ textDecoration: 'none', color: 'inherit' }}
+            >
               New Pay
             </Text>
           </Group>
@@ -71,34 +92,28 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
             <Group>
               <ThemeToggle />
               <Menu shadow="md" width={200}>
-              <Menu.Target>
-                <Button variant="subtle" leftSection={<Avatar size="sm" radius="xl" />}>
-                  {user?.first_name}
-                </Button>
-              </Menu.Target>
+                <Menu.Target>
+                  <Button variant="subtle" leftSection={<Avatar size="sm" radius="xl" />}>
+                    {user?.first_name}
+                  </Button>
+                </Menu.Target>
 
-              <Menu.Dropdown>
-                <Menu.Label>{user?.email}</Menu.Label>
-                <Menu.Item
-                  leftSection={<IconUser size={14} />}
-                  component={Link}
-                  to="/profile"
-                >
-                  Meine Daten
-                </Menu.Item>
-                <Menu.Item leftSection={<IconSettings size={14} />}>
-                  Einstellungen
-                </Menu.Item>
-                <Menu.Divider />
-                <Menu.Item
-                  color="red"
-                  leftSection={<IconLogout size={14} />}
-                  onClick={handleLogout}
-                >
-                  Abmelden
-                </Menu.Item>
-              </Menu.Dropdown>
-            </Menu>
+                <Menu.Dropdown>
+                  <Menu.Label>{user?.email}</Menu.Label>
+                  <Menu.Item leftSection={<IconUser size={14} />} component={Link} to="/profile">
+                    Meine Daten
+                  </Menu.Item>
+                  <Menu.Item leftSection={<IconSettings size={14} />}>Einstellungen</Menu.Item>
+                  <Menu.Divider />
+                  <Menu.Item
+                    color="red"
+                    leftSection={<IconLogout size={14} />}
+                    onClick={handleLogout}
+                  >
+                    Abmelden
+                  </Menu.Item>
+                </Menu.Dropdown>
+              </Menu>
             </Group>
           ) : (
             <Group>
@@ -119,54 +134,85 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
       <AppShell.Navbar p="md">
         {isAuthenticated && (
           <>
-            <Text size="sm" fw={500} mb="xs" c="dimmed">
-              Navigation
-            </Text>
-            <Button
-              variant="subtle"
-              component={Link}
-              to="/profile"
-              fullWidth
-              justify="flex-start"
-              leftSection={<IconUser size={16} />}
-              mb="xs"
-            >
-              Meine Daten
-            </Button>
-            <Button
-              variant="subtle"
-              component={Link}
-              to="/self-assessments"
-              fullWidth
-              justify="flex-start"
-              leftSection={<IconClipboardList size={16} />}
-              mb="xs"
-            >
-              Selbsteinschätzungen
-            </Button>
-            <Button
-              variant="subtle"
-              component={Link}
-              to="/catalogs"
-              fullWidth
-              justify="flex-start"
-              leftSection={<IconBook size={16} />}
-              mb="xs"
-            >
-              Kriterienkataloge
-            </Button>
-            <Button
-              variant="subtle"
-              component={Link}
-              to="/classifications"
-              fullWidth
-              justify="flex-start"
-              leftSection={<IconShieldCheck size={16} />}
-              mb="xs"
-              disabled
-            >
-              Einstufungen
-            </Button>
+            {/* Navigation for users with any role */}
+            {hasAnyRole && (
+              <>
+                <Text size="sm" fw={500} mb="xs" c="dimmed">
+                  Navigation
+                </Text>
+                <Button
+                  variant="subtle"
+                  component={Link}
+                  to="/profile"
+                  fullWidth
+                  justify="flex-start"
+                  leftSection={<IconUser size={16} />}
+                  mb="xs"
+                >
+                  Meine Daten
+                </Button>
+                {hasUserRole && (
+                  <Button
+                    variant="subtle"
+                    component={Link}
+                    to="/self-assessments"
+                    fullWidth
+                    justify="flex-start"
+                    leftSection={<IconClipboardList size={16} />}
+                    mb="xs"
+                  >
+                    Selbsteinschätzungen
+                  </Button>
+                )}
+                {hasUserRole && (
+                  <Button
+                    variant="subtle"
+                    component={Link}
+                    to="/catalogs"
+                    fullWidth
+                    justify="flex-start"
+                    leftSection={<IconBook size={16} />}
+                    mb="xs"
+                  >
+                    Kriterienkataloge
+                  </Button>
+                )}
+                {hasUserRole && (
+                  <Button
+                    variant="subtle"
+                    component={Link}
+                    to="/classifications"
+                    fullWidth
+                    justify="flex-start"
+                    leftSection={<IconShieldCheck size={16} />}
+                    mb="xs"
+                    disabled
+                  >
+                    Einstufungen
+                  </Button>
+                )}
+              </>
+            )}
+
+            {/* Show only profile link for users without roles */}
+            {!hasAnyRole && (
+              <>
+                <Text size="sm" fw={500} mb="xs" c="dimmed">
+                  Mein Profil
+                </Text>
+                <Button
+                  variant="subtle"
+                  component={Link}
+                  to="/profile"
+                  fullWidth
+                  justify="flex-start"
+                  leftSection={<IconUser size={16} />}
+                  mb="xs"
+                >
+                  Meine Daten
+                </Button>
+              </>
+            )}
 
             {isReviewer && (
               <>
@@ -196,7 +242,7 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
                   styles={{
                     root: { height: 'auto', padding: '8px 12px' },
                     inner: { whiteSpace: 'normal', justifyContent: 'flex-start' },
-                    label: { whiteSpace: 'normal', wordBreak: 'break-word', textAlign: 'left' }
+                    label: { whiteSpace: 'normal', wordBreak: 'break-word', textAlign: 'left' },
                   }}
                 >
                   Abgeschlossene Selbsteinschätzungen
@@ -294,7 +340,8 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
           >
             <Group justify="space-between" align="center">
               <Text size="sm">
-                Your email address has not been verified yet. Please check your inbox for the verification email.
+                Your email address has not been verified yet. Please check your inbox for the
+                verification email.
               </Text>
               <Button
                 size="xs"

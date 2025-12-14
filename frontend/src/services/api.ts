@@ -20,24 +20,24 @@ export const tokenService = {
   getAccessToken: (): string | null => {
     return localStorage.getItem(ACCESS_TOKEN_KEY);
   },
-  
+
   setAccessToken: (token: string): void => {
     localStorage.setItem(ACCESS_TOKEN_KEY, token);
   },
-  
+
   getRefreshToken: (): string | null => {
     return localStorage.getItem(REFRESH_TOKEN_KEY);
   },
-  
+
   setRefreshToken: (token: string): void => {
     localStorage.setItem(REFRESH_TOKEN_KEY, token);
   },
-  
+
   clearTokens: (): void => {
     localStorage.removeItem(ACCESS_TOKEN_KEY);
     localStorage.removeItem(REFRESH_TOKEN_KEY);
   },
-  
+
   setTokens: (accessToken: string, refreshToken: string): void => {
     tokenService.setAccessToken(accessToken);
     tokenService.setRefreshToken(refreshToken);
@@ -92,7 +92,7 @@ class ApiClient {
   }
 
   private onRefreshed(token: string): void {
-    this.refreshSubscribers.forEach(callback => callback(token));
+    this.refreshSubscribers.forEach((callback) => callback(token));
     this.refreshSubscribers = [];
   }
 
@@ -100,10 +100,7 @@ class ApiClient {
     this.refreshSubscribers.push(callback);
   }
 
-  async request<T>(
-    endpoint: string,
-    options: RequestInit = {}
-  ): Promise<T> {
+  async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
     const token = tokenService.getAccessToken();
 
@@ -127,12 +124,12 @@ class ApiClient {
       if (response.status === 401 && tokenService.getRefreshToken()) {
         if (!this.isRefreshing) {
           this.isRefreshing = true;
-          
+
           try {
             const newToken = await this.refreshToken();
             this.isRefreshing = false;
             this.onRefreshed(newToken);
-            
+
             // Retry original request with new token
             headers['Authorization'] = `Bearer ${newToken}`;
             const retryResponse = await fetch(url, {
@@ -140,7 +137,7 @@ class ApiClient {
               headers,
               credentials: 'include',
             });
-            
+
             return this.handleResponse<T>(retryResponse);
           } catch (error) {
             this.isRefreshing = false;
@@ -151,12 +148,12 @@ class ApiClient {
           return new Promise((resolve, reject) => {
             this.addRefreshSubscriber((token: string) => {
               headers['Authorization'] = `Bearer ${token}`;
-              fetch(url, { 
-                ...options, 
+              fetch(url, {
+                ...options,
                 headers,
                 credentials: 'include',
               })
-                .then(res => this.handleResponse<T>(res))
+                .then((res) => this.handleResponse<T>(res))
                 .then(resolve)
                 .catch(reject);
             });
@@ -219,45 +216,41 @@ export const apiClient = new ApiClient(API_BASE_URL);
 
 // Auth API
 export const authApi = {
-  login: (data: LoginRequest) =>
-    apiClient.post<AuthResponse>('/auth/login', data),
-  
-  register: (data: RegisterRequest) =>
-    apiClient.post<AuthResponse>('/auth/register', data),
-  
-  logout: () =>
-    apiClient.post<void>('/auth/logout'),
-  
+  login: (data: LoginRequest) => apiClient.post<AuthResponse>('/auth/login', data),
+
+  register: (data: RegisterRequest) => apiClient.post<AuthResponse>('/auth/register', data),
+
+  logout: () => apiClient.post<void>('/auth/logout'),
+
   verifyEmail: (token: string) =>
     apiClient.getPublic<{ message: string }>(`/auth/verify-email?token=${token}`),
-  
+
   requestPasswordReset: (data: PasswordResetRequest) =>
     apiClient.post<{ message: string }>('/auth/password-reset/request', data),
-  
+
   confirmPasswordReset: (data: PasswordResetConfirm) =>
     apiClient.post<{ message: string }>('/auth/password-reset/confirm', data),
-  
-  refreshToken: (data: RefreshTokenRequest) =>
-    apiClient.post<AuthResponse>('/auth/refresh', data),
+
+  refreshToken: (data: RefreshTokenRequest) => apiClient.post<AuthResponse>('/auth/refresh', data),
 };
 
 // Session API
 export const sessionApi = {
-  getMySessions: () =>
-    apiClient.get<Session[]>('/users/sessions'),
-  
+  getMySessions: () => apiClient.get<Session[]>('/users/sessions'),
+
   deleteMySession: (sessionId: string) =>
     apiClient.delete<{ message: string }>(`/users/sessions/delete?session_id=${sessionId}`),
-  
-  deleteAllMySessions: () =>
-    apiClient.delete<{ message: string }>('/users/sessions/delete-all'),
+
+  deleteAllMySessions: () => apiClient.delete<{ message: string }>('/users/sessions/delete-all'),
 };
 
 // Config API
 export const configApi = {
   getAppConfig: () =>
-    apiClient.getPublic<{ enable_registration: boolean; enable_oauth_registration: boolean }>('/config/app'),
-  
+    apiClient.getPublic<{ enable_registration: boolean; enable_oauth_registration: boolean }>(
+      '/config/app'
+    ),
+
   getOAuthConfig: () =>
     apiClient.getPublic<{ enabled: boolean; providers: { name: string }[] }>('/config/oauth'),
 };

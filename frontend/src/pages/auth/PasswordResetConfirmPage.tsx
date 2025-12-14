@@ -52,7 +52,7 @@ export const PasswordResetConfirmPage = () => {
     }
 
     setIsLoading(true);
-    
+
     try {
       await authApi.confirmPasswordReset({
         token,

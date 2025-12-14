@@ -254,7 +254,8 @@ export const SessionsPage = () => {
         centered
       >
         <Text mb="md">
-          Are you sure you want to end all sessions for this user? They will be logged out from all devices.
+          Are you sure you want to end all sessions for this user? They will be logged out from all
+          devices.
         </Text>
         <Group justify="flex-end">
           <Button

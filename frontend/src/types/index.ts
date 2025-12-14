@@ -216,7 +216,14 @@ export interface CatalogWithDetails extends CriteriaCatalog {
 }
 
 // Self-Assessment types
-export type SelfAssessmentStatus = 'draft' | 'submitted' | 'in_review' | 'reviewed' | 'discussion' | 'archived' | 'closed';
+export type SelfAssessmentStatus =
+  | 'draft'
+  | 'submitted'
+  | 'in_review'
+  | 'reviewed'
+  | 'discussion'
+  | 'archived'
+  | 'closed';
 
 export interface SelfAssessment {
   id: number;
@@ -275,4 +282,3 @@ export interface WeightedScore {
   level_number: number;
   is_complete: boolean;
 }
-

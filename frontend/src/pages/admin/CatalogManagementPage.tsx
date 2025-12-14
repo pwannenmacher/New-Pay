@@ -61,7 +61,7 @@ export function CatalogManagementPage() {
   const [catalogs, setCatalogs] = useState<CriteriaCatalog[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
+
   // Modal state for changing valid_until
   const [validUntilModalOpen, setValidUntilModalOpen] = useState(false);
   const [selectedCatalog, setSelectedCatalog] = useState<CriteriaCatalog | null>(null);
@@ -86,7 +86,11 @@ export function CatalogManagementPage() {
   }, []);
 
   const handleDelete = async (catalogId: number, catalogName: string) => {
-    if (!confirm(`Kriterienkatalog "${catalogName}" wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.`)) {
+    if (
+      !confirm(
+        `Kriterienkatalog "${catalogName}" wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.`
+      )
+    ) {
       return;
     }
 
@@ -99,7 +103,11 @@ export function CatalogManagementPage() {
   };
 
   const handleTransitionToActive = async (catalogId: number, catalogName: string) => {
-    if (!confirm(`Kriterienkatalog "${catalogName}" aktivieren? Der Katalog wird dann für Reviewer und User sichtbar.`)) {
+    if (
+      !confirm(
+        `Kriterienkatalog "${catalogName}" aktivieren? Der Katalog wird dann für Reviewer und User sichtbar.`
+      )
+    ) {
       return;
     }
 
@@ -112,7 +120,11 @@ export function CatalogManagementPage() {
   };
 
   const handleTransitionToArchived = async (catalogId: number, catalogName: string) => {
-    if (!confirm(`Kriterienkatalog "${catalogName}" archivieren? Der Katalog kann danach nicht mehr bearbeitet werden.`)) {
+    if (
+      !confirm(
+        `Kriterienkatalog "${catalogName}" archivieren? Der Katalog kann danach nicht mehr bearbeitet werden.`
+      )
+    ) {
       return;
     }
 
@@ -187,7 +199,7 @@ export function CatalogManagementPage() {
     <Container size="xl" py="xl">
       <Stack gap="lg">
         <Group justify="space-between">
-          <Title order={2}>Kriterienkataloge</Title>
+          <Title order={2}>Kriterienkataloge verwalten</Title>
           <Button
             leftSection={<IconPlus size={16} />}
             onClick={() => navigate('/admin/catalogs/new/edit')}
@@ -211,11 +223,11 @@ export function CatalogManagementPage() {
             <Table.Thead>
               <Table.Tr>
                 <Table.Th>Name</Table.Th>
-                <Table.Th>Gültig von</Table.Th>
-                <Table.Th>Gültig bis</Table.Th>
-                <Table.Th>Phase</Table.Th>
-                <Table.Th>Erstellt am</Table.Th>
-                <Table.Th>Aktionen</Table.Th>
+                <Table.Th style={{ width: '90px' }}>Gültig von</Table.Th>
+                <Table.Th style={{ width: '90px' }}>Gültig bis</Table.Th>
+                <Table.Th style={{ width: '100px' }}>Phase</Table.Th>
+                <Table.Th style={{ width: '90px' }}>Erstellt am</Table.Th>
+                <Table.Th style={{ width: '100px' }}>Aktionen</Table.Th>
               </Table.Tr>
             </Table.Thead>
             <Table.Tbody>
@@ -229,16 +241,26 @@ export function CatalogManagementPage() {
                       </Text>
                     )}
                   </Table.Td>
-                  <Table.Td>{formatDate(catalog.valid_from)}</Table.Td>
-                  <Table.Td>{formatDate(catalog.valid_until)}</Table.Td>
+                  <Table.Td style={{ whiteSpace: 'nowrap' }}>
+                    {formatDate(catalog.valid_from)}
+                  </Table.Td>
+                  <Table.Td style={{ whiteSpace: 'nowrap' }}>
+                    {formatDate(catalog.valid_until)}
+                  </Table.Td>
                   <Table.Td>
-                    <Badge color={getPhaseColor(catalog.phase)}>
+                    <Badge
+                      color={getPhaseColor(catalog.phase)}
+                      size="md"
+                      style={{ minWidth: '90px' }}
+                    >
                       {getPhaseLabel(catalog.phase)}
                     </Badge>
                   </Table.Td>
-                  <Table.Td>{formatDate(catalog.created_at)}</Table.Td>
+                  <Table.Td style={{ whiteSpace: 'nowrap' }}>
+                    {formatDate(catalog.created_at)}
+                  </Table.Td>
                   <Table.Td>
-                    <Group gap="xs">
+                    <Group gap="xs" wrap="nowrap">
                       <ActionIcon
                         variant="light"
                         color="blue"
@@ -246,7 +268,7 @@ export function CatalogManagementPage() {
                       >
                         <IconEye size={16} />
                       </ActionIcon>
-                      
+
                       {catalog.phase !== 'archived' && (
                         <ActionIcon
                           variant="light"
@@ -301,9 +323,7 @@ export function CatalogManagementPage() {
                           )}
 
                           {catalog.phase === 'archived' && (
-                            <Menu.Item disabled>
-                              Archiviert (keine Aktionen)
-                            </Menu.Item>
+                            <Menu.Item disabled>Archiviert (keine Aktionen)</Menu.Item>
                           )}
                         </Menu.Dropdown>
                       </Menu>
@@ -333,10 +353,10 @@ export function CatalogManagementPage() {
                 <strong>Aktuelles Enddatum:</strong> {formatDate(selectedCatalog.valid_until)}
               </Text>
               <Text size="sm" c="dimmed">
-                Sie können das Enddatum nur verkürzen (auf ein früheres Datum setzen).
-                Betroffene Mitarbeiter werden automatisch per E-Mail benachrichtigt.
+                Sie können das Enddatum nur verkürzen (auf ein früheres Datum setzen). Betroffene
+                Mitarbeiter werden automatisch per E-Mail benachrichtigt.
               </Text>
-              
+
               <DateInput
                 label="Neues Enddatum"
                 placeholder="Wählen Sie ein Datum"
@@ -363,11 +383,7 @@ export function CatalogManagementPage() {
                 >
                   Abbrechen
                 </Button>
-                <Button
-                  onClick={handleUpdateValidUntil}
-                  loading={saving}
-                  disabled={!newValidUntil}
-                >
+                <Button onClick={handleUpdateValidUntil} loading={saving} disabled={!newValidUntil}>
                   Speichern
                 </Button>
               </Group>

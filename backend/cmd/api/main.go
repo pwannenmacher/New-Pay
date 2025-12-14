@@ -201,6 +201,13 @@ func main() {
 			),
 		),
 	)
+	mux.Handle("/api/v1/admin/users/create",
+		authMw.Authenticate(
+			rbacMw.RequireRole("admin")(
+				http.HandlerFunc(userHandler.CreateUser),
+			),
+		),
+	)
 	mux.Handle("/api/v1/admin/users/assign-role",
 		authMw.Authenticate(
 			rbacMw.RequireRole("admin")(
@@ -300,11 +307,38 @@ func main() {
 		),
 	)
 
-	// Catalog routes - Public (users can view catalogs in review phase)
-	mux.Handle("GET /api/v1/catalogs", authMw.Authenticate(http.HandlerFunc(catalogHandler.GetAllCatalogs)))
-	mux.Handle("GET /api/v1/catalogs/{id}", authMw.Authenticate(http.HandlerFunc(catalogHandler.GetCatalogByID)))
+	// Catalog routes - Require user role only
+	mux.Handle("GET /api/v1/catalogs",
+		authMw.Authenticate(
+			rbacMw.RequireRole("user")(
+				http.HandlerFunc(catalogHandler.GetAllCatalogs),
+			),
+		),
+	)
+	mux.Handle("GET /api/v1/catalogs/{id}",
+		authMw.Authenticate(
+			rbacMw.RequireRole("user")(
+				http.HandlerFunc(catalogHandler.GetCatalogByID),
+			),
+		),
+	)
 
 	// Catalog routes - Admin only
+	// Admin can list all catalogs without filtering
+	mux.Handle("GET /api/v1/admin/catalogs",
+		authMw.Authenticate(
+			rbacMw.RequireRole("admin")(
+				http.HandlerFunc(catalogHandler.GetAllCatalogs),
+			),
+		),
+	)
+	mux.Handle("GET /api/v1/admin/catalogs/{id}",
+		authMw.Authenticate(
+			rbacMw.RequireRole("admin")(
+				http.HandlerFunc(catalogHandler.GetCatalogByID),
+			),
+		),
+	)
 	mux.Handle("POST /api/v1/admin/catalogs",
 		authMw.Authenticate(
 			rbacMw.RequireRole("admin")(
@@ -425,24 +459,30 @@ func main() {
 		),
 	)
 
-	// Self-Assessment routes
-	// Get active catalogs (available to all authenticated users)
+	// Self-Assessment routes - Require user role only
+	// Get active catalogs (available only to users with user role)
 	mux.Handle("GET /api/v1/self-assessments/active-catalogs",
 		authMw.Authenticate(
-			http.HandlerFunc(selfAssessmentHandler.GetActiveCatalogs),
+			rbacMw.RequireRole("user")(
+				http.HandlerFunc(selfAssessmentHandler.GetActiveCatalogs),
+			),
 		),
 	)
 	// Get current user's self-assessments
 	mux.Handle("GET /api/v1/self-assessments/my",
 		authMw.Authenticate(
-			http.HandlerFunc(selfAssessmentHandler.GetUserSelfAssessments),
+			rbacMw.RequireRole("user")(
+				http.HandlerFunc(selfAssessmentHandler.GetUserSelfAssessments),
+			),
 		),
 	)
 
-	// Create self-assessment for a catalog (using POST to base + query parameter alternative approach)
+	// Create self-assessment for a catalog
 	mux.Handle("POST /api/v1/catalogs/{catalogId}/self-assessments",
 		authMw.Authenticate(
-			http.HandlerFunc(selfAssessmentHandler.CreateSelfAssessment),
+			rbacMw.RequireRole("user")(
+				http.HandlerFunc(selfAssessmentHandler.CreateSelfAssessment),
+			),
 		),
 	)
 
@@ -450,37 +490,49 @@ func main() {
 	// Get responses for an assessment
 	mux.Handle("GET /api/v1/self-assessments/{id}/responses",
 		authMw.Authenticate(
-			http.HandlerFunc(selfAssessmentHandler.GetResponses),
+			rbacMw.RequireRole("user")(
+				http.HandlerFunc(selfAssessmentHandler.GetResponses),
+			),
 		),
 	)
 	// Save or update a response
 	mux.Handle("POST /api/v1/self-assessments/{id}/responses",
 		authMw.Authenticate(
-			http.HandlerFunc(selfAssessmentHandler.SaveResponse),
+			rbacMw.RequireRole("user")(
+				http.HandlerFunc(selfAssessmentHandler.SaveResponse),
+			),
 		),
 	)
 	// Delete a response
 	mux.Handle("DELETE /api/v1/self-assessments/{id}/responses/{categoryId}",
 		authMw.Authenticate(
-			http.HandlerFunc(selfAssessmentHandler.DeleteResponse),
+			rbacMw.RequireRole("user")(
+				http.HandlerFunc(selfAssessmentHandler.DeleteResponse),
+			),
 		),
 	)
 	// Get completeness status
 	mux.Handle("GET /api/v1/self-assessments/{id}/completeness",
 		authMw.Authenticate(
-			http.HandlerFunc(selfAssessmentHandler.GetCompleteness),
+			rbacMw.RequireRole("user")(
+				http.HandlerFunc(selfAssessmentHandler.GetCompleteness),
+			),
 		),
 	)
 	// Get weighted score
 	mux.Handle("GET /api/v1/self-assessments/{id}/weighted-score",
 		authMw.Authenticate(
-			http.HandlerFunc(selfAssessmentHandler.GetWeightedScore),
+			rbacMw.RequireRole("user")(
+				http.HandlerFunc(selfAssessmentHandler.GetWeightedScore),
+			),
 		),
 	)
 	// Submit assessment for review
 	mux.Handle("PUT /api/v1/self-assessments/{id}/submit",
 		authMw.Authenticate(
-			http.HandlerFunc(selfAssessmentHandler.SubmitAssessment),
+			rbacMw.RequireRole("user")(
+				http.HandlerFunc(selfAssessmentHandler.SubmitAssessment),
+			),
 		),
 	)
 
@@ -488,23 +540,32 @@ func main() {
 	// Get specific self-assessment
 	mux.Handle("GET /api/v1/self-assessments/{id}",
 		authMw.Authenticate(
-			http.HandlerFunc(selfAssessmentHandler.GetSelfAssessment),
+			rbacMw.RequireRole("user")(
+				http.HandlerFunc(selfAssessmentHandler.GetSelfAssessment),
+			),
 		),
 	)
-	// Update self-assessment status
+	// Update self-assessment status (user can submit, admin can close)
 	mux.Handle("PUT /api/v1/self-assessments/{id}/status",
 		authMw.Authenticate(
-			http.HandlerFunc(selfAssessmentHandler.UpdateStatus),
+			rbacMw.RequireAnyRole("admin", "user")(
+				http.HandlerFunc(selfAssessmentHandler.UpdateStatus),
+			),
 		),
-	) // Admin routes for self-assessments
+	)
+	// Admin routes for self-assessments
 	mux.Handle("GET /api/v1/admin/self-assessments",
 		authMw.Authenticate(
-			http.HandlerFunc(selfAssessmentHandler.GetAllSelfAssessmentsAdmin),
+			rbacMw.RequireRole("admin")(
+				http.HandlerFunc(selfAssessmentHandler.GetAllSelfAssessmentsAdmin),
+			),
 		),
 	)
 	mux.Handle("DELETE /api/v1/admin/self-assessments/{id}",
 		authMw.Authenticate(
-			http.HandlerFunc(selfAssessmentHandler.DeleteSelfAssessment),
+			rbacMw.RequireRole("admin")(
+				http.HandlerFunc(selfAssessmentHandler.DeleteSelfAssessment),
+			),
 		),
 	)
 

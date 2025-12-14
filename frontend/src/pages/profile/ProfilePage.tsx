@@ -70,7 +70,7 @@ export const ProfilePage = () => {
 
   const handleUpdate = async (values: ProfileUpdateRequest) => {
     setIsLoading(true);
-    
+
     try {
       const updatedUser = await apiClient.post<User>('/users/profile/update', values);
       updateUser(updatedUser);
@@ -94,16 +94,16 @@ export const ProfilePage = () => {
 
   const handlePasswordChange = async (values: PasswordChangeRequest) => {
     setIsPasswordLoading(true);
-    
+
     try {
       await apiClient.post('/users/password/change', {
         current_password: values.current_password,
         new_password: values.new_password,
       });
-      
+
       setPasswordModalOpened(false);
       passwordForm.reset();
-      
+
       notifications.show({
         title: 'Success',
         message: 'Password changed successfully',
@@ -123,10 +123,10 @@ export const ProfilePage = () => {
 
   const handleResendVerification = async () => {
     setIsResendingVerification(true);
-    
+
     try {
       await apiClient.post('/users/resend-verification', {});
-      
+
       notifications.show({
         title: 'Success',
         message: 'Verification email sent successfully. Please check your inbox.',
@@ -153,31 +153,39 @@ export const ProfilePage = () => {
       <Paper withBorder shadow="md" p={30} radius="md">
         <Group justify="space-between" mb="xl">
           <Title order={2}>Mein Profil</Title>
-          <Button onClick={() => setEditModalOpened(true)}>
-            Edit Profile
-          </Button>
+          <Button onClick={() => setEditModalOpened(true)}>Edit Profile</Button>
         </Group>
 
         <Stack gap="md">
           <div>
-            <Text fw={500} size="sm" c="dimmed">Name</Text>
-            <Text size="lg">{user.first_name} {user.last_name}</Text>
+            <Text fw={500} size="sm" c="dimmed">
+              Name
+            </Text>
+            <Text size="lg">
+              {user.first_name} {user.last_name}
+            </Text>
           </div>
 
           <div>
-            <Text fw={500} size="sm" c="dimmed">Email</Text>
+            <Text fw={500} size="sm" c="dimmed">
+              Email
+            </Text>
             <Group gap="xs">
               <Text size="lg">{user.email}</Text>
               {user.email_verified ? (
-                <Badge color="green" variant="light">Verified</Badge>
+                <Badge color="green" variant="light">
+                  Verified
+                </Badge>
               ) : (
-                <Badge color="yellow" variant="light">Not Verified</Badge>
+                <Badge color="yellow" variant="light">
+                  Not Verified
+                </Badge>
               )}
             </Group>
             {!user.email_verified && (
-              <Button 
-                size="xs" 
-                variant="light" 
+              <Button
+                size="xs"
+                variant="light"
                 mt="xs"
                 onClick={handleResendVerification}
                 loading={isResendingVerification}
@@ -188,7 +196,9 @@ export const ProfilePage = () => {
           </div>
 
           <div>
-            <Text fw={500} size="sm" c="dimmed">Status</Text>
+            <Text fw={500} size="sm" c="dimmed">
+              Status
+            </Text>
             <Badge color={user.is_active ? 'green' : 'red'} variant="light">
               {user.is_active ? 'Active' : 'Inactive'}
             </Badge>
@@ -196,14 +206,20 @@ export const ProfilePage = () => {
 
           {user.oauth_provider && (
             <div>
-              <Text fw={500} size="sm" c="dimmed">OAuth Provider</Text>
-              <Badge color="blue" variant="light">{user.oauth_provider}</Badge>
+              <Text fw={500} size="sm" c="dimmed">
+                OAuth Provider
+              </Text>
+              <Badge color="blue" variant="light">
+                {user.oauth_provider}
+              </Badge>
             </div>
           )}
 
           {user.oauth_connections && user.oauth_connections.length > 0 && (
             <div>
-              <Text fw={500} size="sm" c="dimmed">Connected Accounts</Text>
+              <Text fw={500} size="sm" c="dimmed">
+                Connected Accounts
+              </Text>
               <Group gap="xs">
                 {user.oauth_connections.map((conn) => (
                   <Badge key={conn.id} color="blue" variant="light">
@@ -215,18 +231,25 @@ export const ProfilePage = () => {
           )}
 
           <div>
-            <Text fw={500} size="sm" c="dimmed">Login Methods</Text>
+            <Text fw={500} size="sm" c="dimmed">
+              Login Methods
+            </Text>
             <Group gap="xs">
               {user.has_local_password && (
-                <Badge color="gray" variant="light">Email + Password</Badge>
+                <Badge color="gray" variant="light">
+                  Email + Password
+                </Badge>
               )}
               {user.oauth_connections && user.oauth_connections.length > 0 ? (
                 <Badge color="green" variant="light">
-                  OAuth ({user.oauth_connections.length} provider{user.oauth_connections.length > 1 ? 's' : ''})
+                  OAuth ({user.oauth_connections.length} provider
+                  {user.oauth_connections.length > 1 ? 's' : ''})
                 </Badge>
               ) : (
                 !user.has_local_password && (
-                  <Badge color="yellow" variant="light">OAuth Only</Badge>
+                  <Badge color="yellow" variant="light">
+                    OAuth Only
+                  </Badge>
                 )
               )}
             </Group>
@@ -234,7 +257,9 @@ export const ProfilePage = () => {
 
           {user.roles && user.roles.length > 0 && (
             <div>
-              <Text fw={500} size="sm" c="dimmed">Roles</Text>
+              <Text fw={500} size="sm" c="dimmed">
+                Roles
+              </Text>
               <Group gap="xs">
                 {user.roles.map((role) => (
                   <Badge key={role.id} color="violet" variant="light">
@@ -246,7 +271,9 @@ export const ProfilePage = () => {
           )}
 
           <div>
-            <Text fw={500} size="sm" c="dimmed">Member Since</Text>
+            <Text fw={500} size="sm" c="dimmed">
+              Member Since
+            </Text>
             <Text size="lg">
               {new Date(user.created_at).toLocaleDateString('en-US', {
                 year: 'numeric',
@@ -258,7 +285,9 @@ export const ProfilePage = () => {
 
           {user.last_login_at && (
             <div>
-              <Text fw={500} size="sm" c="dimmed">Last Login</Text>
+              <Text fw={500} size="sm" c="dimmed">
+                Last Login
+              </Text>
               <Text size="lg">
                 {new Date(user.last_login_at).toLocaleString('en-US', {
                   year: 'numeric',
@@ -278,15 +307,16 @@ export const ProfilePage = () => {
           <Group justify="space-between" mb="xl">
             <div>
               <Title order={2}>Sicherheit</Title>
-              <Text size="sm" c="dimmed" mt={4}>Manage your password</Text>
+              <Text size="sm" c="dimmed" mt={4}>
+                Manage your password
+              </Text>
             </div>
-            <Button onClick={() => setPasswordModalOpened(true)}>
-              Change Password
-            </Button>
+            <Button onClick={() => setPasswordModalOpened(true)}>Change Password</Button>
           </Group>
 
           <Text size="sm" c="dimmed">
-            Last updated: {user.updated_at ? new Date(user.updated_at).toLocaleDateString() : 'Never'}
+            Last updated:{' '}
+            {user.updated_at ? new Date(user.updated_at).toLocaleDateString() : 'Never'}
           </Text>
         </Paper>
       )}

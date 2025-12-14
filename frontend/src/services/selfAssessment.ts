@@ -1,11 +1,11 @@
 import api from './api';
-import type { 
-  SelfAssessment, 
-  CriteriaCatalog, 
-  AssessmentResponse, 
-  AssessmentResponseWithDetails, 
+import type {
+  SelfAssessment,
+  CriteriaCatalog,
+  AssessmentResponse,
+  AssessmentResponseWithDetails,
   AssessmentCompleteness,
-  WeightedScore
+  WeightedScore,
 } from '../types';
 
 export const selfAssessmentService = {
@@ -72,7 +72,7 @@ export const selfAssessmentService = {
       if (filters?.username) params.append('username', filters.username);
       if (filters?.from_date) params.append('from_date', filters.from_date);
       if (filters?.to_date) params.append('to_date', filters.to_date);
-      
+
       const queryString = params.toString();
       const url = `/admin/self-assessments${queryString ? `?${queryString}` : ''}`;
       return await api.get<SelfAssessment[]>(url);
@@ -95,7 +95,9 @@ export const selfAssessmentService = {
   // Get responses for an assessment
   getResponses: async (assessmentId: number): Promise<AssessmentResponseWithDetails[]> => {
     try {
-      return await api.get<AssessmentResponseWithDetails[]>(`/self-assessments/${assessmentId}/responses`);
+      return await api.get<AssessmentResponseWithDetails[]>(
+        `/self-assessments/${assessmentId}/responses`
+      );
     } catch (error) {
       console.error('Error fetching responses:', error);
       throw error;
@@ -103,9 +105,15 @@ export const selfAssessmentService = {
   },
 
   // Save or update a response
-  saveResponse: async (assessmentId: number, response: Omit<AssessmentResponse, 'id' | 'assessment_id' | 'created_at' | 'updated_at'>): Promise<AssessmentResponse> => {
+  saveResponse: async (
+    assessmentId: number,
+    response: Omit<AssessmentResponse, 'id' | 'assessment_id' | 'created_at' | 'updated_at'>
+  ): Promise<AssessmentResponse> => {
     try {
-      return await api.post<AssessmentResponse>(`/self-assessments/${assessmentId}/responses`, response);
+      return await api.post<AssessmentResponse>(
+        `/self-assessments/${assessmentId}/responses`,
+        response
+      );
     } catch (error) {
       console.error('Error saving response:', error);
       throw error;
@@ -125,7 +133,9 @@ export const selfAssessmentService = {
   // Get completeness status
   getCompleteness: async (assessmentId: number): Promise<AssessmentCompleteness> => {
     try {
-      return await api.get<AssessmentCompleteness>(`/self-assessments/${assessmentId}/completeness`);
+      return await api.get<AssessmentCompleteness>(
+        `/self-assessments/${assessmentId}/completeness`
+      );
     } catch (error) {
       console.error('Error fetching completeness:', error);
       throw error;

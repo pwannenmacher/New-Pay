@@ -39,131 +39,131 @@ function App() {
       <ThemeProvider>
         <DatesProvider settings={{ locale: 'de' }}>
           <Notifications position="top-right" />
-      <BrowserRouter>
-        <AppConfigProvider>
-          <AuthProvider>
-            <MainLayout>
-              <Routes>
-                <Route path="/" element={<HomePage />} />
-                <Route path="/login" element={<LoginPage />} />
-                <Route path="/register" element={<RegisterPage />} />
-                <Route path="/oauth/callback" element={<OAuthCallbackPage />} />
-                <Route path="/verify-email" element={<EmailVerificationPage />} />
-                <Route path="/password-reset" element={<PasswordResetRequestPage />} />
-                <Route path="/reset-password" element={<PasswordResetConfirmPage />} />
-              
-              <Route
-                path="/profile"
-                element={
-                  <ProtectedRoute>
-                    <ProfilePage />
-                  </ProtectedRoute>
-                }
-              />
-              
-              <Route
-                path="/catalogs"
-                element={
-                  <ProtectedRoute>
-                    <CatalogsPage />
-                  </ProtectedRoute>
-                }
-              />
-              
-              <Route
-                path="/admin/users"
-                element={
-                  <ProtectedRoute requireAdmin>
-                    <UserManagementPage />
-                  </ProtectedRoute>
-                }
-              />
-              
-              <Route
-                path="/admin/audit-logs"
-                element={
-                  <ProtectedRoute requireAdmin>
-                    <AuditLogsPage />
-                  </ProtectedRoute>
-                }
-              />
-              
-              <Route
-                path="/admin/sessions"
-                element={
-                  <ProtectedRoute requireAdmin>
-                    <SessionsPage />
-                  </ProtectedRoute>
-                }
-              />
-              
-              <Route
-                path="/admin/catalogs"
-                element={
-                  <ProtectedRoute requireAdmin>
-                    <CatalogManagementPage />
-                  </ProtectedRoute>
-                }
-              />
-              
-              <Route
-                path="/admin/catalogs/:id"
-                element={
-                  <ProtectedRoute requireAdmin>
-                    <CatalogViewPage />
-                  </ProtectedRoute>
-                }
-              />
-              
-              <Route
-                path="/admin/catalogs/:id/edit"
-                element={
-                  <ProtectedRoute requireAdmin>
-                    <CatalogEditorPage />
-                  </ProtectedRoute>
-                }
-              />
-              
-              <Route
-                path="/admin/self-assessments"
-                element={
-                  <ProtectedRoute requireAdmin>
-                    <SelfAssessmentsAdminPage />
-                  </ProtectedRoute>
-                }
-              />
-              
-              <Route
-                path="/admin/self-assessments/:id"
-                element={
-                  <ProtectedRoute requireAdmin>
-                    <AdminSelfAssessmentDetailPage />
-                  </ProtectedRoute>
-                }
-              />
-              
-              <Route
-                path="/self-assessments"
-                element={
-                  <ProtectedRoute>
-                    <SelfAssessmentsPage />
-                  </ProtectedRoute>
-                }
-              />
-              
-              <Route
-                path="/self-assessments/:id"
-                element={
-                  <ProtectedRoute>
-                    <SelfAssessmentPage />
-                  </ProtectedRoute>
-                }
-              />
-            </Routes>
-          </MainLayout>
-          </AuthProvider>
-        </AppConfigProvider>
-      </BrowserRouter>
+          <BrowserRouter>
+            <AppConfigProvider>
+              <AuthProvider>
+                <MainLayout>
+                  <Routes>
+                    <Route path="/" element={<HomePage />} />
+                    <Route path="/login" element={<LoginPage />} />
+                    <Route path="/register" element={<RegisterPage />} />
+                    <Route path="/oauth/callback" element={<OAuthCallbackPage />} />
+                    <Route path="/verify-email" element={<EmailVerificationPage />} />
+                    <Route path="/password-reset" element={<PasswordResetRequestPage />} />
+                    <Route path="/reset-password" element={<PasswordResetConfirmPage />} />
+
+                    <Route
+                      path="/profile"
+                      element={
+                        <ProtectedRoute>
+                          <ProfilePage />
+                        </ProtectedRoute>
+                      }
+                    />
+
+                    <Route
+                      path="/catalogs"
+                      element={
+                        <ProtectedRoute>
+                          <CatalogsPage />
+                        </ProtectedRoute>
+                      }
+                    />
+
+                    <Route
+                      path="/admin/users"
+                      element={
+                        <ProtectedRoute requireAdmin>
+                          <UserManagementPage />
+                        </ProtectedRoute>
+                      }
+                    />
+
+                    <Route
+                      path="/admin/audit-logs"
+                      element={
+                        <ProtectedRoute requireAdmin>
+                          <AuditLogsPage />
+                        </ProtectedRoute>
+                      }
+                    />
+
+                    <Route
+                      path="/admin/sessions"
+                      element={
+                        <ProtectedRoute requireAdmin>
+                          <SessionsPage />
+                        </ProtectedRoute>
+                      }
+                    />
+
+                    <Route
+                      path="/admin/catalogs"
+                      element={
+                        <ProtectedRoute requireAdmin>
+                          <CatalogManagementPage />
+                        </ProtectedRoute>
+                      }
+                    />
+
+                    <Route
+                      path="/admin/catalogs/:id"
+                      element={
+                        <ProtectedRoute requireAdmin>
+                          <CatalogViewPage />
+                        </ProtectedRoute>
+                      }
+                    />
+
+                    <Route
+                      path="/admin/catalogs/:id/edit"
+                      element={
+                        <ProtectedRoute requireAdmin>
+                          <CatalogEditorPage />
+                        </ProtectedRoute>
+                      }
+                    />
+
+                    <Route
+                      path="/admin/self-assessments"
+                      element={
+                        <ProtectedRoute requireAdmin>
+                          <SelfAssessmentsAdminPage />
+                        </ProtectedRoute>
+                      }
+                    />
+
+                    <Route
+                      path="/admin/self-assessments/:id"
+                      element={
+                        <ProtectedRoute requireAdmin>
+                          <AdminSelfAssessmentDetailPage />
+                        </ProtectedRoute>
+                      }
+                    />
+
+                    <Route
+                      path="/self-assessments"
+                      element={
+                        <ProtectedRoute>
+                          <SelfAssessmentsPage />
+                        </ProtectedRoute>
+                      }
+                    />
+
+                    <Route
+                      path="/self-assessments/:id"
+                      element={
+                        <ProtectedRoute>
+                          <SelfAssessmentPage />
+                        </ProtectedRoute>
+                      }
+                    />
+                  </Routes>
+                </MainLayout>
+              </AuthProvider>
+            </AppConfigProvider>
+          </BrowserRouter>
         </DatesProvider>
       </ThemeProvider>
     </MantineProvider>

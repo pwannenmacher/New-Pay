@@ -1,14 +1,5 @@
 import { useState, useEffect } from 'react';
-import {
-  Paper,
-  Title,
-  Text,
-  Button,
-  Stack,
-  Group,
-  Card,
-  Modal,
-} from '@mantine/core';
+import { Paper, Title, Text, Button, Stack, Group, Card, Modal } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { IconDeviceLaptop, IconTrash, IconAlertTriangle } from '@tabler/icons-react';
 import { sessionApi } from '../../services/api';
@@ -195,13 +186,11 @@ export const SessionManagement = () => {
         centered
       >
         <Text mb="md">
-          Are you sure you want to end all other sessions? This will log you out from all other devices except this one.
+          Are you sure you want to end all other sessions? This will log you out from all other
+          devices except this one.
         </Text>
         <Group justify="flex-end">
-          <Button
-            variant="subtle"
-            onClick={() => setDeleteAllModalOpened(false)}
-          >
+          <Button variant="subtle" onClick={() => setDeleteAllModalOpened(false)}>
             Cancel
           </Button>
           <Button color="red" onClick={handleDeleteAllOtherSessions}>

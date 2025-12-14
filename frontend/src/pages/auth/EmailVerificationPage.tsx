@@ -1,15 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import {
-  Container,
-  Paper,
-  Title,
-  Text,
-  Button,
-  Loader,
-  Center,
-  Stack,
-} from '@mantine/core';
+import { Container, Paper, Title, Text, Button, Loader, Center, Stack } from '@mantine/core';
 import { IconCheck, IconX } from '@tabler/icons-react';
 import { authApi } from '../../services/api';
 import type { ApiError } from '../../types';
@@ -23,7 +14,7 @@ export const EmailVerificationPage = () => {
 
   useEffect(() => {
     const token = searchParams.get('token');
-    
+
     if (!token) {
       setStatus('error');
       setMessage('Verification token is missing');

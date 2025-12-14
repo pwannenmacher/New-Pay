@@ -37,7 +37,7 @@ export function WeightedScoreBadge({ assessmentId, compact = false }: WeightedSc
     return null;
   }
 
-  const displayText = compact 
+  const displayText = compact
     ? `${score.overall_level} (${score.weighted_average.toFixed(2)})`
     : `Gesamtlevel: ${score.overall_level} (Ø ${score.weighted_average.toFixed(2)})`;
 
@@ -75,7 +75,9 @@ export function WeightedScoreDisplay({ assessmentId }: { assessmentId: number })
     return (
       <Group>
         <Loader size="sm" />
-        <Text size="sm" c="dimmed">Berechne Gesamtlevel...</Text>
+        <Text size="sm" c="dimmed">
+          Berechne Gesamtlevel...
+        </Text>
       </Group>
     );
   }
@@ -94,7 +96,9 @@ export function WeightedScoreDisplay({ assessmentId }: { assessmentId: number })
 
   return (
     <Group>
-      <Text size="sm" fw={500}>Gesamtlevel:</Text>
+      <Text size="sm" fw={500}>
+        Gesamtlevel:
+      </Text>
       <Badge size="lg" variant="filled" color="teal">
         {score.overall_level}
       </Badge>

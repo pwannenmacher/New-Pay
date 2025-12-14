@@ -80,6 +80,9 @@ type OAuthProviderConfig struct {
 	AuthURL      string
 	TokenURL     string
 	UserInfoURL  string
+	GroupMapping map[string]string // Maps OAuth groups to internal roles (e.g., "admin-group": "admin")
+	GroupsClaim  string            // Claim name containing groups (default: "groups")
+	DefaultRole  string            // Default role to assign if no groups match (optional, e.g., "user")
 }
 
 // OAuthProvidersConfig holds configuration for all OAuth providers
@@ -258,6 +261,9 @@ func loadOAuthProviders() OAuthProvidersConfig {
 			AuthURL:      getEnv(prefix+"AUTH_URL", ""),
 			TokenURL:     getEnv(prefix+"TOKEN_URL", ""),
 			UserInfoURL:  getEnv(prefix+"USER_INFO_URL", ""),
+			GroupMapping: parseGroupMapping(getEnv(prefix+"GROUP_MAPPING", "")),
+			GroupsClaim:  getEnv(prefix+"GROUPS_CLAIM", "groups"),
+			DefaultRole:  getEnv(prefix+"DEFAULT_ROLE", ""),
 		}
 
 		// Only add provider if it has all required fields
@@ -273,6 +279,30 @@ func loadOAuthProviders() OAuthProvidersConfig {
 		FrontendCallbackURL: frontendCallbackURL,
 		Providers:           providers,
 	}
+}
+
+// parseGroupMapping parses the group mapping configuration
+// Format: "oauth-group-1:role-1,oauth-group-2:role-2"
+// Example: "admins:admin,developers:user,reviewers:reviewer"
+func parseGroupMapping(mappingStr string) map[string]string {
+	mapping := make(map[string]string)
+	if mappingStr == "" {
+		return mapping
+	}
+
+	pairs := strings.Split(mappingStr, ",")
+	for _, pair := range pairs {
+		parts := strings.Split(strings.TrimSpace(pair), ":")
+		if len(parts) == 2 {
+			oauthGroup := strings.TrimSpace(parts[0])
+			role := strings.TrimSpace(parts[1])
+			if oauthGroup != "" && role != "" {
+				mapping[oauthGroup] = role
+			}
+		}
+	}
+
+	return mapping
 }
 
 // Validate validates the configuration
