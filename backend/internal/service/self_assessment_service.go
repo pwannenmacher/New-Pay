@@ -196,6 +196,11 @@ func (s *SelfAssessmentService) GetAllSelfAssessmentsWithFiltersAndDetails(statu
 	return s.selfAssessmentRepo.GetAllWithFiltersAndDetails(status, username, fromDate, toDate)
 }
 
+// GetOpenAssessmentsForReview retrieves open assessments for reviewers with filters
+func (s *SelfAssessmentService) GetOpenAssessmentsForReview(catalogID *int, username string, status string, fromDate, toDate, fromSubmittedDate, toSubmittedDate *time.Time) ([]models.SelfAssessmentWithDetails, error) {
+	return s.selfAssessmentRepo.GetOpenAssessmentsForReview(catalogID, username, status, fromDate, toDate, fromSubmittedDate, toSubmittedDate)
+}
+
 // UpdateSelfAssessmentStatus transitions a self-assessment to a new status
 func (s *SelfAssessmentService) UpdateSelfAssessmentStatus(assessmentID uint, newStatus string, userID uint, userRoles []string) error {
 	// Get existing assessment

@@ -30,6 +30,7 @@ import SelfAssessmentsPage from './pages/self-assessments/SelfAssessmentsPage';
 import SelfAssessmentPage from './pages/SelfAssessmentPage';
 import SelfAssessmentsAdminPage from './pages/admin/SelfAssessmentsAdminPage';
 import AdminSelfAssessmentDetailPage from './pages/admin/AdminSelfAssessmentDetailPage';
+import { ReviewOpenAssessmentsPage } from './pages/review/ReviewOpenAssessmentsPage';
 
 import 'dayjs/locale/de';
 
@@ -138,6 +139,15 @@ function App() {
                       element={
                         <ProtectedRoute requireAdmin>
                           <AdminSelfAssessmentDetailPage />
+                        </ProtectedRoute>
+                      }
+                    />
+
+                    <Route
+                      path="/review/open-assessments"
+                      element={
+                        <ProtectedRoute requireRole="reviewer">
+                          <ReviewOpenAssessmentsPage />
                         </ProtectedRoute>
                       }
                     />

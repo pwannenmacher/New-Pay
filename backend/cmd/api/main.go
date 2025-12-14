@@ -569,6 +569,15 @@ func main() {
 		),
 	)
 
+	// Reviewer routes for self-assessments
+	mux.Handle("GET /api/v1/review/open-assessments",
+		authMw.Authenticate(
+			rbacMw.RequireRole("reviewer")(
+				http.HandlerFunc(selfAssessmentHandler.GetOpenAssessmentsForReview),
+			),
+		),
+	)
+
 	// Health check endpoint
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		if err := db.HealthCheck(); err != nil {

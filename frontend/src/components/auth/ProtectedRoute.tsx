@@ -6,9 +6,10 @@ import type { Role } from '../../types';
 interface ProtectedRouteProps {
   children: React.ReactNode;
   requireAdmin?: boolean;
+  requireRole?: string;
 }
 
-export const ProtectedRoute = ({ children, requireAdmin = false }: ProtectedRouteProps) => {
+export const ProtectedRoute = ({ children, requireAdmin = false, requireRole }: ProtectedRouteProps) => {
   const { isAuthenticated, isLoading, user } = useAuth();
 
   if (isLoading) {
@@ -24,6 +25,10 @@ export const ProtectedRoute = ({ children, requireAdmin = false }: ProtectedRout
   }
 
   if (requireAdmin && user && !user.roles?.some((role: Role) => role.name === 'admin')) {
+    return <Navigate to="/" replace />;
+  }
+
+  if (requireRole && user && !user.roles?.some((role: Role) => role.name === requireRole)) {
     return <Navigate to="/" replace />;
   }
 

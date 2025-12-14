@@ -657,3 +657,101 @@ func (r *SelfAssessmentRepository) GetVisibleToReviewers() ([]models.SelfAssessm
 	}
 	return assessments, nil
 }
+
+// GetOpenAssessmentsForReview retrieves open assessments for reviewers with filters
+func (r *SelfAssessmentRepository) GetOpenAssessmentsForReview(catalogID *int, username string, status string, fromDate, toDate, fromSubmittedDate, toSubmittedDate *time.Time) ([]models.SelfAssessmentWithDetails, error) {
+query := `
+SELECT sa.id, sa.catalog_id, sa.user_id, sa.status, 
+       sa.created_at, sa.updated_at, sa.submitted_at, sa.in_review_at, 
+       sa.reviewed_at, sa.discussion_started_at, sa.archived_at, 
+       sa.closed_at, sa.previous_status,
+       u.email, u.first_name || ' ' || u.last_name as user_name,
+       c.name as catalog_name
+FROM self_assessments sa
+JOIN users u ON sa.user_id = u.id
+JOIN criteria_catalogs c ON sa.catalog_id = c.id
+WHERE sa.status IN ('submitted', 'in_review', 'reviewed', 'discussion')
+`
+var args []interface{}
+argCount := 1
+
+if catalogID != nil {
+query += ` AND sa.catalog_id = $` + fmt.Sprintf("%d", argCount)
+args = append(args, *catalogID)
+argCount++
+}
+
+if username != "" {
+query += ` AND (u.email ILIKE $` + fmt.Sprintf("%d", argCount) +
+` OR u.first_name ILIKE $` + fmt.Sprintf("%d", argCount) +
+` OR u.last_name ILIKE $` + fmt.Sprintf("%d", argCount) + `)`
+args = append(args, "%"+username+"%")
+argCount++
+}
+
+if status != "" {
+query += ` AND sa.status = $` + fmt.Sprintf("%d", argCount)
+args = append(args, status)
+argCount++
+}
+
+if fromDate != nil {
+query += ` AND sa.created_at >= $` + fmt.Sprintf("%d", argCount)
+args = append(args, *fromDate)
+argCount++
+}
+
+if toDate != nil {
+query += ` AND sa.created_at <= $` + fmt.Sprintf("%d", argCount)
+args = append(args, *toDate)
+argCount++
+}
+
+if fromSubmittedDate != nil {
+query += ` AND sa.submitted_at >= $` + fmt.Sprintf("%d", argCount)
+args = append(args, *fromSubmittedDate)
+argCount++
+}
+
+if toSubmittedDate != nil {
+query += ` AND sa.submitted_at <= $` + fmt.Sprintf("%d", argCount)
+args = append(args, *toSubmittedDate)
+argCount++
+}
+
+query += ` ORDER BY sa.submitted_at DESC NULLS LAST, sa.created_at DESC`
+
+rows, err := r.db.Query(query, args...)
+if err != nil {
+return nil, err
+}
+defer rows.Close()
+
+var assessments []models.SelfAssessmentWithDetails
+for rows.Next() {
+var assessment models.SelfAssessmentWithDetails
+if err := rows.Scan(
+&assessment.ID,
+&assessment.CatalogID,
+&assessment.UserID,
+&assessment.Status,
+&assessment.CreatedAt,
+&assessment.UpdatedAt,
+&assessment.SubmittedAt,
+&assessment.InReviewAt,
+&assessment.ReviewedAt,
+&assessment.DiscussionStartedAt,
+&assessment.ArchivedAt,
+&assessment.ClosedAt,
+&assessment.PreviousStatus,
+&assessment.UserEmail,
+&assessment.UserName,
+&assessment.CatalogName,
+); err != nil {
+return nil, err
+}
+assessments = append(assessments, assessment)
+}
+return assessments, nil
+}
+
