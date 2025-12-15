@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import {
   Container,
   Title,
@@ -40,7 +39,6 @@ const statusConfig = {
 };
 
 export default function SelfAssessmentsAdminPage() {
-  const navigate = useNavigate();
   const [assessments, setAssessments] = useState<SelfAssessment[]>([]);
   const [loading, setLoading] = useState(true);
   const [username, setUsername] = useState('');
