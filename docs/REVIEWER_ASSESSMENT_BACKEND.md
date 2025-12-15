@@ -1,6 +1,7 @@
 # Reviewer Assessment System - Backend Requirements
 
 ## Überblick
+
 Dieses Dokument beschreibt die Backend-Anforderungen für das Reviewer-Assessment-System, das es Reviewern ermöglicht, Selbsteinschätzungen von Benutzern zu bewerten.
 
 ## Datenmodell
@@ -13,6 +14,7 @@ CREATE TABLE reviewer_responses (
     assessment_id INTEGER NOT NULL REFERENCES self_assessments(id) ON DELETE CASCADE,
     category_id INTEGER NOT NULL REFERENCES categories(id) ON DELETE CASCADE,
     reviewer_user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    path_id INTEGER NOT NULL REFERENCES paths(id) ON DELETE CASCADE,
     level_id INTEGER NOT NULL REFERENCES levels(id) ON DELETE CASCADE,
     justification TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -25,18 +27,21 @@ CREATE INDEX idx_reviewer_responses_reviewer ON reviewer_responses(reviewer_user
 ```
 
 ### Felder
+
 - `id`: Primärschlüssel
 - `assessment_id`: Referenz zur Selbsteinschätzung
 - `category_id`: Referenz zur bewerteten Kategorie
 - `reviewer_user_id`: Benutzer-ID des Reviewers
+- `path_id`: **NEU** - Vom Reviewer gewählter Entwicklungspfad (kann vom User-Pfad abweichen)
 - `level_id`: Vom Reviewer gewähltes Level
-- `justification`: Begründung des Reviewers (erforderlich wenn abweichend vom User-Level)
+- `justification`: Begründung des Reviewers (erforderlich wenn abweichend vom User-Level ODER User-Pfad)
 - `created_at`: Erstellungszeitpunkt
 - `updated_at`: Zeitpunkt der letzten Änderung
 
 ## API-Endpunkte
 
 ### 1. Reviewer-Antworten abrufen
+
 **Endpoint:** `GET /api/v1/review/assessment/:id/responses`
 
 **Beschreibung:** Lädt alle Reviewer-Antworten für eine Selbsteinschätzung
@@ -44,6 +49,7 @@ CREATE INDEX idx_reviewer_responses_reviewer ON reviewer_responses(reviewer_user
 **Authentifizierung:** JWT (Rolle: reviewer oder admin)
 
 **Response:**
+
 ```json
 [
   {
@@ -60,6 +66,7 @@ CREATE INDEX idx_reviewer_responses_reviewer ON reviewer_responses(reviewer_user
 ```
 
 ### 2. Reviewer-Antwort speichern/aktualisieren
+
 **Endpoint:** `POST /api/v1/review/assessment/:id/responses`
 
 **Beschreibung:** Speichert oder aktualisiert die Reviewer-Bewertung für eine Kategorie
@@ -67,28 +74,34 @@ CREATE INDEX idx_reviewer_responses_reviewer ON reviewer_responses(reviewer_user
 **Authentifizierung:** JWT (Rolle: reviewer oder admin)
 
 **Request Body:**
+
 ```json
 {
   "category_id": 5,
+  "path_id": 12,
   "level_id": 3,
   "justification": "Begründung..."
 }
 ```
 
 **Validierung:**
+
 - `category_id`: Erforderlich, muss zur Assessment gehören
+- `path_id`: Erforderlich, muss gültiger Pfad in der Kategorie sein
 - `level_id`: Erforderlich, muss gültiges Level sein
-- `justification`: 
-  - Optional wenn `level_id` == User-Level
-  - Erforderlich (min. 50 Zeichen) wenn `level_id` != User-Level
+- `justification`:
+  - Optional wenn `level_id` == User-Level UND `path_id` == User-Pfad
+  - Erforderlich (min. 50 Zeichen) wenn `level_id` != User-Level ODER `path_id` != User-Pfad
 
 **Response:**
+
 ```json
 {
   "id": 1,
   "assessment_id": 123,
   "category_id": 5,
   "reviewer_user_id": 10,
+  "path_id": 12,
   "level_id": 3,
   "justification": "...",
   "created_at": "2025-12-15T10:30:00Z",
@@ -97,11 +110,15 @@ CREATE INDEX idx_reviewer_responses_reviewer ON reviewer_responses(reviewer_user
 ```
 
 **Fehler:**
-- `400`: Validierungsfehler (z.B. Begründung zu kurz bei Abweichung)
+
+- `400`: Validierungsfehler (z.B. Begründung zu kurz bei Abweichung von Level oder Pfad)
+- `403`: Keine Berechtigung (nicht reviewer/admin) ODER Versuch eigenes Assessment zu prüfen
+- `404`: Assessment nicht gefunden
 - `403`: Keine Berechtigung (nicht reviewer/admin)
 - `404`: Assessment nicht gefunden
 
 ### 3. Reviewer-Antwort löschen
+
 **Endpoint:** `DELETE /api/v1/review/assessment/:id/responses/:category_id`
 
 **Beschreibung:** Löscht die Reviewer-Bewertung für eine Kategorie
@@ -109,6 +126,7 @@ CREATE INDEX idx_reviewer_responses_reviewer ON reviewer_responses(reviewer_user
 **Authentifizierung:** JWT (Rolle: reviewer oder admin)
 
 **Response:**
+
 ```json
 {
   "message": "Reviewer response deleted successfully"
@@ -116,6 +134,7 @@ CREATE INDEX idx_reviewer_responses_reviewer ON reviewer_responses(reviewer_user
 ```
 
 ### 4. Review abschließen
+
 **Endpoint:** `POST /api/v1/review/assessment/:id/complete`
 
 **Beschreibung:** Markiert das Review als abgeschlossen und ändert den Assessment-Status
@@ -123,10 +142,12 @@ CREATE INDEX idx_reviewer_responses_reviewer ON reviewer_responses(reviewer_user
 **Authentifizierung:** JWT (Rolle: reviewer oder admin)
 
 **Validierung:**
+
 - Alle Kategorien müssen eine Reviewer-Antwort haben
 - Alle erforderlichen Begründungen müssen vorhanden sein (min. 50 Zeichen bei Abweichung)
 
 **Request Body:**
+
 ```json
 {
   "new_status": "reviewed"  // oder "discussion"
@@ -134,6 +155,7 @@ CREATE INDEX idx_reviewer_responses_reviewer ON reviewer_responses(reviewer_user
 ```
 
 **Response:**
+
 ```json
 {
   "message": "Review completed successfully",
@@ -146,6 +168,7 @@ CREATE INDEX idx_reviewer_responses_reviewer ON reviewer_responses(reviewer_user
 ```
 
 **Fehler:**
+
 - `400`: Unvollständiges Review oder Validierungsfehler
 - `403`: Keine Berechtigung
 - `404`: Assessment nicht gefunden
@@ -155,6 +178,7 @@ CREATE INDEX idx_reviewer_responses_reviewer ON reviewer_responses(reviewer_user
 ### Service Layer (`reviewer_service.go`)
 
 #### Validierung
+
 ```go
 func ValidateReviewerResponse(userLevelID, reviewerLevelID uint, justification string) error {
     if userLevelID != reviewerLevelID && len(justification) < 50 {
@@ -165,6 +189,7 @@ func ValidateReviewerResponse(userLevelID, reviewerLevelID uint, justification s
 ```
 
 #### Prüfung der Vollständigkeit
+
 ```go
 func IsReviewComplete(assessmentID uint) (bool, error) {
     // Prüfe ob für alle Kategorien mit User-Antworten auch Reviewer-Antworten existieren
@@ -175,6 +200,7 @@ func IsReviewComplete(assessmentID uint) (bool, error) {
 ### Repository Layer (`reviewer_repository.go`)
 
 #### Methoden
+
 ```go
 type ReviewerRepository interface {
     CreateOrUpdateResponse(response *ReviewerResponse) error
@@ -188,12 +214,14 @@ type ReviewerRepository interface {
 ### Handler Layer (`reviewer_handler.go`)
 
 #### Berechtigungsprüfung
+
 - Nur Benutzer mit Rolle "reviewer" oder "admin" dürfen Reviews durchführen
 - Jeder Reviewer kann nur seine eigenen Reviews bearbeiten (außer Admins)
 
 ## Migration
 
 ### Migration File: `015_reviewer_responses.up.sql`
+
 ```sql
 CREATE TABLE reviewer_responses (
     id SERIAL PRIMARY KEY,
@@ -212,6 +240,7 @@ CREATE INDEX idx_reviewer_responses_reviewer ON reviewer_responses(reviewer_user
 ```
 
 ### Migration File: `015_reviewer_responses.down.sql`
+
 ```sql
 DROP INDEX IF EXISTS idx_reviewer_responses_reviewer;
 DROP INDEX IF EXISTS idx_reviewer_responses_assessment;
@@ -221,6 +250,7 @@ DROP TABLE IF EXISTS reviewer_responses;
 ## Audit Logging
 
 Alle Reviewer-Aktionen sollten im Audit-Log protokolliert werden:
+
 - `reviewer.response.create`: Neue Reviewer-Antwort erstellt
 - `reviewer.response.update`: Reviewer-Antwort aktualisiert
 - `reviewer.response.delete`: Reviewer-Antwort gelöscht
@@ -229,31 +259,45 @@ Alle Reviewer-Aktionen sollten im Audit-Log protokolliert werden:
 ## Sicherheit
 
 ### Zugriffskontrolle
+
 1. Nur Benutzer mit Rolle "reviewer" oder "admin" dürfen auf Review-Endpunkte zugreifen
 2. Reviewer können nur offene Assessments (status: submitted, in_review, reviewed, discussion) bewerten
-3. Reviewer können nicht ihre eigenen Assessments bewerten (prüfen: reviewer_user_id != assessment.user_id)
+3. **TODO: WICHTIG** - Reviewer können nicht ihre eigenen Assessments bewerten (prüfen: reviewer_user_id != assessment.user_id)
+   - Diese Prüfung muss in ALLEN Reviewer-Endpunkten implementiert werden:
+     - `GET /api/v1/review/assessment/:id/responses`
+     - `POST /api/v1/review/assessment/:id/responses`
+     - `DELETE /api/v1/review/assessment/:id/responses/:category_id`
+     - `POST /api/v1/review/assessment/:id/complete`
+   - Fehlercode: `403 Forbidden` mit Meldung "Cannot review your own assessment"
+   - Im Frontend bereits implementiert, Backend-Validierung fehlt noch
 
 ### Datenintegrität
+
 1. Reviewer-Antworten können nur für existierende Assessments und Kategorien erstellt werden
 2. Level-ID muss zu einem gültigen Level im Katalog gehören
 3. Bei Abweichung vom User-Level ist eine Begründung von mindestens 50 Zeichen erforderlich
+4. **TODO:** Bei Abweichung vom User-Pfad (path_id) ist ebenfalls eine Begründung von mindestens 50 Zeichen erforderlich
 
 ## Erweiterungen (Zukünftig)
 
 ### Mehrfach-Reviews
+
 - Erlauben mehrerer Reviewer pro Assessment
 - Aggregation von Reviewer-Bewertungen
 - Konfliktlösung bei unterschiedlichen Bewertungen
 
 ### Review-Historie
+
 - Versionierung von Reviewer-Antworten
 - Nachverfolgung von Änderungen
 
 ### Benachrichtigungen
+
 - E-Mail an Benutzer wenn Review abgeschlossen
 - Benachrichtigung bei Status-Änderung
 
 ### Statistiken
+
 - Durchschnittliche Review-Zeit
 - Abweichungsanalyse (User vs. Reviewer)
 - Reviewer-Performance-Metriken

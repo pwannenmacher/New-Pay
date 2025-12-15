@@ -30,6 +30,7 @@ import {
 import { notifications } from '@mantine/notifications';
 import { selfAssessmentService } from '../../services/selfAssessment';
 import adminService from '../../services/admin';
+import { useAuth } from '../../contexts/AuthContext';
 import type {
   SelfAssessment,
   CatalogWithDetails,
@@ -48,6 +49,7 @@ const statusConfig = {
 export function ReviewAssessmentPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const assessmentId = parseInt(id || '0');
 
   const [assessment, setAssessment] = useState<SelfAssessment | null>(null);
@@ -239,6 +241,26 @@ export function ReviewAssessmentPage() {
         <Alert icon={<IconAlertCircle size={16} />} title="Fehler" color="red">
           Selbsteinschätzung konnte nicht geladen werden.
         </Alert>
+      </Container>
+    );
+  }
+
+  // Verhindere dass User ihre eigenen Assessments prüfen
+  if (user?.id === assessment.user_id) {
+    return (
+      <Container size="xl" py="xl">
+        <Stack gap="lg">
+          <Alert icon={<IconAlertCircle size={16} />} title="Zugriff verweigert" color="red">
+            Sie können Ihre eigenen Selbsteinschätzungen nicht als Reviewer prüfen.
+          </Alert>
+          <Button
+            variant="light"
+            leftSection={<IconArrowLeft size={16} />}
+            onClick={() => navigate('/review/open-assessments')}
+          >
+            Zurück zur Übersicht
+          </Button>
+        </Stack>
       </Container>
     );
   }

@@ -278,8 +278,9 @@ export function ReviewOpenAssessmentsPage() {
                           size="xs"
                           variant="light"
                           onClick={() => navigate(`/review/assessment/${assessment.id}`)}
+                          disabled={user?.id === assessment.user_id}
                         >
-                          Prüfen
+                          {user?.id === assessment.user_id ? 'Eigene Einschätzung' : 'Prüfen'}
                         </Button>
                       </Group>
                     </Table.Td>
