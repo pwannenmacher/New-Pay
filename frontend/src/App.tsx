@@ -31,6 +31,7 @@ import SelfAssessmentPage from './pages/SelfAssessmentPage';
 import SelfAssessmentsAdminPage from './pages/admin/SelfAssessmentsAdminPage';
 import AdminSelfAssessmentDetailPage from './pages/admin/AdminSelfAssessmentDetailPage';
 import { ReviewOpenAssessmentsPage } from './pages/review/ReviewOpenAssessmentsPage';
+import { ReviewAssessmentPage } from './pages/review/ReviewAssessmentPage';
 
 import 'dayjs/locale/de';
 
@@ -148,6 +149,15 @@ function App() {
                       element={
                         <ProtectedRoute requireRole="reviewer">
                           <ReviewOpenAssessmentsPage />
+                        </ProtectedRoute>
+                      }
+                    />
+
+                    <Route
+                      path="/review/assessment/:id"
+                      element={
+                        <ProtectedRoute requireRole="reviewer">
+                          <ReviewAssessmentPage />
                         </ProtectedRoute>
                       }
                     />

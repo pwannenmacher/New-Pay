@@ -277,7 +277,7 @@ export function ReviewOpenAssessmentsPage() {
                         <Button
                           size="xs"
                           variant="light"
-                          onClick={() => navigate(`/self-assessments/${assessment.id}`)}
+                          onClick={() => navigate(`/review/assessment/${assessment.id}`)}
                         >
                           Prüfen
                         </Button>
