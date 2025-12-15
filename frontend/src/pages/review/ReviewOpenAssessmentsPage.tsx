@@ -24,8 +24,9 @@ import {
 } from '@tabler/icons-react';
 import { DateInput } from '@mantine/dates';
 import { selfAssessmentService } from '../../services/selfAssessment';
-import type { SelfAssessment } from '../../types';
+import type { SelfAssessment, Role } from '../../types';
 import { notifications } from '@mantine/notifications';
+import { useAuth } from '../../contexts/AuthContext';
 
 const statusConfig = {
   submitted: { label: 'Eingereicht', color: 'blue', icon: IconFileCheck },
@@ -36,6 +37,8 @@ const statusConfig = {
 
 export function ReviewOpenAssessmentsPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const isAdmin = user?.roles?.some((role: Role) => role.name === 'admin');
   const [assessments, setAssessments] = useState<SelfAssessment[]>([]);
   const [allAssessments, setAllAssessments] = useState<SelfAssessment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -233,7 +236,7 @@ export function ReviewOpenAssessmentsPage() {
             <Table striped highlightOnHover>
               <Table.Thead>
                 <Table.Tr>
-                  <Table.Th>ID</Table.Th>
+                  {isAdmin && <Table.Th>ID</Table.Th>}
                   <Table.Th>Katalog</Table.Th>
                   <Table.Th>Benutzer</Table.Th>
                   <Table.Th>Status</Table.Th>
@@ -246,13 +249,15 @@ export function ReviewOpenAssessmentsPage() {
               <Table.Tbody>
                 {assessments.map((assessment) => (
                   <Table.Tr key={assessment.id}>
-                    <Table.Td>{assessment.id}</Table.Td>
+                    {isAdmin && <Table.Td>{assessment.id}</Table.Td>}
                     <Table.Td>
                       <div>
                         <Text size="sm">{assessment.catalog_name || 'Unbekannt'}</Text>
-                        <Text size="xs" c="dimmed">
-                          ID: {assessment.catalog_id}
-                        </Text>
+                        {isAdmin && (
+                          <Text size="xs" c="dimmed">
+                            ID: {assessment.catalog_id}
+                          </Text>
+                        )}
                       </div>
                     </Table.Td>
                     <Table.Td>
