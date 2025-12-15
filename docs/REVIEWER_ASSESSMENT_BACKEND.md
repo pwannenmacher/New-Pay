@@ -16,7 +16,7 @@ CREATE TABLE reviewer_responses (
     reviewer_user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     path_id INTEGER NOT NULL REFERENCES paths(id) ON DELETE CASCADE,
     level_id INTEGER NOT NULL REFERENCES levels(id) ON DELETE CASCADE,
-    justification TEXT,
+    encrypted_justification_id BIGINT REFERENCES encrypted_records(id),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(assessment_id, category_id, reviewer_user_id)
@@ -24,6 +24,7 @@ CREATE TABLE reviewer_responses (
 
 CREATE INDEX idx_reviewer_responses_assessment ON reviewer_responses(assessment_id);
 CREATE INDEX idx_reviewer_responses_reviewer ON reviewer_responses(reviewer_user_id);
+CREATE INDEX idx_reviewer_responses_encrypted_justification ON reviewer_responses(encrypted_justification_id);
 ```
 
 ### Felder
@@ -32,11 +33,105 @@ CREATE INDEX idx_reviewer_responses_reviewer ON reviewer_responses(reviewer_user
 - `assessment_id`: Referenz zur Selbsteinschätzung
 - `category_id`: Referenz zur bewerteten Kategorie
 - `reviewer_user_id`: Benutzer-ID des Reviewers
-- `path_id`: **NEU** - Vom Reviewer gewählter Entwicklungspfad (kann vom User-Pfad abweichen)
+- `path_id`: Vom Reviewer gewählter Entwicklungspfad (kann vom User-Pfad abweichen)
 - `level_id`: Vom Reviewer gewähltes Level
-- `justification`: Begründung des Reviewers (erforderlich wenn abweichend vom User-Level ODER User-Pfad)
+- `encrypted_justification_id`: Referenz zu `encrypted_records` für verschlüsselte Begründung (erforderlich wenn abweichend vom User-Level ODER User-Pfad)
 - `created_at`: Erstellungszeitpunkt
 - `updated_at`: Zeitpunkt der letzten Änderung
+
+## Verschlüsselung
+
+### Überblick
+
+Reviewer-Begründungen werden mit demselben Verschlüsselungssystem wie Self-Assessment-Begründungen geschützt:
+
+- **3-stufige Key-Hierarchie**: System-Key + User-Key (Reviewer) + Process-Key (Assessment)
+- **Verschlüsselung**: AES-256-GCM
+- **Digitale Signaturen**: Ed25519
+- **Speicherung**: `encrypted_records` Tabelle
+
+### Process-Key
+
+Reviewer-Responses verwenden denselben Process-Key wie die zugehörige Self-Assessment:
+
+```
+Process-ID: "assessment-{assessment_id}"
+```
+
+### Verschlüsselungs-Flow
+
+1. **Beim Erstellen/Aktualisieren einer Reviewer-Response:**
+   - Process-Key für Assessment sicherstellen
+   - User-Key für Reviewer sicherstellen
+   - Begründung über `securestore.CreateRecord()` verschlüsseln
+   - Record-ID in `encrypted_justification_id` speichern
+   - Plaintext-`justification` leer lassen
+
+2. **Beim Abrufen einer Reviewer-Response:**
+   - Record über `securestore.GetRecord()` entschlüsseln
+   - Begründung in Response-Objekt einfügen (nur für Display)
+
+### Service-Integration
+
+```go
+// Beispiel in reviewer_service.go
+func (s *ReviewerService) CreateResponse(response *models.ReviewerResponse) error {
+    if response.Justification != "" {
+        // Encrypt justification
+        processID := fmt.Sprintf("assessment-%d", response.AssessmentID)
+        
+        data := &securestore.PlainData{
+            Fields: map[string]interface{}{
+                "justification": response.Justification,
+            },
+            Metadata: map[string]string{
+                "assessment_id": fmt.Sprintf("%d", response.AssessmentID),
+                "category_id":   fmt.Sprintf("%d", response.CategoryID),
+                "reviewer_id":   fmt.Sprintf("%d", response.ReviewerUserID),
+            },
+        }
+        
+        record, err := s.secureStore.CreateRecord(
+            processID,
+            int64(response.ReviewerUserID),
+            "REVIEWER_JUSTIFICATION",
+            data,
+            "",
+        )
+        if err != nil {
+            return err
+        }
+        
+        response.EncryptedJustificationID = &record.ID
+        response.Justification = "" // Clear plaintext
+    }
+    
+    return s.repo.CreateOrUpdate(response)
+}
+
+func (s *ReviewerService) GetResponseWithDecryption(assessmentID, categoryID uint) (*models.ReviewerResponse, error) {
+    response, err := s.repo.GetByCategoryID(assessmentID, categoryID)
+    if err != nil {
+        return nil, err
+    }
+    
+    if response.EncryptedJustificationID != nil {
+        record, err := s.secureStore.GetRecord(*response.EncryptedJustificationID)
+        if err != nil {
+            return nil, err
+        }
+        
+        response.Justification = record.Data.Fields["justification"].(string)
+    }
+    
+    return response, nil
+}
+```
+
+Siehe auch:
+- [docs/ENCRYPTION.md](ENCRYPTION.md) für vollständige Verschlüsselungs-Architektur
+- [docs/ENCRYPTION_PROCESS.md](ENCRYPTION_PROCESS.md) für Implementierungs-Details
+- Migration `012_encrypt_justification.up.sql` für Referenz-Implementierung
 
 ## API-Endpunkte
 
@@ -44,9 +139,11 @@ CREATE INDEX idx_reviewer_responses_reviewer ON reviewer_responses(reviewer_user
 
 **Endpoint:** `GET /api/v1/review/assessment/:id/responses`
 
-**Beschreibung:** Lädt alle Reviewer-Antworten für eine Selbsteinschätzung
+**Beschreibung:** Lädt die Reviewer-Antworten des aktuellen Reviewers für eine Selbsteinschätzung
 
 **Authentifizierung:** JWT (Rolle: reviewer oder admin)
+
+**Wichtig:** Reviewer sehen **nur ihre eigenen** Review-Antworten. Antworten anderer Reviewer sind niemals sichtbar. Admins können alle Reviews sehen.
 
 **Response:**
 
@@ -204,10 +301,13 @@ func IsReviewComplete(assessmentID uint) (bool, error) {
 ```go
 type ReviewerRepository interface {
     CreateOrUpdateResponse(response *ReviewerResponse) error
-    GetResponsesByAssessmentID(assessmentID uint) ([]ReviewerResponse, error)
-    GetResponseByCategoryID(assessmentID, categoryID uint) (*ReviewerResponse, error)
+    // GetResponsesByAssessmentID lädt nur Responses des spezifischen Reviewers (außer für Admins)
+    GetResponsesByAssessmentID(assessmentID, reviewerUserID uint) ([]ReviewerResponse, error)
+    // GetResponseByCategoryID lädt nur Response des spezifischen Reviewers (außer für Admins)
+    GetResponseByCategoryID(assessmentID, categoryID, reviewerUserID uint) (*ReviewerResponse, error)
     DeleteResponse(assessmentID, categoryID, reviewerUserID uint) error
-    GetResponsesWithUserComparison(assessmentID uint) ([]ResponseComparison, error)
+    // GetResponsesWithUserComparison vergleicht User-Antworten mit den Antworten des aktuellen Reviewers
+    GetResponsesWithUserComparison(assessmentID, reviewerUserID uint) ([]ResponseComparison, error)
 }
 ```
 
@@ -228,8 +328,9 @@ CREATE TABLE reviewer_responses (
     assessment_id INTEGER NOT NULL REFERENCES self_assessments(id) ON DELETE CASCADE,
     category_id INTEGER NOT NULL REFERENCES categories(id) ON DELETE CASCADE,
     reviewer_user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    path_id INTEGER NOT NULL REFERENCES paths(id) ON DELETE CASCADE,
     level_id INTEGER NOT NULL REFERENCES levels(id) ON DELETE CASCADE,
-    justification TEXT,
+    encrypted_justification_id BIGINT REFERENCES encrypted_records(id),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(assessment_id, category_id, reviewer_user_id)
@@ -237,11 +338,15 @@ CREATE TABLE reviewer_responses (
 
 CREATE INDEX idx_reviewer_responses_assessment ON reviewer_responses(assessment_id);
 CREATE INDEX idx_reviewer_responses_reviewer ON reviewer_responses(reviewer_user_id);
+CREATE INDEX idx_reviewer_responses_encrypted_justification ON reviewer_responses(encrypted_justification_id);
+
+COMMENT ON COLUMN reviewer_responses.encrypted_justification_id IS 'Reference to encrypted justification in encrypted_records table';
 ```
 
 ### Migration File: `015_reviewer_responses.down.sql`
 
 ```sql
+DROP INDEX IF EXISTS idx_reviewer_responses_encrypted_justification;
 DROP INDEX IF EXISTS idx_reviewer_responses_reviewer;
 DROP INDEX IF EXISTS idx_reviewer_responses_assessment;
 DROP TABLE IF EXISTS reviewer_responses;
@@ -270,6 +375,11 @@ Alle Reviewer-Aktionen sollten im Audit-Log protokolliert werden:
      - `POST /api/v1/review/assessment/:id/complete`
    - Fehlercode: `403 Forbidden` mit Meldung "Cannot review your own assessment"
    - Im Frontend bereits implementiert, Backend-Validierung fehlt noch
+4. **WICHTIG: Datenisolierung zwischen Reviewern**
+   - Reviewer dürfen **nur ihre eigenen** Review-Antworten sehen und bearbeiten
+   - Review-Antworten anderer Reviewer sind **niemals** zugänglich (auch nicht lesend)
+   - Admins können alle Review-Antworten aller Reviewer einsehen
+   - Implementierung: Alle GET/POST/DELETE Endpunkte müssen `reviewer_user_id = current_user.id` filtern (außer für Admins)
 
 ### Datenintegrität
 
@@ -277,6 +387,17 @@ Alle Reviewer-Aktionen sollten im Audit-Log protokolliert werden:
 2. Level-ID muss zu einem gültigen Level im Katalog gehören
 3. Bei Abweichung vom User-Level ist eine Begründung von mindestens 50 Zeichen erforderlich
 4. **TODO:** Bei Abweichung vom User-Pfad (path_id) ist ebenfalls eine Begründung von mindestens 50 Zeichen erforderlich
+5. Alle Begründungen müssen verschlüsselt in `encrypted_records` gespeichert werden
+
+### Verschlüsselungs-Sicherheit
+
+1. Reviewer-Begründungen verwenden den Process-Key der zugehörigen Self-Assessment
+2. Signatur erfolgt mit dem Ed25519-Key des Reviewers
+3. Plaintext-Begründungen dürfen **nie** in der `justification` Spalte gespeichert werden
+4. Beim Löschen einer Reviewer-Response muss auch der zugehörige `encrypted_records` Eintrag gelöscht werden (CASCADE)
+5. Obwohl alle Reviewer-Responses denselben Process-Key verwenden, sind sie durch Zugriffskontrolle auf Anwendungsebene isoliert
+   - Jeder Reviewer kann nur seine eigenen verschlüsselten Records entschlüsseln und lesen
+   - Die Signatur mit dem individuellen Reviewer-Key stellt Authentizität sicher
 
 ## Erweiterungen (Zukünftig)
 
