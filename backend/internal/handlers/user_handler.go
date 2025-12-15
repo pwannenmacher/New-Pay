@@ -623,6 +623,14 @@ func (h *UserHandler) AssignRole(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Prevent admins from modifying their own roles
+	adminID, _ := middleware.GetUserID(r)
+	if adminID == req.UserID {
+		_ = h.auditMw.LogAction(&adminID, "user.role.assign.error", "users", "Attempted to assign role to self", getIP(r), r.UserAgent())
+		respondWithError(w, http.StatusForbidden, "Cannot modify your own roles")
+		return
+	}
+
 	// Verify user exists
 	_, err := h.userRepo.GetByID(req.UserID)
 	if err != nil {
@@ -639,14 +647,12 @@ func (h *UserHandler) AssignRole(w http.ResponseWriter, r *http.Request) {
 
 	// Assign role
 	if err := h.userRepo.AssignRole(req.UserID, req.RoleID); err != nil {
-		adminID, _ := middleware.GetUserID(r)
 		_ = h.auditMw.LogAction(&adminID, "user.role.assign.error", "users", "Role assignment failed: "+err.Error(), getIP(r), r.UserAgent())
 		respondWithError(w, http.StatusInternalServerError, "Failed to assign role")
 		return
 	}
 
 	// Log audit event
-	adminID, _ := middleware.GetUserID(r)
 	_ = h.auditMw.LogAction(&adminID, "user.role.assign", "users", "Role assigned to user", getIP(r), r.UserAgent())
 
 	respondWithJSON(w, http.StatusOK, map[string]string{
@@ -678,6 +684,14 @@ func (h *UserHandler) RemoveRole(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Prevent admins from modifying their own roles
+	adminID, _ := middleware.GetUserID(r)
+	if adminID == req.UserID {
+		_ = h.auditMw.LogAction(&adminID, "user.role.remove.error", "users", "Attempted to remove role from self", getIP(r), r.UserAgent())
+		respondWithError(w, http.StatusForbidden, "Cannot modify your own roles")
+		return
+	}
+
 	// Check if we're removing the Admin role
 	role, err := h.roleRepo.GetByID(req.RoleID)
 	if err != nil {
@@ -689,7 +703,6 @@ func (h *UserHandler) RemoveRole(w http.ResponseWriter, r *http.Request) {
 	if role.Name == "Admin" {
 		isLastAdmin, err := h.userRepo.IsLastActiveAdmin(req.UserID)
 		if err != nil {
-			adminID, _ := middleware.GetUserID(r)
 			_ = h.auditMw.LogAction(&adminID, "user.role.remove.error", "users", ErrMsgFailedToCheckAdminStatus+err.Error(), getIP(r), r.UserAgent())
 			respondWithError(w, http.StatusInternalServerError, ErrMsgFailedToVerifyAdminStatus)
 			return
@@ -703,14 +716,12 @@ func (h *UserHandler) RemoveRole(w http.ResponseWriter, r *http.Request) {
 
 	// Remove role
 	if err := h.userRepo.RemoveRole(req.UserID, req.RoleID); err != nil {
-		adminID, _ := middleware.GetUserID(r)
 		_ = h.auditMw.LogAction(&adminID, "user.role.remove.error", "users", "Role removal failed: "+err.Error(), getIP(r), r.UserAgent())
 		respondWithError(w, http.StatusInternalServerError, "Failed to remove role")
 		return
 	}
 
 	// Log audit event
-	adminID, _ := middleware.GetUserID(r)
 	_ = h.auditMw.LogAction(&adminID, "user.role.remove", "users", "Role removed from user", getIP(r), r.UserAgent())
 
 	respondWithJSON(w, http.StatusOK, map[string]string{

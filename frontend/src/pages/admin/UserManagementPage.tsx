@@ -39,8 +39,10 @@ import {
 } from '@tabler/icons-react';
 import { adminApi, type UserListParams } from '../../services/admin';
 import type { UserWithRoles, Role, ApiError } from '../../types';
+import { useAuth } from '../../contexts/AuthContext';
 
 export const UserManagementPage = () => {
+  const { user: currentUser } = useAuth();
   const [users, setUsers] = useState<UserWithRoles[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -753,21 +755,22 @@ export const UserManagementPage = () => {
                           </ActionIcon>
                         </Tooltip>
                       )}
-                      <Tooltip label="Assign Role">
+                      <Tooltip label={currentUser?.id === user.id ? "Cannot edit your own roles" : "Assign Role"}>
                         <ActionIcon
                           color="blue"
                           variant="light"
                           onClick={() => openAssignRoleModal(user)}
+                          disabled={currentUser?.id === user.id}
                         >
                           <IconUserPlus size={16} />
                         </ActionIcon>
                       </Tooltip>
-                      <Tooltip label="Remove Role">
+                      <Tooltip label={currentUser?.id === user.id ? "Cannot edit your own roles" : "Remove Role"}>
                         <ActionIcon
                           color="red"
                           variant="light"
                           onClick={() => openRemoveRoleModal(user)}
-                          disabled={!user.roles || user.roles.length === 0}
+                          disabled={currentUser?.id === user.id || !user.roles || user.roles.length === 0}
                         >
                           <IconUserMinus size={16} />
                         </ActionIcon>

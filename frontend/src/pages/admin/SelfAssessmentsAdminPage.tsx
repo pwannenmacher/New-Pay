@@ -304,13 +304,6 @@ export default function SelfAssessmentsAdminPage() {
                     <Table.Td>{formatDate(assessment.updated_at)}</Table.Td>
                     <Table.Td>
                       <Group gap="xs">
-                        <Button
-                          size="xs"
-                          variant="light"
-                          onClick={() => navigate(`/admin/self-assessments/${assessment.id}`)}
-                        >
-                          Details
-                        </Button>
                         {assessment.status !== 'closed' && (
                           <Button
                             size="xs"
