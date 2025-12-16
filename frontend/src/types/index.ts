@@ -220,6 +220,7 @@ export type SelfAssessmentStatus =
   | 'draft'
   | 'submitted'
   | 'in_review'
+  | 'review_consolidation'
   | 'reviewed'
   | 'discussion'
   | 'archived'
@@ -234,6 +235,7 @@ export interface SelfAssessment {
   updated_at: string;
   submitted_at?: string;
   in_review_at?: string;
+  review_consolidation_at?: string;
   reviewed_at?: string;
   discussion_started_at?: string;
   archived_at?: string;

@@ -247,9 +247,11 @@ Siehe auch:
 
 ```json
 {
-  "new_status": "reviewed"  // oder "discussion"
+  "new_status": "review_consolidation"  // oder "reviewed", "discussion"
 }
 ```
+
+**Hinweis:** Der Status `review_consolidation` kann nur gesetzt werden, wenn mindestens 3 vollständige Reviews vorliegen (siehe Abschnitt "Review Consolidation" weiter unten).
 
 **Response:**
 
@@ -366,7 +368,7 @@ Alle Reviewer-Aktionen sollten im Audit-Log protokolliert werden:
 ### Zugriffskontrolle
 
 1. Nur Benutzer mit Rolle "reviewer" oder "admin" dürfen auf Review-Endpunkte zugreifen
-2. Reviewer können nur offene Assessments (status: submitted, in_review, reviewed, discussion) bewerten
+2. Reviewer können nur offene Assessments (status: submitted, in_review, review_consolidation, reviewed, discussion) bewerten
 3. **TODO: WICHTIG** - Reviewer können nicht ihre eigenen Assessments bewerten (prüfen: reviewer_user_id != assessment.user_id)
    - Diese Prüfung muss in ALLEN Reviewer-Endpunkten implementiert werden:
      - `GET /api/v1/review/assessment/:id/responses`
@@ -400,6 +402,64 @@ Alle Reviewer-Aktionen sollten im Audit-Log protokolliert werden:
    - Die Signatur mit dem individuellen Reviewer-Key stellt Authentizität sicher
 
 ## Erweiterungen (Zukünftig)
+
+### Review Consolidation (Status-Übergang)
+
+Der Status `review_consolidation` wird zwischen `in_review` und `reviewed` eingeführt:
+
+**Zweck:**
+- Mehrere Reviewer erstellen unabhängig voneinander ihre Einzel-Reviews
+- Sobald mindestens 3 vollständige Reviews vorliegen, kann das Review-Team in den Status `review_consolidation` wechseln
+- In diesem Status trifft sich das Team, um die einzelnen Reviews zu besprechen und zu einem gemeinsamen Ergebnis zusammenzuführen
+
+**Anforderungen:**
+
+1. **Minimum 3 vollständige Reviews:**
+   - Ein Review gilt als vollständig, wenn für alle Kategorien des Assessments eine Reviewer-Response existiert
+   - Der Übergang zu `review_consolidation` ist nur möglich, wenn >= 3 verschiedene Reviewer vollständige Reviews abgegeben haben
+   - Backend-Validierung erforderlich: `COUNT(DISTINCT reviewer_user_id WHERE all_categories_reviewed) >= 3`
+
+2. **API-Endpoint:**
+   ```
+   GET /api/v1/review/assessment/:id/completion-status
+   ```
+   **Response:**
+   ```json
+   {
+     "total_reviewers": 5,
+     "complete_reviews": 3,
+     "can_consolidate": true,
+     "reviewers_with_complete_reviews": [
+       { "reviewer_id": 10, "reviewer_name": "Max Mustermann", "completed_at": "2025-12-16T10:00:00Z" },
+       { "reviewer_id": 15, "reviewer_name": "Anna Schmidt", "completed_at": "2025-12-16T11:00:00Z" },
+       { "reviewer_id": 20, "reviewer_name": "Tom Weber", "completed_at": "2025-12-16T12:00:00Z" }
+     ]
+   }
+   ```
+
+3. **Frontend-Anforderungen:**
+   - Anzeige der Anzahl vorliegender vollständiger Reviews (z.B. Badge: "3/5 Reviews")
+   - Button "In Konsolidierung überführen" wird erst ab 3 vollständigen Reviews aktiviert
+   - Liste der Reviewer mit vollständigen Reviews anzeigen
+   - Status-Badge mit Icon für `review_consolidation` (bereits implementiert: cyan, IconUsers)
+
+4. **Status-Übergänge:**
+   ```
+   submitted → in_review (Review-Prozess startet)
+   in_review → review_consolidation (mindestens 3 vollständige Reviews liegen vor)
+   review_consolidation → reviewed (Konsolidierung abgeschlossen, Ergebnis steht fest)
+   reviewed → discussion (Besprechung mit User kann beginnen)
+   ```
+
+5. **Datenbank-Schema:**
+   - Neue Spalte: `review_consolidation_at TIMESTAMP` (bereits in Migration 008 hinzugefügt)
+   - Status CHECK constraint erweitert um 'review_consolidation' (bereits implementiert)
+
+**TODO (Backend-Implementierung erforderlich):**
+- [ ] Endpoint zum Abrufen des Completion-Status implementieren
+- [ ] Validierung für Status-Übergang zu `review_consolidation` (mindestens 3 vollständige Reviews)
+- [ ] Repository-Methode zum Zählen vollständiger Reviews pro Assessment
+- [ ] Frontend-Komponente zur Anzeige der Review-Statistik und Konsolidierungs-Button
 
 ### Mehrfach-Reviews
 

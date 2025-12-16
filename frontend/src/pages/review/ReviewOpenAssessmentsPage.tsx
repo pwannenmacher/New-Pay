@@ -21,6 +21,7 @@ import {
   IconMessageCircle,
   IconSearch,
   IconFilter,
+  IconUsers,
 } from '@tabler/icons-react';
 import { DateInput } from '@mantine/dates';
 import { selfAssessmentService } from '../../services/selfAssessment';
@@ -31,6 +32,7 @@ import { useAuth } from '../../contexts/AuthContext';
 const statusConfig = {
   submitted: { label: 'Eingereicht', color: 'blue', icon: IconFileCheck },
   in_review: { label: 'In Prüfung', color: 'yellow', icon: IconClock },
+  review_consolidation: { label: 'Konsolidierung', color: 'cyan', icon: IconUsers },
   reviewed: { label: 'Geprüft', color: 'orange', icon: IconCheck },
   discussion: { label: 'Besprechung', color: 'violet', icon: IconMessageCircle },
 };
@@ -179,6 +181,7 @@ export function ReviewOpenAssessmentsPage() {
                   { value: '', label: 'Alle' },
                   { value: 'submitted', label: 'Eingereicht' },
                   { value: 'in_review', label: 'In Prüfung' },
+                  { value: 'review_consolidation', label: 'Konsolidierung' },
                   { value: 'reviewed', label: 'Geprüft' },
                   { value: 'discussion', label: 'Besprechung' },
                 ]}
