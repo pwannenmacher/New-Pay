@@ -16,6 +16,7 @@ import {
   Loader,
   Center,
   Tabs,
+  useMantineColorScheme,
 } from '@mantine/core';
 import {
   IconArrowLeft,
@@ -51,6 +52,7 @@ export function ReviewAssessmentPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { colorScheme } = useMantineColorScheme();
   const assessmentId = parseInt(id || '0');
 
   const [assessment, setAssessment] = useState<SelfAssessment | null>(null);
@@ -455,7 +457,7 @@ export function ReviewAssessmentPage() {
                                   <Text size="sm" fw={600} c="dimmed" mb="xs">
                                     Begründung
                                   </Text>
-                                  <Paper p="sm" withBorder style={{ backgroundColor: 'var(--mantine-color-dark-6)' }}>
+                                  <Paper p="sm" withBorder bg={colorScheme === 'dark' ? 'dark.6' : 'gray.0'}>
                                     <Text size="sm">
                                       {userResponse.justification || 'Keine Begründung angegeben'}
                                     </Text>
@@ -626,26 +628,6 @@ export function ReviewAssessmentPage() {
             ))}
           </Tabs>
         )}
-
-        <Paper p="md" withBorder>
-          <Group justify="space-between">
-            <Button
-              variant="subtle"
-              leftSection={<IconArrowLeft size={16} />}
-              onClick={() => navigate('/review/open-assessments')}
-            >
-              Zurück zur Übersicht
-            </Button>
-            <Button
-              leftSection={<IconCheck size={16} />}
-              onClick={handleSaveReview}
-              loading={saving}
-              disabled={!canSaveReview()}
-            >
-              Review speichern
-            </Button>
-          </Group>
-        </Paper>
       </Stack>
     </Container>
   );

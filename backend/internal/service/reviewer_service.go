@@ -83,28 +83,20 @@ func (s *ReviewerService) CreateOrUpdateResponse(response *models.ReviewerRespon
 
 	response.ReviewerUserID = reviewerUserID
 
-	// Check if this is the first response for this assessment
-	// If so, automatically transition assessment to "in_review" status
-	totalReviewers, err := s.reviewerRepo.CountTotalReviewers(response.AssessmentID)
+	// Check current assessment status before saving
+	// If still "submitted", transition to "in_review" on any reviewer save
+	assessment, err := s.assessmentRepo.GetByID(response.AssessmentID)
 	if err != nil {
-		return fmt.Errorf("failed to count reviewers: %w", err)
+		return fmt.Errorf("failed to get assessment: %w", err)
 	}
 
-	// If there are no other reviewers yet, this is the first review - update status
-	if totalReviewers == 0 {
-		assessment, err := s.assessmentRepo.GetByID(response.AssessmentID)
-		if err != nil {
-			return fmt.Errorf("failed to get assessment: %w", err)
-		}
-
-		// Only transition from submitted to in_review
-		if assessment != nil && assessment.Status == "submitted" {
-			if err := s.assessmentRepo.UpdateStatus(response.AssessmentID, "in_review"); err != nil {
-				slog.Error("Failed to update assessment status to in_review", "error", err, "assessment_id", response.AssessmentID)
-				// Don't fail the response creation if status update fails
-			} else {
-				slog.Info("Automatically transitioned assessment to in_review", "assessment_id", response.AssessmentID, "reviewer_id", reviewerUserID)
-			}
+	// Transition from submitted to in_review on any reviewer response
+	if assessment != nil && assessment.Status == "submitted" {
+		if err := s.assessmentRepo.UpdateStatus(response.AssessmentID, "in_review"); err != nil {
+			slog.Error("Failed to update assessment status to in_review", "error", err, "assessment_id", response.AssessmentID)
+			// Don't fail the response creation if status update fails
+		} else {
+			slog.Info("Automatically transitioned assessment to in_review", "assessment_id", response.AssessmentID, "reviewer_id", reviewerUserID)
 		}
 	}
 
