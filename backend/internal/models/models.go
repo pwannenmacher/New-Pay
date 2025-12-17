@@ -308,3 +308,132 @@ type ReviewerCompletionInfo struct {
 	ReviewerName string    `json:"reviewer_name"`
 	CompletedAt  time.Time `json:"completed_at"`
 }
+
+// ConsolidationOverride represents a manually adjusted value during review consolidation
+type ConsolidationOverride struct {
+	ID                       uint                            `json:"id" db:"id"`
+	AssessmentID             uint                            `json:"assessment_id" db:"assessment_id"`
+	CategoryID               uint                            `json:"category_id" db:"category_id"`
+	PathID                   uint                            `json:"path_id" db:"path_id"`
+	LevelID                  uint                            `json:"level_id" db:"level_id"`
+	Justification            string                          `json:"justification" db:"-"`                                                 // Decrypted justification (not stored in DB)
+	EncryptedJustificationID *int64                          `json:"encrypted_justification_id,omitempty" db:"encrypted_justification_id"` // Reference to encrypted_records
+	CreatedByUserID          uint                            `json:"created_by_user_id" db:"created_by_user_id"`
+	CreatedAt                time.Time                       `json:"created_at" db:"created_at"`
+	UpdatedAt                time.Time                       `json:"updated_at" db:"updated_at"`
+	Approvals                []ConsolidationOverrideApproval `json:"approvals,omitempty" db:"-"` // Loaded separately
+	ApprovalCount            int                             `json:"approval_count" db:"-"`      // Number of approvals
+	IsApproved               bool                            `json:"is_approved" db:"-"`         // Has at least one approval
+}
+
+// ConsolidationOverrideApproval tracks reviewer approvals for overrides
+type ConsolidationOverrideApproval struct {
+	ID               uint      `json:"id" db:"id"`
+	OverrideID       uint      `json:"override_id" db:"override_id"`
+	ApprovedByUserID uint      `json:"approved_by_user_id" db:"approved_by_user_id"`
+	ApprovedByName   string    `json:"approved_by_name,omitempty" db:"-"` // Loaded separately
+	ApprovedAt       time.Time `json:"approved_at" db:"approved_at"`
+}
+
+// ConsolidationAveragedApproval tracks reviewer approvals for averaged responses (without override)
+type ConsolidationAveragedApproval struct {
+	ID               uint      `json:"id" db:"id"`
+	AssessmentID     uint      `json:"assessment_id" db:"assessment_id"`
+	CategoryID       uint      `json:"category_id" db:"category_id"`
+	ApprovedByUserID uint      `json:"approved_by_user_id" db:"approved_by_user_id"`
+	ApprovedByName   string    `json:"approved_by_name,omitempty" db:"-"` // Loaded separately
+	ApprovedAt       time.Time `json:"approved_at" db:"approved_at"`
+}
+
+// AveragedReviewerResponse represents aggregated reviewer responses for one category
+type AveragedReviewerResponse struct {
+	CategoryID             uint                            `json:"category_id"`
+	CategoryName           string                          `json:"category_name"`
+	CategorySortOrder      int                             `json:"category_sort_order"`
+	AverageLevelNumber     float64                         `json:"average_level_number"`
+	AverageLevelName       string                          `json:"average_level_name"` // Computed from average
+	ReviewerCount          int                             `json:"reviewer_count"`
+	ReviewerJustifications []string                        `json:"reviewer_justifications,omitempty"` // All reviewer justifications for this category
+	Approvals              []ConsolidationAveragedApproval `json:"approvals,omitempty" db:"-"`        // Loaded separately
+	ApprovalCount          int                             `json:"approval_count" db:"-"`             // Number of approvals
+	IsApproved             bool                            `json:"is_approved" db:"-"`                // Has at least 2 approvals
+}
+
+// FinalConsolidation represents the final consolidation comment
+type FinalConsolidation struct {
+	ID                 uint                         `json:"id" db:"id"`
+	AssessmentID       uint                         `json:"assessment_id" db:"assessment_id"`
+	Comment            string                       `json:"comment" db:"-"`                                           // Decrypted comment (not stored in DB)
+	EncryptedCommentID *int64                       `json:"encrypted_comment_id,omitempty" db:"encrypted_comment_id"` // Reference to encrypted_records
+	CreatedByUserID    uint                         `json:"created_by_user_id" db:"created_by_user_id"`
+	CreatedAt          time.Time                    `json:"created_at" db:"created_at"`
+	UpdatedAt          time.Time                    `json:"updated_at" db:"updated_at"`
+	Approvals          []FinalConsolidationApproval `json:"approvals,omitempty" db:"-"` // Loaded separately
+	ApprovalCount      int                          `json:"approval_count" db:"-"`      // Number of approvals
+	RequiredApprovals  int                          `json:"required_approvals" db:"-"`  // How many approvals needed (= reviewer count)
+	IsFullyApproved    bool                         `json:"is_fully_approved" db:"-"`   // All required approvals received
+}
+
+// FinalConsolidationApproval tracks reviewer approvals for final consolidation
+type FinalConsolidationApproval struct {
+	ID               uint      `json:"id" db:"id"`
+	AssessmentID     uint      `json:"assessment_id" db:"assessment_id"`
+	ApprovedByUserID uint      `json:"approved_by_user_id" db:"approved_by_user_id"`
+	ApprovedByName   string    `json:"approved_by_name,omitempty" db:"-"` // Loaded separately
+	ApprovedAt       time.Time `json:"approved_at" db:"approved_at"`
+}
+
+// ConsolidationData contains all data needed for the consolidation page
+type ConsolidationData struct {
+	Assessment            SelfAssessment                  `json:"assessment"`
+	UserResponses         []AssessmentResponseWithDetails `json:"user_responses"`
+	AveragedResponses     []AveragedReviewerResponse      `json:"averaged_responses"`
+	Overrides             []ConsolidationOverride         `json:"overrides"`
+	Catalog               CatalogWithDetails              `json:"catalog"`
+	CurrentUserResponses  []ReviewerResponse              `json:"current_user_responses"`        // Current reviewer's own responses
+	FinalConsolidation    *FinalConsolidation             `json:"final_consolidation,omitempty"` // Final consolidation if exists
+	AllCategoriesApproved bool                            `json:"all_categories_approved"`       // True if all categories have required approvals
+}
+
+// DiscussionResult represents the frozen discussion data
+type DiscussionResult struct {
+	ID                       uint                       `json:"id" db:"id"`
+	AssessmentID             uint                       `json:"assessment_id" db:"assessment_id"`
+	WeightedOverallLevelNum  float64                    `json:"weighted_overall_level_number" db:"weighted_overall_level_number"`
+	WeightedOverallLevelID   uint                       `json:"weighted_overall_level_id" db:"weighted_overall_level_id"`
+	WeightedOverallLevelName string                     `json:"weighted_overall_level_name,omitempty" db:"-"` // Loaded separately
+	FinalComment             string                     `json:"final_comment" db:"-"`                         // Decrypted
+	FinalCommentEncrypted    []byte                     `json:"-" db:"final_comment_encrypted"`
+	FinalCommentNonce        []byte                     `json:"-" db:"final_comment_nonce"`
+	DiscussionNote           *string                    `json:"discussion_note,omitempty" db:"discussion_note"`
+	UserApprovedAt           *time.Time                 `json:"user_approved_at,omitempty" db:"user_approved_at"`
+	CreatedAt                time.Time                  `json:"created_at" db:"created_at"`
+	UpdatedAt                time.Time                  `json:"updated_at" db:"updated_at"`
+	CategoryResults          []DiscussionCategoryResult `json:"category_results,omitempty" db:"-"`
+	Reviewers                []DiscussionReviewer       `json:"reviewers,omitempty" db:"-"`
+}
+
+// DiscussionCategoryResult represents per-category results in discussion
+type DiscussionCategoryResult struct {
+	ID                     uint    `json:"id" db:"id"`
+	DiscussionResultID     uint    `json:"discussion_result_id" db:"discussion_result_id"`
+	CategoryID             uint    `json:"category_id" db:"category_id"`
+	CategoryName           string  `json:"category_name,omitempty" db:"-"`
+	UserLevelID            *uint   `json:"user_level_id,omitempty" db:"user_level_id"`
+	UserLevelName          string  `json:"user_level_name,omitempty" db:"-"`
+	ReviewerLevelID        uint    `json:"reviewer_level_id" db:"reviewer_level_id"`
+	ReviewerLevelName      string  `json:"reviewer_level_name,omitempty" db:"-"`
+	ReviewerLevelNumber    float64 `json:"reviewer_level_number" db:"reviewer_level_number"`
+	JustificationEncrypted []byte  `json:"-" db:"justification_encrypted"`
+	JustificationNonce     []byte  `json:"-" db:"justification_nonce"`
+	JustificationPlain     *string `json:"justification,omitempty" db:"justification_plain"` // Combined or decrypted
+	IsOverride             bool    `json:"is_override" db:"is_override"`
+}
+
+// DiscussionReviewer represents reviewers who participated
+type DiscussionReviewer struct {
+	ID                 uint   `json:"id" db:"id"`
+	DiscussionResultID uint   `json:"discussion_result_id" db:"discussion_result_id"`
+	ReviewerUserID     uint   `json:"reviewer_user_id" db:"reviewer_user_id"`
+	ReviewerName       string `json:"reviewer_name" db:"reviewer_name"`
+}

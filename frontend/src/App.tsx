@@ -32,6 +32,8 @@ import SelfAssessmentsAdminPage from './pages/admin/SelfAssessmentsAdminPage';
 import AdminSelfAssessmentDetailPage from './pages/admin/AdminSelfAssessmentDetailPage';
 import { ReviewOpenAssessmentsPage } from './pages/review/ReviewOpenAssessmentsPage';
 import { ReviewAssessmentPage } from './pages/review/ReviewAssessmentPage';
+import { ReviewConsolidationPage } from './pages/review/ReviewConsolidationPage';
+import { ReviewDiscussionPage } from './pages/review/ReviewDiscussionPage';
 
 import 'dayjs/locale/de';
 
@@ -158,6 +160,24 @@ function App() {
                       element={
                         <ProtectedRoute requireRole="reviewer">
                           <ReviewAssessmentPage />
+                        </ProtectedRoute>
+                      }
+                    />
+
+                    <Route
+                      path="/review/consolidation/:id"
+                      element={
+                        <ProtectedRoute requireRole="reviewer">
+                          <ReviewConsolidationPage />
+                        </ProtectedRoute>
+                      }
+                    />
+
+                    <Route
+                      path="/review/discussion/:id"
+                      element={
+                        <ProtectedRoute requireRole="reviewer">
+                          <ReviewDiscussionPage />
                         </ProtectedRoute>
                       }
                     />

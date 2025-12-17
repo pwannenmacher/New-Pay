@@ -306,14 +306,61 @@ export function ReviewOpenAssessmentsPage() {
                     <Table.Td>{formatDate(assessment.updated_at)}</Table.Td>
                     <Table.Td>
                       <Group gap="xs">
-                        <Button
-                          size="xs"
-                          variant="light"
-                          onClick={() => navigate(`/review/assessment/${assessment.id}`)}
-                          disabled={user?.id === assessment.user_id}
-                        >
-                          {user?.id === assessment.user_id ? 'Eigene Einschätzung' : 'Prüfen'}
-                        </Button>
+                        {assessment.status === 'review_consolidation' ? (
+                          <Button
+                            size="xs"
+                            variant="filled"
+                            color="cyan"
+                            onClick={() => navigate(`/review/consolidation/${assessment.id}`)}
+                          >
+                            Konsolidierung
+                          </Button>
+                        ) : assessment.status === 'reviewed' ? (
+                          <>
+                            <Button
+                              size="xs"
+                              variant="light"
+                              onClick={() => navigate(`/review/consolidation/${assessment.id}`)}
+                            >
+                              Details
+                            </Button>
+                            <Button
+                              size="xs"
+                              variant="filled"
+                              color="violet"
+                              onClick={() => handleStatusChange(assessment.id, 'discussion')}
+                            >
+                              Veröffentlichen
+                            </Button>
+                          </>
+                        ) : assessment.status === 'discussion' ? (
+                          <>
+                            <Button
+                              size="xs"
+                              variant="light"
+                              onClick={() => navigate(`/review/consolidation/${assessment.id}`)}
+                            >
+                              Details
+                            </Button>
+                            <Button
+                              size="xs"
+                              variant="filled"
+                              color="violet"
+                              onClick={() => navigate(`/review/discussion/${assessment.id}`)}
+                            >
+                              Veröffentlichen
+                            </Button>
+                          </>
+                        ) : (
+                          <Button
+                            size="xs"
+                            variant="light"
+                            onClick={() => navigate(`/review/assessment/${assessment.id}`)}
+                            disabled={user?.id === assessment.user_id}
+                          >
+                            {user?.id === assessment.user_id ? 'Eigene Einschätzung' : 'Prüfen'}
+                          </Button>
+                        )}
                         {assessment.status === 'in_review' && (assessment.reviews_completed || 0) >= 3 && (
                           <Button
                             size="xs"

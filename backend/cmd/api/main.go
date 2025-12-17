@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -101,6 +102,12 @@ func main() {
 	selfAssessmentRepo := repository.NewSelfAssessmentRepository(db.DB)
 	assessmentResponseRepo := repository.NewAssessmentResponseRepository(db.DB)
 	reviewerResponseRepo := repository.NewReviewerResponseRepository(db.DB)
+	consolidationOverrideRepo := repository.NewConsolidationOverrideRepository(db.DB)
+	consolidationOverrideApprovalRepo := repository.NewConsolidationOverrideApprovalRepository(db.DB)
+	consolidationAveragedApprovalRepo := repository.NewConsolidationAveragedApprovalRepository(db.DB)
+	finalConsolidationRepo := repository.NewFinalConsolidationRepository(db.DB)
+	finalConsolidationApprovalRepo := repository.NewFinalConsolidationApprovalRepository(db.DB)
+	discussionRepo := repository.NewDiscussionRepository(db.DB)
 
 	// Initialize services
 	authService := auth.NewService(&cfg.JWT)
@@ -111,6 +118,8 @@ func main() {
 	// Initialize encryption services (if Vault is enabled)
 	var encryptedResponseSvc *service.EncryptedResponseService
 	var reviewerService *service.ReviewerService
+	var consolidationService *service.ConsolidationService
+	var discussionService *service.DiscussionService
 	if cfg.Vault.Enabled {
 		vaultClient, err := vault.NewClient(&vault.Config{
 			Address:      cfg.Vault.Address,
@@ -131,6 +140,8 @@ func main() {
 		secureStore := securestore.NewSecureStore(db.DB, keyManager)
 		encryptedResponseSvc = service.NewEncryptedResponseService(db.DB, assessmentResponseRepo, keyManager, secureStore)
 		reviewerService = service.NewReviewerService(db.DB, reviewerResponseRepo, selfAssessmentRepo, assessmentResponseRepo, keyManager, secureStore)
+		consolidationService = service.NewConsolidationService(db.DB, consolidationOverrideRepo, consolidationOverrideApprovalRepo, consolidationAveragedApprovalRepo, finalConsolidationRepo, finalConsolidationApprovalRepo, selfAssessmentRepo, assessmentResponseRepo, reviewerResponseRepo, catalogRepo, encryptedResponseSvc, keyManager, secureStore, emailService)
+		discussionService = service.NewDiscussionService(discussionRepo, selfAssessmentRepo, reviewerResponseRepo, assessmentResponseRepo, consolidationOverrideRepo, finalConsolidationRepo, catalogRepo, userRepo, secureStore)
 
 		slog.Info("Encryption services initialized", "vault_addr", cfg.Vault.Address)
 	} else {
@@ -159,7 +170,9 @@ func main() {
 	configHandler := handlers.NewConfigHandler(cfg)
 	catalogHandler := handlers.NewCatalogHandler(catalogService, auditMw)
 	selfAssessmentHandler := handlers.NewSelfAssessmentHandler(selfAssessmentService)
-	reviewerHandler := handlers.NewReviewerHandler(reviewerService, selfAssessmentRepo)
+	reviewerHandler := handlers.NewReviewerHandler(reviewerService, selfAssessmentRepo, discussionService)
+	consolidationHandler := handlers.NewConsolidationHandler(consolidationService)
+	discussionHandler := handlers.NewDiscussionHandler(discussionService)
 
 	// Setup router
 	mux := http.NewServeMux()
@@ -619,6 +632,95 @@ func main() {
 		),
 	)
 
+	// Consolidation routes (reviewer/admin only)
+	mux.Handle("GET /api/v1/review/consolidation/{id}",
+		authMw.Authenticate(
+			rbacMw.RequireRole("reviewer")(
+				http.HandlerFunc(consolidationHandler.GetConsolidationData),
+			),
+		),
+	)
+	mux.Handle("POST /api/v1/review/consolidation/{id}/override",
+		authMw.Authenticate(
+			rbacMw.RequireRole("reviewer")(
+				http.HandlerFunc(consolidationHandler.CreateOrUpdateOverride),
+			),
+		),
+	)
+	mux.Handle("POST /api/v1/review/consolidation/{id}/override/{categoryId}/approve",
+		authMw.Authenticate(
+			rbacMw.RequireRole("reviewer")(
+				http.HandlerFunc(consolidationHandler.ApproveOverride),
+			),
+		),
+	)
+	mux.Handle("DELETE /api/v1/review/consolidation/{id}/override/{categoryId}/approve",
+		authMw.Authenticate(
+			rbacMw.RequireRole("reviewer")(
+				http.HandlerFunc(consolidationHandler.RevokeOverrideApproval),
+			),
+		),
+	)
+	mux.Handle("DELETE /api/v1/review/consolidation/{id}/override/{categoryId}",
+		authMw.Authenticate(
+			rbacMw.RequireRole("reviewer")(
+				http.HandlerFunc(consolidationHandler.DeleteOverride),
+			),
+		),
+	)
+	mux.Handle("POST /api/v1/review/consolidation/{id}/averaged/{categoryId}/approve",
+		authMw.Authenticate(
+			rbacMw.RequireRole("reviewer")(
+				http.HandlerFunc(consolidationHandler.ApproveAveragedResponse),
+			),
+		),
+	)
+	mux.Handle("DELETE /api/v1/review/consolidation/{id}/averaged/{categoryId}/approve",
+		authMw.Authenticate(
+			rbacMw.RequireRole("reviewer")(
+				http.HandlerFunc(consolidationHandler.RevokeAveragedApproval),
+			),
+		),
+	)
+	mux.Handle("POST /api/v1/review/consolidation/{id}/final",
+		authMw.Authenticate(
+			rbacMw.RequireRole("reviewer")(
+				http.HandlerFunc(consolidationHandler.SaveFinalConsolidation),
+			),
+		),
+	)
+	mux.Handle("POST /api/v1/review/consolidation/{id}/final/approve",
+		authMw.Authenticate(
+			rbacMw.RequireRole("reviewer")(
+				http.HandlerFunc(consolidationHandler.ApproveFinalConsolidation),
+			),
+		),
+	)
+	mux.Handle("DELETE /api/v1/review/consolidation/{id}/final/approve",
+		authMw.Authenticate(
+			rbacMw.RequireRole("reviewer")(
+				http.HandlerFunc(consolidationHandler.RevokeFinalApproval),
+			),
+		),
+	)
+
+	// Discussion endpoints
+	mux.Handle("GET /api/v1/discussion/{id}",
+		authMw.Authenticate(
+			rbacMw.RequireRole("reviewer")(
+				http.HandlerFunc(discussionHandler.GetDiscussionResult),
+			),
+		),
+	)
+
+	mux.Handle("PUT /api/v1/discussion/{id}/note",
+		authMw.Authenticate(
+			rbacMw.RequireRole("user")(
+				http.HandlerFunc(discussionHandler.UpdateDiscussionNote),
+			),
+		),
+	)
+
 	// Health check endpoint
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		if err := db.HealthCheck(); err != nil {
@@ -677,7 +779,7 @@ func main() {
 	slog.Info("Server shutting down...")
 
 	// Graceful shutdown with timeout
-	ctx, cancel := getContext(30 * time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
 	if err := server.Shutdown(ctx); err != nil {

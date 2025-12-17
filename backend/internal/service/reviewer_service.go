@@ -42,6 +42,18 @@ func NewReviewerService(
 
 // CreateOrUpdateResponse creates or updates a reviewer response with encryption
 func (s *ReviewerService) CreateOrUpdateResponse(response *models.ReviewerResponse, reviewerUserID uint) error {
+	// Check assessment status - reviews cannot be created/modified in review_consolidation status
+	assessment, err := s.assessmentRepo.GetByID(response.AssessmentID)
+	if err != nil {
+		return fmt.Errorf("failed to get assessment: %w", err)
+	}
+	if assessment == nil {
+		return fmt.Errorf("assessment not found")
+	}
+	if assessment.Status == "review_consolidation" || assessment.Status == "reviewed" || assessment.Status == "discussion" || assessment.Status == "archived" {
+		return fmt.Errorf("cannot create or modify reviews for assessments in %s status", assessment.Status)
+	}
+
 	// Ensure user key exists for reviewer
 	if err := s.ensureUserKey(int64(reviewerUserID)); err != nil {
 		return fmt.Errorf("failed to ensure reviewer key: %w", err)
@@ -83,15 +95,8 @@ func (s *ReviewerService) CreateOrUpdateResponse(response *models.ReviewerRespon
 
 	response.ReviewerUserID = reviewerUserID
 
-	// Check current assessment status before saving
-	// If still "submitted", transition to "in_review" on any reviewer save
-	assessment, err := s.assessmentRepo.GetByID(response.AssessmentID)
-	if err != nil {
-		return fmt.Errorf("failed to get assessment: %w", err)
-	}
-
 	// Transition from submitted to in_review on any reviewer response
-	if assessment != nil && assessment.Status == "submitted" {
+	if assessment.Status == "submitted" {
 		if err := s.assessmentRepo.UpdateStatus(response.AssessmentID, "in_review"); err != nil {
 			slog.Error("Failed to update assessment status to in_review", "error", err, "assessment_id", response.AssessmentID)
 			// Don't fail the response creation if status update fails

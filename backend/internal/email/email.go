@@ -402,3 +402,45 @@ func (s *Service) SendReviewerDailySummary(to string, items []ReviewSummaryItem)
 
 	return s.sendEmail(to, subject, body)
 }
+
+// SendReviewCompletedNotification sends notification when all reviewers have approved the final consolidation
+func (s *Service) SendReviewCompletedNotification(to, userName, catalogName string, assessmentID uint) error {
+	subject := "Ihre Selbsteinschätzung wurde abgeschlossen"
+
+	// Note: At this point, the user cannot yet view the results - this will be implemented later
+	body := fmt.Sprintf(`
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Selbsteinschätzung abgeschlossen</title>
+</head>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+    <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+        <h2 style="color: #27ae60;">Selbsteinschätzung abgeschlossen</h2>
+        <p>Hallo %s,</p>
+        <p>Ihre Selbsteinschätzung für den Katalog <strong>%s</strong> wurde vom Review-Team vollständig konsolidiert und abgeschlossen.</p>
+        
+        <div style="background-color: #d4edda; border-left: 4px solid #28a745; padding: 15px; margin: 20px 0;">
+            <p style="margin: 5px 0;"><strong>Status:</strong> Abgeschlossen (reviewed)</p>
+            <p style="margin: 5px 0;"><strong>Assessment-ID:</strong> #%d</p>
+        </div>
+        
+        <p><strong>Nächste Schritte:</strong></p>
+        <ul>
+            <li>Die Ergebnisse werden Ihnen in Kürze zur Einsicht freigegeben.</li>
+            <li>Sie werden eine weitere Benachrichtigung erhalten, sobald Sie die detaillierten Ergebnisse einsehen können.</li>
+            <li>Bei Fragen zur Bewertung können Sie sich an das Review-Team wenden.</li>
+        </ul>
+        
+        <p>Vielen Dank für Ihre Teilnahme am Selbsteinschätzungsprozess!</p>
+        
+        <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
+        <p style="color: #999; font-size: 12px;">Dies ist eine automatische Benachrichtigung. Bitte antworten Sie nicht auf diese E-Mail.</p>
+    </div>
+</body>
+</html>
+	`, userName, catalogName, assessmentID)
+
+	return s.sendEmail(to, subject, body)
+}

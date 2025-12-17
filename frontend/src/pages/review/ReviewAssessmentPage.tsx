@@ -61,7 +61,6 @@ export function ReviewAssessmentPage() {
   const [reviewerResponses, setReviewerResponses] = useState<Map<number, ReviewerResponse>>(new Map());
   const [selectedPaths, setSelectedPaths] = useState<Map<number, number>>(new Map());
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [savingCategory, setSavingCategory] = useState<number | null>(null);
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
 
@@ -85,6 +84,18 @@ export function ReviewAssessmentPage() {
       ]);
 
       setAssessment(assessmentData);
+      
+      // Redirect to consolidation page if status is reviewed or beyond
+      if (assessmentData.status === 'reviewed' || assessmentData.status === 'discussion' || assessmentData.status === 'archived' || assessmentData.status === 'closed') {
+        notifications.show({
+          title: 'Hinweis',
+          message: 'Diese Bewertung kann nicht mehr bearbeitet werden. Sie wird zur Konsolidierungsseite umgeleitet.',
+          color: 'blue',
+        });
+        navigate(`/review/consolidation/${assessmentId}`);
+        return;
+      }
+
       setUserResponses(responsesData);
 
       if (assessmentData.catalog_id) {
@@ -248,52 +259,6 @@ export function ReviewAssessmentPage() {
       });
     } finally {
       setSavingCategory(null);
-    }
-  };
-
-  const canSaveReview = (): boolean => {
-    if (!catalog?.categories) return false;
-    
-    return catalog.categories.every((category) => {
-      const reviewerResponse = getReviewerResponseForCategory(category.id);
-      // Check if response exists in database (has id) and is valid
-      if (!reviewerResponse?.id) return false;
-      return isJustificationValid(category.id);
-    });
-  };
-
-  const handleSaveReview = async () => {
-    if (!canSaveReview()) {
-      notifications.show({
-        title: 'Validierung fehlgeschlagen',
-        message: 'Bitte füllen Sie alle erforderlichen Felder aus.',
-        color: 'red',
-      });
-      return;
-    }
-
-    try {
-      setSaving(true);
-      
-      // TODO: Save reviewer responses to backend
-      console.log('Saving reviewer responses:', Object.fromEntries(reviewerResponses));
-      
-      notifications.show({
-        title: 'Erfolg',
-        message: 'Review wurde gespeichert',
-        color: 'green',
-      });
-      
-      navigate('/review/open-assessments');
-    } catch (error: any) {
-      console.error('Error saving review:', error);
-      notifications.show({
-        title: 'Fehler',
-        message: error.response?.data?.error || 'Review konnte nicht gespeichert werden',
-        color: 'red',
-      });
-    } finally {
-      setSaving(false);
     }
   };
 

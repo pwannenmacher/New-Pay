@@ -759,7 +759,36 @@ WHERE sa.status IN ('submitted', 'in_review', 'review_consolidation', 'reviewed'
 
 // UpdateStatus updates the status of a self-assessment
 func (r *SelfAssessmentRepository) UpdateStatus(assessmentID uint, newStatus string) error {
-	query := `UPDATE self_assessments SET status = $1, updated_at = NOW() WHERE id = $2`
-	_, err := r.db.Exec(query, newStatus, assessmentID)
+	// First, get the current status to store as previous_status
+	var currentStatus string
+	err := r.db.QueryRow(`SELECT status FROM self_assessments WHERE id = $1`, assessmentID).Scan(&currentStatus)
+	if err != nil {
+		return err
+	}
+
+	// Build the update query dynamically based on the new status
+	query := `UPDATE self_assessments SET status = $1, previous_status = $2, updated_at = NOW()`
+	args := []interface{}{newStatus, currentStatus, assessmentID}
+
+	// Add status-specific timestamp updates
+	switch newStatus {
+	case "submitted":
+		query += `, submitted_at = NOW()`
+	case "in_review":
+		query += `, in_review_at = NOW()`
+	case "review_consolidation":
+		query += `, review_consolidation_at = NOW()`
+	case "reviewed":
+		query += `, reviewed_at = NOW()`
+	case "discussion":
+		query += `, discussion_started_at = NOW()`
+	case "archived":
+		query += `, archived_at = NOW()`
+	case "closed":
+		query += `, closed_at = NOW()`
+	}
+
+	query += ` WHERE id = $3`
+	_, err = r.db.Exec(query, args...)
 	return err
 }

@@ -15,18 +15,21 @@ import (
 
 // ReviewerHandler handles reviewer-related HTTP requests
 type ReviewerHandler struct {
-	reviewerService *service.ReviewerService
-	assessmentRepo  *repository.SelfAssessmentRepository
+	reviewerService   *service.ReviewerService
+	assessmentRepo    *repository.SelfAssessmentRepository
+	discussionService *service.DiscussionService
 }
 
 // NewReviewerHandler creates a new reviewer handler
 func NewReviewerHandler(
 	reviewerService *service.ReviewerService,
 	assessmentRepo *repository.SelfAssessmentRepository,
+	discussionService *service.DiscussionService,
 ) *ReviewerHandler {
 	return &ReviewerHandler{
-		reviewerService: reviewerService,
-		assessmentRepo:  assessmentRepo,
+		reviewerService:   reviewerService,
+		assessmentRepo:    assessmentRepo,
+		discussionService: discussionService,
 	}
 }
 
@@ -314,6 +317,16 @@ func (h *ReviewerHandler) CompleteReview(w http.ResponseWriter, r *http.Request)
 			return
 		}
 		assessment.Status = req.NewStatus
+
+		// If status changes to 'discussion', create discussion results
+		if req.NewStatus == "discussion" && h.discussionService != nil {
+			if err := h.discussionService.CreateDiscussionResult(uint(assessmentID)); err != nil {
+				slog.Error("Failed to create discussion result", "assessmentID", assessmentID, "error", err)
+				// Don't fail the request - discussion can be regenerated later
+			} else {
+				slog.Info("Discussion result created", "assessmentID", assessmentID)
+			}
+		}
 	}
 
 	response := map[string]interface{}{
