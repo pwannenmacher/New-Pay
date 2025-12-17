@@ -755,3 +755,10 @@ assessments = append(assessments, assessment)
 return assessments, nil
 }
 
+
+// UpdateStatus updates the status of a self-assessment
+func (r *SelfAssessmentRepository) UpdateStatus(assessmentID uint, newStatus string) error {
+query := `UPDATE self_assessments SET status = $1, updated_at = NOW() WHERE id = $2`
+_, err := r.db.Exec(query, newStatus, assessmentID)
+return err
+}

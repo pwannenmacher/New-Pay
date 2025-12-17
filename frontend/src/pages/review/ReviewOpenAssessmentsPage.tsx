@@ -104,6 +104,24 @@ export function ReviewOpenAssessmentsPage() {
     setTimeout(() => loadData(), 100);
   };
 
+  const handleStatusChange = async (assessmentId: number, newStatus: string) => {
+    try {
+      await selfAssessmentService.updateStatus(assessmentId, newStatus);
+      notifications.show({
+        title: 'Erfolg',
+        message: 'Status wurde erfolgreich aktualisiert',
+        color: 'green',
+      });
+      loadData();
+    } catch (error: any) {
+      notifications.show({
+        title: 'Fehler',
+        message: error.response?.data?.error || 'Fehler beim Aktualisieren des Status',
+        color: 'red',
+      });
+    }
+  };
+
   const formatDate = (dateString?: string) => {
     if (!dateString) return '-';
     return new Date(dateString).toLocaleString('de-DE', {
@@ -243,6 +261,7 @@ export function ReviewOpenAssessmentsPage() {
                   <Table.Th>Katalog</Table.Th>
                   <Table.Th>Benutzer</Table.Th>
                   <Table.Th>Status</Table.Th>
+                  <Table.Th>Reviews</Table.Th>
                   <Table.Th>Erstellt am</Table.Th>
                   <Table.Th>Eingereicht am</Table.Th>
                   <Table.Th>Aktualisiert am</Table.Th>
@@ -272,6 +291,16 @@ export function ReviewOpenAssessmentsPage() {
                       </div>
                     </Table.Td>
                     <Table.Td>{getStatusBadge(assessment.status)}</Table.Td>
+                    <Table.Td>
+                      <Group gap="xs">
+                        <Badge size="sm" variant="light" color="blue">
+                          {assessment.reviews_started || 0} begonnen
+                        </Badge>
+                        <Badge size="sm" variant="light" color="green">
+                          {assessment.reviews_completed || 0} abgeschlossen
+                        </Badge>
+                      </Group>
+                    </Table.Td>
                     <Table.Td>{formatDate(assessment.created_at)}</Table.Td>
                     <Table.Td>{formatDate(assessment.submitted_at)}</Table.Td>
                     <Table.Td>{formatDate(assessment.updated_at)}</Table.Td>
@@ -285,6 +314,16 @@ export function ReviewOpenAssessmentsPage() {
                         >
                           {user?.id === assessment.user_id ? 'Eigene Einschätzung' : 'Prüfen'}
                         </Button>
+                        {assessment.status === 'in_review' && (assessment.reviews_completed || 0) >= 3 && (
+                          <Button
+                            size="xs"
+                            variant="filled"
+                            color="cyan"
+                            onClick={() => handleStatusChange(assessment.id, 'review_consolidation')}
+                          >
+                            Konsolidierung starten
+                          </Button>
+                        )}
                       </Group>
                     </Table.Td>
                   </Table.Tr>

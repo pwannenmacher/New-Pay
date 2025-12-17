@@ -29,7 +29,8 @@ import {
 } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 import { selfAssessmentService } from '../../services/selfAssessment';
-import adminService from '../../services/admin';
+import catalogService from '../../services/catalog';
+import reviewerService, { type ReviewerResponse } from '../../services/reviewer';
 import { useAuth } from '../../contexts/AuthContext';
 import type {
   SelfAssessment,
@@ -55,10 +56,11 @@ export function ReviewAssessmentPage() {
   const [assessment, setAssessment] = useState<SelfAssessment | null>(null);
   const [catalog, setCatalog] = useState<CatalogWithDetails | null>(null);
   const [userResponses, setUserResponses] = useState<AssessmentResponseWithDetails[]>([]);
-  const [reviewerResponses, setReviewerResponses] = useState<Map<number, { path_id: number; level_id: number; justification: string }>>(new Map());
+  const [reviewerResponses, setReviewerResponses] = useState<Map<number, ReviewerResponse>>(new Map());
   const [selectedPaths, setSelectedPaths] = useState<Map<number, number>>(new Map());
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [savingCategory, setSavingCategory] = useState<number | null>(null);
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
 
   useEffect(() => {
@@ -74,33 +76,41 @@ export function ReviewAssessmentPage() {
   const loadData = async () => {
     try {
       setLoading(true);
-      const [assessmentData, responsesData] = await Promise.all([
+      const [assessmentData, responsesData, reviewerResponsesData] = await Promise.all([
         selfAssessmentService.getSelfAssessment(assessmentId),
         selfAssessmentService.getResponses(assessmentId),
+        reviewerService.getResponses(assessmentId),
       ]);
 
       setAssessment(assessmentData);
       setUserResponses(responsesData);
 
       if (assessmentData.catalog_id) {
-        const catalogData = await adminService.getCatalog(assessmentData.catalog_id);
+        const catalogData = await catalogService.getCatalog(assessmentData.catalog_id);
         setCatalog(catalogData);
       }
 
-      // TODO: Load existing reviewer responses from backend
-      // For now, initialize with user's choices
-      const initialReviewerResponses = new Map();
+      // Load existing reviewer responses from backend
+      const loadedReviewerResponses = new Map<number, ReviewerResponse>();
       const initialSelectedPaths = new Map();
-      responsesData.forEach((response) => {
-        initialReviewerResponses.set(response.category_id, {
-          path_id: response.path_id,
-          level_id: response.level_id,
-          justification: '',
+      
+      // Handle null or undefined reviewerResponsesData
+      if (reviewerResponsesData && Array.isArray(reviewerResponsesData)) {
+        reviewerResponsesData.forEach((response) => {
+          loadedReviewerResponses.set(response.category_id, response);
+          initialSelectedPaths.set(response.category_id, response.path_id);
         });
-        initialSelectedPaths.set(response.category_id, response.path_id);
+      }
+      
+      // For categories without reviewer response, use user's path as initial selection
+      responsesData.forEach((response) => {
+        if (!initialSelectedPaths.has(response.category_id)) {
+          initialSelectedPaths.set(response.category_id, response.path_id);
+        }
       });
-      setReviewerResponses(initialReviewerResponses);
-      setSelectedPaths(initialSelectedPaths);
+      
+      setReviewerResponses(loadedReviewerResponses);
+      setSelectedPaths(initialSelectedPaths)
     } catch (error: any) {
       console.error('Error loading data:', error);
       notifications.show({
@@ -127,19 +137,40 @@ export function ReviewAssessmentPage() {
 
   const handleReviewerPathChange = (categoryId: number, pathId: number) => {
     setSelectedPaths(new Map(selectedPaths.set(categoryId, pathId)));
-    const current = reviewerResponses.get(categoryId) || { path_id: pathId, level_id: 0, justification: '' };
+    const current = reviewerResponses.get(categoryId) || {
+      assessment_id: assessmentId,
+      category_id: categoryId,
+      reviewer_user_id: user?.id || 0,
+      path_id: pathId,
+      level_id: 0,
+      justification: '',
+    };
     setReviewerResponses(new Map(reviewerResponses.set(categoryId, { ...current, path_id: pathId, level_id: 0 })));
   };
 
   const handleReviewerLevelChange = (categoryId: number, levelId: number) => {
     const pathId = selectedPaths.get(categoryId) || 0;
-    const current = reviewerResponses.get(categoryId) || { path_id: pathId, level_id: levelId, justification: '' };
+    const current = reviewerResponses.get(categoryId) || {
+      assessment_id: assessmentId,
+      category_id: categoryId,
+      reviewer_user_id: user?.id || 0,
+      path_id: pathId,
+      level_id: levelId,
+      justification: '',
+    };
     setReviewerResponses(new Map(reviewerResponses.set(categoryId, { ...current, level_id: levelId })));
   };
 
   const handleReviewerJustificationChange = (categoryId: number, justification: string) => {
     const pathId = selectedPaths.get(categoryId) || 0;
-    const current = reviewerResponses.get(categoryId) || { path_id: pathId, level_id: 0, justification };
+    const current = reviewerResponses.get(categoryId) || {
+      assessment_id: assessmentId,
+      category_id: categoryId,
+      reviewer_user_id: user?.id || 0,
+      path_id: pathId,
+      level_id: 0,
+      justification,
+    };
     setReviewerResponses(new Map(reviewerResponses.set(categoryId, { ...current, justification })));
   };
 
@@ -169,12 +200,62 @@ export function ReviewAssessmentPage() {
     return (reviewerResponse?.justification?.length || 0) >= 50;
   };
 
+  const handleSaveCategory = async (categoryId: number) => {
+    const reviewerResponse = reviewerResponses.get(categoryId);
+    if (!reviewerResponse || !reviewerResponse.level_id) {
+      notifications.show({
+        title: 'Fehler',
+        message: 'Bitte wählen Sie ein Level aus',
+        color: 'red',
+      });
+      return;
+    }
+
+    if (!isJustificationValid(categoryId)) {
+      notifications.show({
+        title: 'Fehler',
+        message: 'Begründung muss mindestens 50 Zeichen haben, wenn Level oder Pfad vom User abweicht',
+        color: 'red',
+      });
+      return;
+    }
+
+    try {
+      setSavingCategory(categoryId);
+      const savedResponse = await reviewerService.saveResponse(assessmentId, {
+        category_id: categoryId,
+        path_id: reviewerResponse.path_id,
+        level_id: reviewerResponse.level_id,
+        justification: reviewerResponse.justification,
+      });
+
+      // Update local state with saved response (including id)
+      setReviewerResponses(new Map(reviewerResponses.set(categoryId, savedResponse)));
+
+      notifications.show({
+        title: 'Erfolg',
+        message: 'Kategorie gespeichert',
+        color: 'green',
+      });
+    } catch (error: any) {
+      console.error('Error saving category:', error);
+      notifications.show({
+        title: 'Fehler',
+        message: error.response?.data?.error || 'Kategorie konnte nicht gespeichert werden',
+        color: 'red',
+      });
+    } finally {
+      setSavingCategory(null);
+    }
+  };
+
   const canSaveReview = (): boolean => {
     if (!catalog?.categories) return false;
     
     return catalog.categories.every((category) => {
       const reviewerResponse = getReviewerResponseForCategory(category.id);
-      if (!reviewerResponse || !reviewerResponse.level_id) return false;
+      // Check if response exists in database (has id) and is valid
+      if (!reviewerResponse?.id) return false;
       return isJustificationValid(category.id);
     });
   };
@@ -305,7 +386,8 @@ export function ReviewAssessmentPage() {
             <Tabs.List>
               {activeCategories.map((category) => {
                 const reviewerResponse = getReviewerResponseForCategory(category.id);
-                const hasResponse = !!reviewerResponse?.level_id;
+                // Category is complete if it has been saved to database (has id)
+                const isSaved = !!reviewerResponse?.id;
                 const isValid = isJustificationValid(category.id);
 
                 return (
@@ -313,7 +395,7 @@ export function ReviewAssessmentPage() {
                     key={category.id}
                     value={category.id.toString()}
                     rightSection={
-                      hasResponse ? (
+                      isSaved ? (
                         isValid ? (
                           <IconCheck size={14} color="green" />
                         ) : (
@@ -373,7 +455,7 @@ export function ReviewAssessmentPage() {
                                   <Text size="sm" fw={600} c="dimmed" mb="xs">
                                     Begründung
                                   </Text>
-                                  <Paper p="sm" withBorder bg="gray.0">
+                                  <Paper p="sm" withBorder style={{ backgroundColor: 'var(--mantine-color-dark-6)' }}>
                                     <Text size="sm">
                                       {userResponse.justification || 'Keine Begründung angegeben'}
                                     </Text>
@@ -516,6 +598,22 @@ export function ReviewAssessmentPage() {
                                     </Text>
                                   )}
                                 </div>
+
+                                {/* Save button for this category */}
+                                <Button
+                                  onClick={() => handleSaveCategory(category.id)}
+                                  loading={savingCategory === category.id}
+                                  disabled={!reviewerResponse?.level_id || (requiresJustification && !justificationValid)}
+                                  fullWidth
+                                >
+                                  {reviewerResponse?.id ? 'Änderungen speichern' : 'Kategorie speichern'}
+                                </Button>
+                                
+                                {reviewerResponse?.id && (
+                                  <Text size="xs" c="dimmed" ta="center">
+                                    Zuletzt gespeichert: {new Date(reviewerResponse.updated_at || reviewerResponse.created_at || '').toLocaleString('de-DE')}
+                                  </Text>
+                                )}
                               </Stack>
                             );
                           })()}

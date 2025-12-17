@@ -211,27 +211,30 @@ type PathWithDescriptions struct {
 
 // SelfAssessment represents a user's self-assessment for a catalog
 type SelfAssessment struct {
-	ID                  uint       `json:"id" db:"id"`
-	CatalogID           uint       `json:"catalog_id" db:"catalog_id"`
-	UserID              uint       `json:"user_id" db:"user_id"`
-	Status              string     `json:"status" db:"status"` // draft, submitted, in_review, reviewed, discussion, archived, closed
-	CreatedAt           time.Time  `json:"created_at" db:"created_at"`
-	UpdatedAt           time.Time  `json:"updated_at" db:"updated_at"`
-	SubmittedAt         *time.Time `json:"submitted_at,omitempty" db:"submitted_at"`
-	InReviewAt          *time.Time `json:"in_review_at,omitempty" db:"in_review_at"`
-	ReviewedAt          *time.Time `json:"reviewed_at,omitempty" db:"reviewed_at"`
-	DiscussionStartedAt *time.Time `json:"discussion_started_at,omitempty" db:"discussion_started_at"`
-	ArchivedAt          *time.Time `json:"archived_at,omitempty" db:"archived_at"`
-	ClosedAt            *time.Time `json:"closed_at,omitempty" db:"closed_at"`
-	PreviousStatus      *string    `json:"previous_status,omitempty" db:"previous_status"`
+	ID                    uint       `json:"id" db:"id"`
+	CatalogID             uint       `json:"catalog_id" db:"catalog_id"`
+	UserID                uint       `json:"user_id" db:"user_id"`
+	Status                string     `json:"status" db:"status"` // draft, submitted, in_review, review_consolidation, reviewed, discussion, archived, closed
+	CreatedAt             time.Time  `json:"created_at" db:"created_at"`
+	UpdatedAt             time.Time  `json:"updated_at" db:"updated_at"`
+	SubmittedAt           *time.Time `json:"submitted_at,omitempty" db:"submitted_at"`
+	InReviewAt            *time.Time `json:"in_review_at,omitempty" db:"in_review_at"`
+	ReviewConsolidationAt *time.Time `json:"review_consolidation_at,omitempty" db:"review_consolidation_at"`
+	ReviewedAt            *time.Time `json:"reviewed_at,omitempty" db:"reviewed_at"`
+	DiscussionStartedAt   *time.Time `json:"discussion_started_at,omitempty" db:"discussion_started_at"`
+	ArchivedAt            *time.Time `json:"archived_at,omitempty" db:"archived_at"`
+	ClosedAt              *time.Time `json:"closed_at,omitempty" db:"closed_at"`
+	PreviousStatus        *string    `json:"previous_status,omitempty" db:"previous_status"`
 }
 
 // SelfAssessmentWithDetails includes user and catalog information
 type SelfAssessmentWithDetails struct {
 	SelfAssessment
-	UserEmail   string `json:"user_email,omitempty"`
-	UserName    string `json:"user_name,omitempty"` // first_name + last_name
-	CatalogName string `json:"catalog_name,omitempty"`
+	UserEmail        string `json:"user_email,omitempty"`
+	UserName         string `json:"user_name,omitempty"` // first_name + last_name
+	CatalogName      string `json:"catalog_name,omitempty"`
+	ReviewsStarted   int    `json:"reviews_started,omitempty"`   // Number of reviewers who have started (at least one category)
+	ReviewsCompleted int    `json:"reviews_completed,omitempty"` // Number of reviewers who have completed all categories
 }
 
 // AssessmentResponse represents a user's selection for one category
@@ -275,4 +278,33 @@ type WeightedScore struct {
 	OverallLevel    string  `json:"overall_level"`    // The corresponding level letter (A, B, C, etc.)
 	LevelNumber     int     `json:"level_number"`     // The corresponding level number
 	IsComplete      bool    `json:"is_complete"`      // Whether all categories have responses
+}
+
+// ReviewerResponse represents a reviewer's assessment of one category in a self-assessment
+type ReviewerResponse struct {
+	ID                       uint      `json:"id" db:"id"`
+	AssessmentID             uint      `json:"assessment_id" db:"assessment_id"`
+	CategoryID               uint      `json:"category_id" db:"category_id"`
+	ReviewerUserID           uint      `json:"reviewer_user_id" db:"reviewer_user_id"`
+	PathID                   uint      `json:"path_id" db:"path_id"`
+	LevelID                  uint      `json:"level_id" db:"level_id"`
+	Justification            string    `json:"justification" db:"-"`                                                 // Decrypted justification (not stored in DB)
+	EncryptedJustificationID *int64    `json:"encrypted_justification_id,omitempty" db:"encrypted_justification_id"` // Reference to encrypted_records
+	CreatedAt                time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt                time.Time `json:"updated_at" db:"updated_at"`
+}
+
+// ReviewCompletionStatus represents the status of reviews for an assessment
+type ReviewCompletionStatus struct {
+	TotalReviewers               int                      `json:"total_reviewers"`
+	CompleteReviews              int                      `json:"complete_reviews"`
+	CanConsolidate               bool                     `json:"can_consolidate"`
+	ReviewersWithCompleteReviews []ReviewerCompletionInfo `json:"reviewers_with_complete_reviews"`
+}
+
+// ReviewerCompletionInfo contains info about a reviewer who completed their review
+type ReviewerCompletionInfo struct {
+	ReviewerID   uint      `json:"reviewer_id"`
+	ReviewerName string    `json:"reviewer_name"`
+	CompletedAt  time.Time `json:"completed_at"`
 }

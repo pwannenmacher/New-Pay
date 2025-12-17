@@ -100,6 +100,7 @@ func main() {
 	catalogRepo := repository.NewCatalogRepository(db.DB)
 	selfAssessmentRepo := repository.NewSelfAssessmentRepository(db.DB)
 	assessmentResponseRepo := repository.NewAssessmentResponseRepository(db.DB)
+	reviewerResponseRepo := repository.NewReviewerResponseRepository(db.DB)
 
 	// Initialize services
 	authService := auth.NewService(&cfg.JWT)
@@ -109,6 +110,7 @@ func main() {
 
 	// Initialize encryption services (if Vault is enabled)
 	var encryptedResponseSvc *service.EncryptedResponseService
+	var reviewerService *service.ReviewerService
 	if cfg.Vault.Enabled {
 		vaultClient, err := vault.NewClient(&vault.Config{
 			Address:      cfg.Vault.Address,
@@ -128,13 +130,14 @@ func main() {
 
 		secureStore := securestore.NewSecureStore(db.DB, keyManager)
 		encryptedResponseSvc = service.NewEncryptedResponseService(db.DB, assessmentResponseRepo, keyManager, secureStore)
+		reviewerService = service.NewReviewerService(db.DB, reviewerResponseRepo, selfAssessmentRepo, assessmentResponseRepo, keyManager, secureStore)
 
 		slog.Info("Encryption services initialized", "vault_addr", cfg.Vault.Address)
 	} else {
 		slog.Warn("Vault is disabled - encrypted responses will not work")
 	}
 
-	selfAssessmentService := service.NewSelfAssessmentService(selfAssessmentRepo, catalogRepo, auditRepo, assessmentResponseRepo, encryptedResponseSvc)
+	selfAssessmentService := service.NewSelfAssessmentService(selfAssessmentRepo, catalogRepo, auditRepo, assessmentResponseRepo, encryptedResponseSvc, reviewerResponseRepo)
 
 	// Initialize scheduler
 	schedulerService := scheduler.NewScheduler(selfAssessmentRepo, userRepo, roleRepo, emailService, &cfg.Scheduler)
@@ -156,6 +159,7 @@ func main() {
 	configHandler := handlers.NewConfigHandler(cfg)
 	catalogHandler := handlers.NewCatalogHandler(catalogService, auditMw)
 	selfAssessmentHandler := handlers.NewSelfAssessmentHandler(selfAssessmentService)
+	reviewerHandler := handlers.NewReviewerHandler(reviewerService, selfAssessmentRepo)
 
 	// Setup router
 	mux := http.NewServeMux()
@@ -307,17 +311,17 @@ func main() {
 		),
 	)
 
-	// Catalog routes - Require user role only
+	// Catalog routes - Accessible to users and reviewers (read-only access to catalog structure)
 	mux.Handle("GET /api/v1/catalogs",
 		authMw.Authenticate(
-			rbacMw.RequireRole("user")(
+			rbacMw.RequireAnyRole("user", "reviewer")(
 				http.HandlerFunc(catalogHandler.GetAllCatalogs),
 			),
 		),
 	)
 	mux.Handle("GET /api/v1/catalogs/{id}",
 		authMw.Authenticate(
-			rbacMw.RequireRole("user")(
+			rbacMw.RequireAnyRole("user", "reviewer")(
 				http.HandlerFunc(catalogHandler.GetCatalogByID),
 			),
 		),
@@ -574,6 +578,43 @@ func main() {
 		authMw.Authenticate(
 			rbacMw.RequireRole("reviewer")(
 				http.HandlerFunc(selfAssessmentHandler.GetOpenAssessmentsForReview),
+			),
+		),
+	)
+
+	// Reviewer response routes (only reviewers, NOT admins - strict role separation)
+	mux.Handle("GET /api/v1/review/assessment/{id}/responses",
+		authMw.Authenticate(
+			rbacMw.RequireRole("reviewer")(
+				http.HandlerFunc(reviewerHandler.GetResponses),
+			),
+		),
+	)
+	mux.Handle("POST /api/v1/review/assessment/{id}/responses",
+		authMw.Authenticate(
+			rbacMw.RequireRole("reviewer")(
+				http.HandlerFunc(reviewerHandler.CreateOrUpdateResponse),
+			),
+		),
+	)
+	mux.Handle("DELETE /api/v1/review/assessment/{id}/responses/{categoryId}",
+		authMw.Authenticate(
+			rbacMw.RequireRole("reviewer")(
+				http.HandlerFunc(reviewerHandler.DeleteResponse),
+			),
+		),
+	)
+	mux.Handle("POST /api/v1/review/assessment/{id}/complete",
+		authMw.Authenticate(
+			rbacMw.RequireRole("reviewer")(
+				http.HandlerFunc(reviewerHandler.CompleteReview),
+			),
+		),
+	)
+	mux.Handle("GET /api/v1/review/assessment/{id}/completion-status",
+		authMw.Authenticate(
+			rbacMw.RequireRole("reviewer")(
+				http.HandlerFunc(reviewerHandler.GetCompletionStatus),
 			),
 		),
 	)

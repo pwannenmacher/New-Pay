@@ -4,6 +4,33 @@
 
 Dieses Dokument beschreibt die Backend-Anforderungen für das Reviewer-Assessment-System, das es Reviewern ermöglicht, Selbsteinschätzungen von Benutzern zu bewerten.
 
+## Rollentrennung & Datenschutz
+
+### Strikte Rollentrennung
+
+Das System implementiert eine **strikte Trennung** zwischen den Rollen:
+
+- **User**: Zugriff auf eigene Selbsteinschätzungen und deren verschlüsselte Begründungen
+- **Reviewer**: Zugriff auf Review-Prozess und eigene verschlüsselte Review-Begründungen
+- **Admin**: System- und Nutzerverwaltung - **KEIN Zugriff** auf verschlüsselte Begründungen
+
+**Kritisch**: Ein Admin-User ohne Reviewer- oder User-Rolle hat **weder** Zugriff auf `justifications` im Selbsteinschätzungs-Kontext **noch** auf `justifications` im Rahmen des Review-Prozesses.
+
+### Datenisolation für Reviewer
+
+Ein Reviewer darf:
+- ✅ Nur seine **eigenen** Review-Einschätzungen und verschlüsselte Begründungen einsehen
+- ✅ Die Angaben des Users zu Pfad/Zielstufe einsehen (aber **nicht** dessen Begründung)
+- ❌ **Nicht** die Reviews anderer Reviewer sehen
+- ❌ **Nicht** die Begründung des Users sehen
+- ❌ **Nicht** eigene Assessments reviewen (Self-Review-Prevention)
+
+### Implementierungsdetails
+
+- Alle Reviewer-Endpunkte verwenden `RequireRole("reviewer")` (nicht `RequireAnyRole("reviewer", "admin")`)
+- Keine Admin-Override-Funktionalität im Service-Layer
+- Self-Review-Prevention für alle Benutzer (keine Ausnahmen)
+
 ## Datenmodell
 
 ### Neue Tabelle: `reviewer_responses`
@@ -141,9 +168,11 @@ Siehe auch:
 
 **Beschreibung:** Lädt die Reviewer-Antworten des aktuellen Reviewers für eine Selbsteinschätzung
 
-**Authentifizierung:** JWT (Rolle: reviewer oder admin)
+**Authentifizierung:** JWT (Rolle: reviewer)
 
-**Wichtig:** Reviewer sehen **nur ihre eigenen** Review-Antworten. Antworten anderer Reviewer sind niemals sichtbar. Admins können alle Reviews sehen.
+**Rollentrennung:** Nur Reviewer haben Zugriff. Admins **ohne** Reviewer-Rolle dürfen **keine** Begründungen einsehen.
+
+**Datenisolation:** Reviewer sehen **nur ihre eigenen** Review-Antworten. Antworten anderer Reviewer sind niemals sichtbar.
 
 **Response:**
 
@@ -168,7 +197,9 @@ Siehe auch:
 
 **Beschreibung:** Speichert oder aktualisiert die Reviewer-Bewertung für eine Kategorie
 
-**Authentifizierung:** JWT (Rolle: reviewer oder admin)
+**Authentifizierung:** JWT (Rolle: reviewer)
+
+**Rollentrennung:** Nur Reviewer haben Zugriff. Admins **ohne** Reviewer-Rolle dürfen **keine** Begründungen erstellen.
 
 **Request Body:**
 
@@ -209,9 +240,7 @@ Siehe auch:
 **Fehler:**
 
 - `400`: Validierungsfehler (z.B. Begründung zu kurz bei Abweichung von Level oder Pfad)
-- `403`: Keine Berechtigung (nicht reviewer/admin) ODER Versuch eigenes Assessment zu prüfen
-- `404`: Assessment nicht gefunden
-- `403`: Keine Berechtigung (nicht reviewer/admin)
+- `403`: Keine Berechtigung (nicht reviewer) ODER Versuch eigenes Assessment zu prüfen
 - `404`: Assessment nicht gefunden
 
 ### 3. Reviewer-Antwort löschen
@@ -220,7 +249,9 @@ Siehe auch:
 
 **Beschreibung:** Löscht die Reviewer-Bewertung für eine Kategorie
 
-**Authentifizierung:** JWT (Rolle: reviewer oder admin)
+**Authentifizierung:** JWT (Rolle: reviewer)
+
+**Rollentrennung:** Nur Reviewer haben Zugriff.
 
 **Response:**
 
@@ -236,7 +267,9 @@ Siehe auch:
 
 **Beschreibung:** Markiert das Review als abgeschlossen und ändert den Assessment-Status
 
-**Authentifizierung:** JWT (Rolle: reviewer oder admin)
+**Authentifizierung:** JWT (Rolle: reviewer)
+
+**Rollentrennung:** Nur Reviewer können Reviews abschließen und Status ändern.
 
 **Validierung:**
 
@@ -303,9 +336,9 @@ func IsReviewComplete(assessmentID uint) (bool, error) {
 ```go
 type ReviewerRepository interface {
     CreateOrUpdateResponse(response *ReviewerResponse) error
-    // GetResponsesByAssessmentID lädt nur Responses des spezifischen Reviewers (außer für Admins)
+    // GetResponsesByAssessmentID lädt nur Responses des spezifischen Reviewers
     GetResponsesByAssessmentID(assessmentID, reviewerUserID uint) ([]ReviewerResponse, error)
-    // GetResponseByCategoryID lädt nur Response des spezifischen Reviewers (außer für Admins)
+    // GetResponseByCategoryID lädt nur Response des spezifischen Reviewers
     GetResponseByCategoryID(assessmentID, categoryID, reviewerUserID uint) (*ReviewerResponse, error)
     DeleteResponse(assessmentID, categoryID, reviewerUserID uint) error
     // GetResponsesWithUserComparison vergleicht User-Antworten mit den Antworten des aktuellen Reviewers
@@ -317,12 +350,13 @@ type ReviewerRepository interface {
 
 #### Berechtigungsprüfung
 
-- Nur Benutzer mit Rolle "reviewer" oder "admin" dürfen Reviews durchführen
-- Jeder Reviewer kann nur seine eigenen Reviews bearbeiten (außer Admins)
+- **Nur Benutzer mit Rolle "reviewer"** dürfen Reviews durchführen (nicht "admin")
+- **Jeder Reviewer kann nur seine eigenen Reviews bearbeiten** (keine Admin-Override-Funktion)
+- **Self-Review-Prevention**: Reviewer können nicht ihre eigenen Assessments reviewen
 
 ## Migration
 
-### Migration File: `015_reviewer_responses.up.sql`
+### Migration File: `016_reviewer_responses.up.sql`
 
 ```sql
 CREATE TABLE reviewer_responses (
@@ -332,7 +366,7 @@ CREATE TABLE reviewer_responses (
     reviewer_user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     path_id INTEGER NOT NULL REFERENCES paths(id) ON DELETE CASCADE,
     level_id INTEGER NOT NULL REFERENCES levels(id) ON DELETE CASCADE,
-    encrypted_justification_id BIGINT REFERENCES encrypted_records(id),
+    encrypted_justification_id BIGINT REFERENCES encrypted_records(id) ON DELETE CASCADE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(assessment_id, category_id, reviewer_user_id)
@@ -342,10 +376,13 @@ CREATE INDEX idx_reviewer_responses_assessment ON reviewer_responses(assessment_
 CREATE INDEX idx_reviewer_responses_reviewer ON reviewer_responses(reviewer_user_id);
 CREATE INDEX idx_reviewer_responses_encrypted_justification ON reviewer_responses(encrypted_justification_id);
 
+COMMENT ON TABLE reviewer_responses IS 'Individual reviewer assessments for self-assessments. Each reviewer creates their own independent review.';
 COMMENT ON COLUMN reviewer_responses.encrypted_justification_id IS 'Reference to encrypted justification in encrypted_records table';
+COMMENT ON COLUMN reviewer_responses.path_id IS 'Reviewer-selected path, may differ from user selection';
+COMMENT ON COLUMN reviewer_responses.level_id IS 'Reviewer-selected level, may differ from user selection';
 ```
 
-### Migration File: `015_reviewer_responses.down.sql`
+### Migration File: `016_reviewer_responses.down.sql`
 
 ```sql
 DROP INDEX IF EXISTS idx_reviewer_responses_encrypted_justification;
@@ -369,27 +406,26 @@ Alle Reviewer-Aktionen sollten im Audit-Log protokolliert werden:
 
 1. Nur Benutzer mit Rolle "reviewer" oder "admin" dürfen auf Review-Endpunkte zugreifen
 2. Reviewer können nur offene Assessments (status: submitted, in_review, review_consolidation, reviewed, discussion) bewerten
-3. **TODO: WICHTIG** - Reviewer können nicht ihre eigenen Assessments bewerten (prüfen: reviewer_user_id != assessment.user_id)
-   - Diese Prüfung muss in ALLEN Reviewer-Endpunkten implementiert werden:
-     - `GET /api/v1/review/assessment/:id/responses`
-     - `POST /api/v1/review/assessment/:id/responses`
-     - `DELETE /api/v1/review/assessment/:id/responses/:category_id`
-     - `POST /api/v1/review/assessment/:id/complete`
+3. **✅ IMPLEMENTIERT** - Reviewer können nicht ihre eigenen Assessments bewerten (prüfen: reviewer_user_id != assessment.user_id)
+   - Diese Prüfung ist in ALLEN Reviewer-Endpunkten implementiert:
+     - ✅ `GET /api/v1/review/assessment/:id/responses`
+     - ✅ `POST /api/v1/review/assessment/:id/responses`
+     - ✅ `DELETE /api/v1/review/assessment/:id/responses/:category_id`
+     - ✅ `POST /api/v1/review/assessment/:id/complete`
    - Fehlercode: `403 Forbidden` mit Meldung "Cannot review your own assessment"
-   - Im Frontend bereits implementiert, Backend-Validierung fehlt noch
-4. **WICHTIG: Datenisolierung zwischen Reviewern**
+4. **✅ IMPLEMENTIERT: Datenisolierung zwischen Reviewern**
    - Reviewer dürfen **nur ihre eigenen** Review-Antworten sehen und bearbeiten
    - Review-Antworten anderer Reviewer sind **niemals** zugänglich (auch nicht lesend)
    - Admins können alle Review-Antworten aller Reviewer einsehen
-   - Implementierung: Alle GET/POST/DELETE Endpunkte müssen `reviewer_user_id = current_user.id` filtern (außer für Admins)
+   - Implementierung: Alle GET/POST/DELETE Endpunkte filtern `reviewer_user_id = current_user.id` (außer für Admins)
 
 ### Datenintegrität
 
 1. Reviewer-Antworten können nur für existierende Assessments und Kategorien erstellt werden
 2. Level-ID muss zu einem gültigen Level im Katalog gehören
-3. Bei Abweichung vom User-Level ist eine Begründung von mindestens 50 Zeichen erforderlich
-4. **TODO:** Bei Abweichung vom User-Pfad (path_id) ist ebenfalls eine Begründung von mindestens 50 Zeichen erforderlich
-5. Alle Begründungen müssen verschlüsselt in `encrypted_records` gespeichert werden
+3. ✅ Bei Abweichung vom User-Level ist eine Begründung von mindestens 50 Zeichen erforderlich
+4. ✅ Bei Abweichung vom User-Pfad (path_id) ist ebenfalls eine Begründung von mindestens 50 Zeichen erforderlich
+5. ✅ Alle Begründungen werden verschlüsselt in `encrypted_records` gespeichert
 
 ### Verschlüsselungs-Sicherheit
 
@@ -423,6 +459,10 @@ Der Status `review_consolidation` wird zwischen `in_review` und `reviewed` einge
    ```
    GET /api/v1/review/assessment/:id/completion-status
    ```
+   **Authentifizierung:** JWT (Rolle: reviewer)
+   
+   **Rollentrennung:** Nur Reviewer haben Zugriff.
+   
    **Response:**
    ```json
    {
@@ -452,13 +492,16 @@ Der Status `review_consolidation` wird zwischen `in_review` und `reviewed` einge
    ```
 
 5. **Datenbank-Schema:**
-   - Neue Spalte: `review_consolidation_at TIMESTAMP` (bereits in Migration 008 hinzugefügt)
-   - Status CHECK constraint erweitert um 'review_consolidation' (bereits implementiert)
+   - Neue Spalte: `review_consolidation_at TIMESTAMP` (in Migration 015 hinzugefügt)
+   - Status CHECK constraint erweitert um 'review_consolidation' (Migration 015)
 
 **TODO (Backend-Implementierung erforderlich):**
-- [ ] Endpoint zum Abrufen des Completion-Status implementieren
-- [ ] Validierung für Status-Übergang zu `review_consolidation` (mindestens 3 vollständige Reviews)
-- [ ] Repository-Methode zum Zählen vollständiger Reviews pro Assessment
+- [x] Tabelle `reviewer_responses` erstellt (Migration 016)
+- [x] Repository Layer implementiert
+- [x] Service Layer mit Verschlüsselung implementiert
+- [x] Handler Layer mit allen Endpunkten implementiert
+- [x] Routen registriert in main.go
+- [ ] Endpoint `/api/v1/review/assessment/:id/completion-status` vollständig getestet
 - [ ] Frontend-Komponente zur Anzeige der Review-Statistik und Konsolidierungs-Button
 
 ### Mehrfach-Reviews

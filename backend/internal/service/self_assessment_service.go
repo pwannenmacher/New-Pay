@@ -15,6 +15,7 @@ type SelfAssessmentService struct {
 	auditRepo            *repository.AuditRepository
 	responseRepo         *repository.AssessmentResponseRepository
 	encryptedResponseSvc *EncryptedResponseService
+	reviewerRepo         *repository.ReviewerResponseRepository
 }
 
 // NewSelfAssessmentService creates a new self-assessment service
@@ -24,6 +25,7 @@ func NewSelfAssessmentService(
 	auditRepo *repository.AuditRepository,
 	responseRepo *repository.AssessmentResponseRepository,
 	encryptedResponseSvc *EncryptedResponseService,
+	reviewerRepo *repository.ReviewerResponseRepository,
 ) *SelfAssessmentService {
 	return &SelfAssessmentService{
 		selfAssessmentRepo:   selfAssessmentRepo,
@@ -31,6 +33,7 @@ func NewSelfAssessmentService(
 		auditRepo:            auditRepo,
 		responseRepo:         responseRepo,
 		encryptedResponseSvc: encryptedResponseSvc,
+		reviewerRepo:         reviewerRepo,
 	}
 }
 
@@ -115,13 +118,14 @@ func (s *SelfAssessmentService) GetSelfAssessment(assessmentID uint, userID uint
 		return assessment, nil
 	}
 
-	// Admins can only see metadata (status, dates) - content filtered in handler
-	if isAdmin {
-		return assessment, nil
+	// CRITICAL: Admins without reviewer role cannot view assessments
+	if isAdmin && !isReviewer {
+		return nil, fmt.Errorf("permission denied: admins cannot view assessment details")
 	}
 
-	// Reviewers can only see submitted or later assessments
-	if isReviewer && assessment.Status != "draft" && assessment.Status != "closed" {
+	// Reviewers can see submitted/in_review/review_consolidation/reviewed/discussion assessments
+	if isReviewer && assessment.Status != "draft" && assessment.Status != "closed" && assessment.Status != "archived" {
+		// Return assessment metadata - justifications accessed through GetResponses
 		return assessment, nil
 	}
 
@@ -148,13 +152,14 @@ func (s *SelfAssessmentService) GetSelfAssessmentWithDetails(assessmentID uint, 
 		return assessment, nil
 	}
 
-	// Admins can see all assessments with details
-	if isAdmin {
-		return assessment, nil
+	// CRITICAL: Admins without reviewer role cannot view assessment details
+	if isAdmin && !isReviewer {
+		return nil, fmt.Errorf("permission denied: admins cannot view assessment details")
 	}
 
-	// Reviewers can only see submitted or later assessments
-	if isReviewer && assessment.Status != "draft" && assessment.Status != "closed" {
+	// Reviewers can see submitted/in_review/review_consolidation/reviewed/discussion assessments
+	if isReviewer && assessment.Status != "draft" && assessment.Status != "closed" && assessment.Status != "archived" {
+		// Return assessment metadata - justifications accessed through GetResponses
 		return assessment, nil
 	}
 
@@ -198,7 +203,26 @@ func (s *SelfAssessmentService) GetAllSelfAssessmentsWithFiltersAndDetails(statu
 
 // GetOpenAssessmentsForReview retrieves open assessments for reviewers with filters
 func (s *SelfAssessmentService) GetOpenAssessmentsForReview(catalogID *int, username string, status string, fromDate, toDate, fromSubmittedDate, toSubmittedDate *time.Time) ([]models.SelfAssessmentWithDetails, error) {
-	return s.selfAssessmentRepo.GetOpenAssessmentsForReview(catalogID, username, status, fromDate, toDate, fromSubmittedDate, toSubmittedDate)
+	assessments, err := s.selfAssessmentRepo.GetOpenAssessmentsForReview(catalogID, username, status, fromDate, toDate, fromSubmittedDate, toSubmittedDate)
+	if err != nil {
+		return nil, err
+	}
+
+	// Add review statistics to each assessment
+	if s.reviewerRepo != nil {
+		for i := range assessments {
+			started, completed, err := s.reviewerRepo.GetReviewStats(assessments[i].ID)
+			if err != nil {
+				slog.Error("Failed to get review stats", "error", err, "assessment_id", assessments[i].ID)
+				// Continue with other assessments even if one fails
+				continue
+			}
+			assessments[i].ReviewsStarted = started
+			assessments[i].ReviewsCompleted = completed
+		}
+	}
+
+	return assessments, nil
 }
 
 // UpdateSelfAssessmentStatus transitions a self-assessment to a new status
@@ -267,6 +291,8 @@ func (s *SelfAssessmentService) UpdateSelfAssessmentStatus(assessmentID uint, ne
 		assessment.SubmittedAt = &now
 	case "in_review":
 		assessment.InReviewAt = &now
+	case "review_consolidation":
+		assessment.ReviewConsolidationAt = &now
 	case "reviewed":
 		assessment.ReviewedAt = &now
 	case "discussion":
@@ -303,17 +329,18 @@ func (s *SelfAssessmentService) validateStatusTransition(fromStatus, toStatus st
 
 	// Define allowed transitions
 	allowedTransitions := map[string][]string{
-		"draft":      {"submitted", "closed"},
-		"submitted":  {"in_review", "closed"},
-		"in_review":  {"reviewed", "closed"},
-		"reviewed":   {"discussion", "closed"},
-		"discussion": {"archived", "closed"},
-		"archived":   {},                                                            // Final state
-		"closed":     {"draft", "submitted", "in_review", "reviewed", "discussion"}, // Can revert within 24h
+		"draft":                {"submitted", "closed"},
+		"submitted":            {"in_review", "closed"},
+		"in_review":            {"review_consolidation", "reviewed", "closed"},
+		"review_consolidation": {"in_review", "reviewed", "closed"},
+		"reviewed":             {"discussion", "closed"},
+		"discussion":           {"archived", "closed"},
+		"archived":             {},                                                                                    // Final state
+		"closed":               {"draft", "submitted", "in_review", "review_consolidation", "reviewed", "discussion"}, // Can revert within 24h
 	}
 
 	// Check if user has permission for this transition
-	if toStatus == "in_review" || toStatus == "reviewed" || toStatus == "discussion" || toStatus == "archived" {
+	if toStatus == "in_review" || toStatus == "review_consolidation" || toStatus == "reviewed" || toStatus == "discussion" || toStatus == "archived" {
 		if !isReviewer && !isAdmin {
 			return fmt.Errorf("permission denied: only reviewers can transition to %s status", toStatus)
 		}
@@ -527,22 +554,32 @@ func (s *SelfAssessmentService) GetResponses(userID uint, assessmentID uint, use
 		return nil, fmt.Errorf("assessment not found")
 	}
 
-	// Check permission: owner, admin, or reviewer (for submitted/later status)
+	// Check permission: owner or reviewer (for submitted/later status)
 	isOwner := assessment.UserID == userID
-	isAdminOrReviewer := false
-	for _, role := range userRoles {
-		if role == "admin" || role == "reviewer" {
-			isAdminOrReviewer = true
-			break
+	isAdmin := contains(userRoles, "admin")
+	isReviewer := contains(userRoles, "reviewer")
+
+	// CRITICAL: Strict role separation
+	if !isOwner {
+		// Admins cannot see user justifications (only system/user management)
+		if isAdmin && !isReviewer {
+			return nil, fmt.Errorf("permission denied: admins cannot access user justifications")
 		}
-	}
 
-	if !isOwner && !isAdminOrReviewer {
-		return nil, fmt.Errorf("permission denied")
-	}
-
-	if !isOwner && assessment.Status == "draft" {
-		return nil, fmt.Errorf("permission denied: cannot view draft responses of other users")
+		// Reviewers can see user justifications for submitted/in_review/reviewed/discussion status
+		if isReviewer {
+			// Cannot review draft or closed assessments
+			if assessment.Status == "draft" || assessment.Status == "closed" || assessment.Status == "archived" {
+				return nil, fmt.Errorf("permission denied: cannot review %s assessments", assessment.Status)
+			}
+			// Prevent self-review
+			if assessment.UserID == userID {
+				return nil, fmt.Errorf("permission denied: cannot review your own assessment")
+			}
+			// Reviewer has access - continue to load responses
+		} else {
+			return nil, fmt.Errorf("permission denied: can only view own assessment responses")
+		}
 	}
 
 	// Get all responses

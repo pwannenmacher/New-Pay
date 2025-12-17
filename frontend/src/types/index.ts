@@ -245,6 +245,8 @@ export interface SelfAssessment {
   user_email?: string;
   user_name?: string;
   catalog_name?: string;
+  reviews_started?: number; // Number of reviewers who have started (at least one category)
+  reviews_completed?: number; // Number of reviewers who have completed all categories
 }
 
 // Assessment Response types

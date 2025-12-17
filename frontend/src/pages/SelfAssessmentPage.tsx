@@ -38,7 +38,7 @@ import {
 } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 import { selfAssessmentService } from '../services/selfAssessment';
-import adminService from '../services/admin';
+import catalogService from '../services/catalog';
 import { WeightedScoreDisplay } from '../components/WeightedScoreDisplay';
 import type {
   SelfAssessment,
@@ -121,7 +121,7 @@ export default function SelfAssessmentPage() {
       setAssessment(assessmentData);
 
       // Load catalog with details
-      const catalogData = await adminService.getCatalog(assessmentData.catalog_id);
+      const catalogData = await catalogService.getCatalog(assessmentData.catalog_id);
       setCatalog(catalogData);
 
       // Load responses
