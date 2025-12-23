@@ -121,6 +121,7 @@ func main() {
 	var consolidationService *service.ConsolidationService
 	var discussionService *service.DiscussionService
 	if cfg.Vault.Enabled {
+		slog.Info("Vault is enabled - initializing encryption services")
 		vaultClient, err := vault.NewClient(&vault.Config{
 			Address:      cfg.Vault.Address,
 			Token:        cfg.Vault.Token,
