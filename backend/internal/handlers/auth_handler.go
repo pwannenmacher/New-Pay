@@ -588,10 +588,6 @@ func (h *AuthHandler) OAuthLogin(w http.ResponseWriter, r *http.Request) {
 	// Build authorization URL
 	authURL := h.buildAuthorizationURL(state, providerConfig)
 
-	slog.Debug("Redirecting to OAuth provider",
-		"provider", providerName,
-		"auth_url", authURL,
-	)
 	http.Redirect(w, r, authURL, http.StatusTemporaryRedirect)
 }
 
@@ -753,12 +749,6 @@ func (h *AuthHandler) OAuthCallback(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	slog.Debug("Extracted OAuth groups",
-		"provider", providerConfig.Name,
-		"groups", groups,
-		"claim", groupsClaim,
-	)
-
 	// Try to find or create user
 	user, isNewUser, err := h.authService.FindOrCreateOAuthUser(email, firstName, lastName, providerConfig.Name, oauthProviderID)
 	if err != nil {
@@ -833,7 +823,7 @@ func (h *AuthHandler) OAuthCallback(w http.ResponseWriter, r *http.Request) {
 				)
 			}
 		} else {
-			slog.Debug("No role changes needed", "user_id", user.ID)
+			// No role changes needed
 		}
 	}
 
