@@ -421,6 +421,18 @@ func (s *DiscussionService) GetDiscussionResult(assessmentID uint) (*models.Disc
 		return nil, nil
 	}
 
+	// Get assessment to get catalog ID
+	assessment, err := s.assessmentRepo.GetByID(assessmentID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get assessment: %w", err)
+	}
+
+	// Get catalog with levels and categories
+	catalog, err := s.catalogRepo.GetCatalogWithDetails(assessment.CatalogID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get catalog: %w", err)
+	}
+
 	// Decrypt final comment
 	additionalData := []byte(fmt.Sprintf("discussion:assessment:%d", assessmentID))
 	keyMaterial := []byte(fmt.Sprintf("discussion-key-%d", assessmentID))
@@ -432,10 +444,47 @@ func (s *DiscussionService) GetDiscussionResult(assessmentID uint) (*models.Disc
 	}
 	result.FinalComment = string(decrypted)
 
+	// Set weighted overall level name
+	for _, level := range catalog.Levels {
+		if level.ID == result.WeightedOverallLevelID {
+			result.WeightedOverallLevelName = level.Name
+			break
+		}
+	}
+
 	// Get category results
 	categoryResults, err := s.discussionRepo.GetCategoryResults(result.ID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get category results: %w", err)
+	}
+
+	// Populate category and level names
+	for i := range categoryResults {
+		// Find category name
+		for _, category := range catalog.Categories {
+			if category.ID == categoryResults[i].CategoryID {
+				categoryResults[i].CategoryName = category.Name
+				break
+			}
+		}
+
+		// Find user level name
+		if categoryResults[i].UserLevelID != nil {
+			for _, level := range catalog.Levels {
+				if level.ID == *categoryResults[i].UserLevelID {
+					categoryResults[i].UserLevelName = level.Name
+					break
+				}
+			}
+		}
+
+		// Find reviewer level name
+		for _, level := range catalog.Levels {
+			if level.ID == categoryResults[i].ReviewerLevelID {
+				categoryResults[i].ReviewerLevelName = level.Name
+				break
+			}
+		}
 	}
 
 	// Category results already have plain text justifications stored

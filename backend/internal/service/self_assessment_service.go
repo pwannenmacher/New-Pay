@@ -326,7 +326,6 @@ func (s *SelfAssessmentService) UpdateSelfAssessmentStatus(assessmentID uint, ne
 // validateStatusTransition validates if a status transition is allowed
 func (s *SelfAssessmentService) validateStatusTransition(fromStatus, toStatus string, userRoles []string, isOwner bool) error {
 	isReviewer := contains(userRoles, "reviewer")
-	isAdmin := contains(userRoles, "admin")
 
 	// Define allowed transitions
 	allowedTransitions := map[string][]string{
