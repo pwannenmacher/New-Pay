@@ -812,9 +812,14 @@ export function ReviewConsolidationPage() {
                         let isOverride = false;
                         
                         if (override && override.is_approved) {
-                          // Find the level for the override
-                          const path = category.paths?.find((p: any) => p.id === override.path_id);
-                          resultLevel = path?.levels?.find((l: any) => l.id === override.level_id);
+                          // Find the level for the override from catalog levels
+                          const level = data.catalog.levels?.find((l: any) => l.id === override.level_id);
+                          if (level) {
+                            resultLevel = {
+                              level_number: level.level_number,
+                              name: level.name
+                            };
+                          }
                           isOverride = true;
                         } else if (averaged && averaged.is_approved) {
                           resultLevel = {
