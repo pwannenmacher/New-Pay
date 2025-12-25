@@ -28,6 +28,24 @@ import { selfAssessmentService } from '../../services/selfAssessment';
 import type { SelfAssessment } from '../../types';
 import { notifications } from '@mantine/notifications';
 
+// Helper function to parse German date format DD.MM.YYYY
+const dateParser = (input: string): Date | null => {
+  if (!input || input.trim() === '') return null;
+  const parts = input.trim().split('.');
+  if (parts.length === 3) {
+    const day = parseInt(parts[0], 10);
+    const month = parseInt(parts[1], 10) - 1;
+    const year = parseInt(parts[2], 10);
+    if (!isNaN(day) && !isNaN(month) && !isNaN(year)) {
+      const date = new Date(year, month, day);
+      if (date.getDate() === day && date.getMonth() === month && date.getFullYear() === year) {
+        return date;
+      }
+    }
+  }
+  return null;
+};
+
 const statusConfig = {
   draft: { label: 'Entwurf', color: 'gray', icon: IconClock },
   submitted: { label: 'Eingereicht', color: 'blue', icon: IconFileCheck },
@@ -235,18 +253,24 @@ export default function SelfAssessmentsAdminPage() {
               />
               <DateInput
                 label="Von Datum"
-                placeholder="Datum wählen"
+                placeholder="Datum wählen (DD.MM.YYYY)"
                 value={fromDate}
                 onChange={(value) => setFromDate(value)}
+                dateParser={dateParser}
+                valueFormat="DD.MM.YYYY"
                 clearable
+                readOnly={false}
                 style={{ minWidth: 200 }}
               />
               <DateInput
                 label="Bis Datum"
-                placeholder="Datum wählen"
+                placeholder="Datum wählen (DD.MM.YYYY)"
                 value={toDate}
                 onChange={(value) => setToDate(value)}
+                dateParser={dateParser}
+                valueFormat="DD.MM.YYYY"
                 clearable
+                readOnly={false}
                 style={{ minWidth: 200 }}
               />
             </Group>

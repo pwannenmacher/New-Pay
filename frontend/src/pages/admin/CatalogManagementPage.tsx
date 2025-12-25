@@ -30,6 +30,24 @@ import { DateInput } from '@mantine/dates';
 import { adminApi } from '../../services/admin';
 import type { CriteriaCatalog, CatalogPhase } from '../../types';
 
+// Helper function to parse German date format DD.MM.YYYY
+const dateParser = (input: string): Date | null => {
+  if (!input || input.trim() === '') return null;
+  const parts = input.trim().split('.');
+  if (parts.length === 3) {
+    const day = parseInt(parts[0], 10);
+    const month = parseInt(parts[1], 10) - 1;
+    const year = parseInt(parts[2], 10);
+    if (!isNaN(day) && !isNaN(month) && !isNaN(year)) {
+      const date = new Date(year, month, day);
+      if (date.getDate() === day && date.getMonth() === month && date.getFullYear() === year) {
+        return date;
+      }
+    }
+  }
+  return null;
+};
+
 const getPhaseColor = (phase: CatalogPhase): string => {
   switch (phase) {
     case 'draft':
@@ -359,7 +377,7 @@ export function CatalogManagementPage() {
 
               <DateInput
                 label="Neues Enddatum"
-                placeholder="Wählen Sie ein Datum"
+                placeholder="Wählen Sie ein Datum (DD.MM.YYYY)"
                 value={newValidUntil}
                 onChange={(value) => {
                   if (typeof value === 'string') {
@@ -368,10 +386,12 @@ export function CatalogManagementPage() {
                     setNewValidUntil(value);
                   }
                 }}
+                dateParser={dateParser}
                 minDate={new Date()}
                 maxDate={new Date(selectedCatalog.valid_until)}
                 valueFormat="DD.MM.YYYY"
                 locale="de"
+                readOnly={false}
                 required
               />
 

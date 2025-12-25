@@ -29,6 +29,24 @@ import type { SelfAssessment, Role } from '../../types';
 import { notifications } from '@mantine/notifications';
 import { useAuth } from '../../contexts/AuthContext';
 
+// Helper function to parse German date format DD.MM.YYYY
+const dateParser = (input: string): Date | null => {
+  if (!input || input.trim() === '') return null;
+  const parts = input.trim().split('.');
+  if (parts.length === 3) {
+    const day = parseInt(parts[0], 10);
+    const month = parseInt(parts[1], 10) - 1;
+    const year = parseInt(parts[2], 10);
+    if (!isNaN(day) && !isNaN(month) && !isNaN(year)) {
+      const date = new Date(year, month, day);
+      if (date.getDate() === day && date.getMonth() === month && date.getFullYear() === year) {
+        return date;
+      }
+    }
+  }
+  return null;
+};
+
 const statusConfig = {
   submitted: { label: 'Eingereicht', color: 'blue', icon: IconFileCheck },
   in_review: { label: 'In Prüfung', color: 'yellow', icon: IconClock },
@@ -210,34 +228,46 @@ export function ReviewOpenAssessmentsPage() {
             <Group align="flex-end" gap="md">
               <DateInput
                 label="Erstellt von"
-                placeholder="Datum wählen"
+                placeholder="Datum wählen (DD.MM.YYYY)"
                 value={fromDate}
                 onChange={setFromDate}
+                dateParser={dateParser}
+                valueFormat="DD.MM.YYYY"
                 clearable
+                readOnly={false}
                 style={{ minWidth: 200 }}
               />
               <DateInput
                 label="Erstellt bis"
-                placeholder="Datum wählen"
+                placeholder="Datum wählen (DD.MM.YYYY)"
                 value={toDate}
                 onChange={setToDate}
+                dateParser={dateParser}
+                valueFormat="DD.MM.YYYY"
                 clearable
+                readOnly={false}
                 style={{ minWidth: 200 }}
               />
               <DateInput
                 label="Eingereicht von"
-                placeholder="Datum wählen"
+                placeholder="Datum wählen (DD.MM.YYYY)"
                 value={fromSubmittedDate}
                 onChange={setFromSubmittedDate}
+                dateParser={dateParser}
+                valueFormat="DD.MM.YYYY"
                 clearable
+                readOnly={false}
                 style={{ minWidth: 200 }}
               />
               <DateInput
                 label="Eingereicht bis"
-                placeholder="Datum wählen"
+                placeholder="Datum wählen (DD.MM.YYYY)"
                 value={toSubmittedDate}
                 onChange={setToSubmittedDate}
+                dateParser={dateParser}
+                valueFormat="DD.MM.YYYY"
                 clearable
+                readOnly={false}
                 style={{ minWidth: 200 }}
               />
             </Group>

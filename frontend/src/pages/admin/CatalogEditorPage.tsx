@@ -30,11 +30,36 @@ import {
   IconArrowUp,
   IconArrowDown,
 } from '@tabler/icons-react';
-import { DatePickerInput } from '@mantine/dates';
+import { DateInput } from '@mantine/dates';
 import { notifications } from '@mantine/notifications';
 import { adminApi } from '../../services/admin';
 import { PathManagement } from '../../components/admin/PathManagement';
 import type { CatalogWithDetails, Category, CategoryWithPaths, Level } from '../../types';
+
+// Helper function to parse German date format DD.MM.YYYY
+const dateParser = (input: string): Date | null => {
+  if (!input || input.trim() === '') return null;
+  
+  // Try to parse DD.MM.YYYY format
+  const parts = input.trim().split('.');
+  if (parts.length === 3) {
+    const day = parseInt(parts[0], 10);
+    const month = parseInt(parts[1], 10) - 1; // JavaScript months are 0-indexed
+    const year = parseInt(parts[2], 10);
+    
+    // Validate the parts
+    if (!isNaN(day) && !isNaN(month) && !isNaN(year)) {
+      const date = new Date(year, month, day);
+      // Check if the date is valid
+      if (date.getDate() === day && date.getMonth() === month && date.getFullYear() === year) {
+        return date;
+      }
+    }
+  }
+  
+  // If parsing fails, return null
+  return null;
+};
 
 export function CatalogEditorPage() {
   const { id } = useParams<{ id: string }>();
@@ -655,21 +680,23 @@ export function CatalogEditorPage() {
                 />
 
                 <Group gap="md">
-                  <DatePickerInput
+                  <DateInput
                     label="Gültig von"
-                    placeholder="Startdatum"
+                    placeholder="Startdatum (DD.MM.YYYY)"
                     value={validFrom}
                     onChange={(value) => setValidFrom(value as Date | null)}
+                    dateParser={dateParser}
                     required
                     valueFormat="DD.MM.YYYY"
                     clearable
                     style={{ flex: 1 }}
                   />
-                  <DatePickerInput
+                  <DateInput
                     label="Gültig bis"
-                    placeholder="Enddatum"
+                    placeholder="Enddatum (DD.MM.YYYY)"
                     value={validUntil}
                     onChange={(value) => setValidUntil(value as Date | null)}
+                    dateParser={dateParser}
                     required
                     valueFormat="DD.MM.YYYY"
                     clearable
