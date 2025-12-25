@@ -508,7 +508,7 @@ func main() {
 	// Get responses for an assessment
 	mux.Handle("GET /api/v1/self-assessments/{id}/responses",
 		authMw.Authenticate(
-			rbacMw.RequireRole("user")(
+			rbacMw.RequireAnyRole("admin", "reviewer", "user")(
 				http.HandlerFunc(selfAssessmentHandler.GetResponses),
 			),
 		),
@@ -558,15 +558,15 @@ func main() {
 	// Get specific self-assessment
 	mux.Handle("GET /api/v1/self-assessments/{id}",
 		authMw.Authenticate(
-			rbacMw.RequireRole("user")(
+			rbacMw.RequireAnyRole("admin", "reviewer", "user")(
 				http.HandlerFunc(selfAssessmentHandler.GetSelfAssessment),
 			),
 		),
 	)
-	// Update self-assessment status (user can submit, admin can close)
+	// Update self-assessment status (user can submit, reviewer can move to review stages, admin can close)
 	mux.Handle("PUT /api/v1/self-assessments/{id}/status",
 		authMw.Authenticate(
-			rbacMw.RequireAnyRole("admin", "user")(
+			rbacMw.RequireAnyRole("admin", "reviewer", "user")(
 				http.HandlerFunc(selfAssessmentHandler.UpdateStatus),
 			),
 		),
