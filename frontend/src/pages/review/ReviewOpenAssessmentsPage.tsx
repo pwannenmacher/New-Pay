@@ -378,7 +378,7 @@ export function ReviewOpenAssessmentsPage() {
                               color="violet"
                               onClick={() => navigate(`/review/discussion/${assessment.id}`)}
                             >
-                              Veröffentlichen
+                              Besprechungs-Ansicht
                             </Button>
                           </>
                         ) : (

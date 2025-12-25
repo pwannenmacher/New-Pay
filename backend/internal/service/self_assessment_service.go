@@ -239,6 +239,7 @@ func (s *SelfAssessmentService) UpdateSelfAssessmentStatus(assessmentID uint, ne
 	oldStatus := assessment.Status
 	isOwner := assessment.UserID == userID
 	isAdmin := contains(userRoles, "admin")
+	isReviewer := contains(userRoles, "reviewer")
 
 	// Check ownership for draft/submitted transitions
 	// Only owners can submit their assessments
@@ -254,9 +255,9 @@ func (s *SelfAssessmentService) UpdateSelfAssessmentStatus(assessmentID uint, ne
 		}
 	}
 
-	// Admins can close assessments or reopen closed assessments (within 24h)
-	// Admins cannot submit assessments for other users
-	if isAdmin && !isOwner {
+	// Admins (without reviewer role) can close assessments or reopen closed assessments (within 24h)
+	// Admins cannot submit assessments for other users or perform review-related status changes
+	if isAdmin && !isOwner && !isReviewer {
 		if newStatus == "submitted" {
 			return fmt.Errorf("permission denied: admins cannot submit self-assessments for other users")
 		}
@@ -341,7 +342,7 @@ func (s *SelfAssessmentService) validateStatusTransition(fromStatus, toStatus st
 
 	// Check if user has permission for this transition
 	if toStatus == "in_review" || toStatus == "review_consolidation" || toStatus == "reviewed" || toStatus == "discussion" || toStatus == "archived" {
-		if !isReviewer && !isAdmin {
+		if !isReviewer {
 			return fmt.Errorf("permission denied: only reviewers can transition to %s status", toStatus)
 		}
 	}

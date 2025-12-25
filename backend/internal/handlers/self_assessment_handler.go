@@ -15,12 +15,14 @@ import (
 // SelfAssessmentHandler handles self-assessment HTTP requests
 type SelfAssessmentHandler struct {
 	selfAssessmentService *service.SelfAssessmentService
+	discussionService     *service.DiscussionService
 }
 
 // NewSelfAssessmentHandler creates a new self-assessment handler
-func NewSelfAssessmentHandler(selfAssessmentService *service.SelfAssessmentService) *SelfAssessmentHandler {
+func NewSelfAssessmentHandler(selfAssessmentService *service.SelfAssessmentService, discussionService *service.DiscussionService) *SelfAssessmentHandler {
 	return &SelfAssessmentHandler{
 		selfAssessmentService: selfAssessmentService,
+		discussionService:     discussionService,
 	}
 }
 
@@ -228,6 +230,16 @@ func (h *SelfAssessmentHandler) UpdateStatus(w http.ResponseWriter, r *http.Requ
 			http.Error(w, err.Error(), http.StatusBadRequest)
 		}
 		return
+	}
+
+	// If status changes to 'discussion', create discussion results
+	if req.Status == "discussion" && h.discussionService != nil {
+		if err := h.discussionService.CreateDiscussionResult(uint(id)); err != nil {
+			slog.Error("Failed to create discussion result", "assessmentID", id, "error", err)
+			// Don't fail the request - discussion can be regenerated later
+		} else {
+			slog.Info("Discussion result created", "assessmentID", id)
+		}
 	}
 
 	JSONResponse(w, map[string]string{

@@ -170,7 +170,7 @@ func main() {
 	sessionHandler := handlers.NewSessionHandler(sessionRepo, authSvc, auditMw, db.DB)
 	configHandler := handlers.NewConfigHandler(cfg)
 	catalogHandler := handlers.NewCatalogHandler(catalogService, auditMw)
-	selfAssessmentHandler := handlers.NewSelfAssessmentHandler(selfAssessmentService)
+	selfAssessmentHandler := handlers.NewSelfAssessmentHandler(selfAssessmentService, discussionService)
 	reviewerHandler := handlers.NewReviewerHandler(reviewerService, selfAssessmentRepo, discussionService)
 	consolidationHandler := handlers.NewConsolidationHandler(consolidationService)
 	discussionHandler := handlers.NewDiscussionHandler(discussionService)
