@@ -611,6 +611,16 @@ func (s *AuthService) CountAllUsers() (int, error) {
 	return s.userRepo.CountAll()
 }
 
+// UserExistsByEmail checks if a user with the given email exists
+func (s *AuthService) UserExistsByEmail(email string) (bool, error) {
+	user, err := s.userRepo.GetByEmail(email)
+	if err != nil {
+		// If error is "not found", return false without error
+		return false, nil
+	}
+	return user != nil, nil
+}
+
 // ResendVerificationEmail creates a new verification token and sends the email
 func (s *AuthService) ResendVerificationEmail(userID uint) error {
 	// Get user

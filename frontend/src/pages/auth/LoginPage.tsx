@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import {
   Paper,
   TextInput,
@@ -12,9 +12,11 @@ import {
   Anchor,
   Stack,
   Divider,
+  Alert,
 } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { notifications } from '@mantine/notifications';
+import { IconAlertCircle } from '@tabler/icons-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useAppConfig } from '../../contexts/AppConfigContext';
 import { useOAuthConfig } from '../../hooks/useOAuthConfig';
@@ -26,6 +28,33 @@ export const LoginPage = () => {
   const { enableRegistration } = useAppConfig();
   const { config: oauthConfig } = useOAuthConfig();
   const [isLoading, setIsLoading] = useState(false);
+  const [searchParams] = useSearchParams();
+  const [oauthError, setOauthError] = useState<string | null>(null);
+
+  // Check for OAuth errors in URL
+  useEffect(() => {
+    const error = searchParams.get('error');
+    if (error) {
+      const errorMessages: Record<string, string> = {
+        'registration_disabled': 'Neu-Registrierungen über OAuth sind nicht zulässig. Bitte wenden Sie sich an einen Administrator, um ein Konto zu erhalten.',
+        'invalid_provider': 'Ungültiger OAuth-Provider.',
+        'invalid_state': 'Ungültiger OAuth-Status. Bitte versuchen Sie es erneut.',
+        'no_code': 'Kein Autorisierungscode erhalten.',
+        'token_exchange_failed': 'Token-Austausch fehlgeschlagen.',
+        'userinfo_failed': 'Benutzerinformationen konnten nicht abgerufen werden.',
+        'no_email': 'Keine E-Mail-Adresse vom OAuth-Provider erhalten.',
+        'user_creation_failed': 'Benutzer konnte nicht erstellt werden.',
+        'no_token': 'Kein Zugangstoken erhalten.',
+        'profile_fetch_failed': 'Benutzerprofil konnte nicht abgerufen werden.',
+      };
+
+      setOauthError(errorMessages[error] || 'Ein unbekannter Fehler ist aufgetreten.');
+      
+      // Clear the error from URL
+      searchParams.delete('error');
+      navigate({ search: searchParams.toString() }, { replace: true });
+    }
+  }, [searchParams, navigate]);
 
   const form = useForm<LoginRequest>({
     initialValues: {
@@ -74,6 +103,12 @@ export const LoginPage = () => {
       <Text c="dimmed" size="sm" ta="center" mt={5}>
         Melden Sie sich bei Ihrem Konto an
       </Text>
+
+      {oauthError && (
+        <Alert icon={<IconAlertCircle size={16} />} title="OAuth-Anmeldung fehlgeschlagen" color="red" mt={20}>
+          {oauthError}
+        </Alert>
+      )}
 
       <Paper withBorder shadow="md" p={30} mt={30} radius="md">
         <form onSubmit={form.onSubmit(handleSubmit)}>

@@ -749,6 +749,45 @@ func (h *AuthHandler) OAuthCallback(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// If OAuth registration is disabled, check if this would be a new user registration
+	if !h.config.App.EnableOAuthRegistration {
+		// Check if user already exists
+		userExists, err := h.authService.UserExistsByEmail(email)
+		if err != nil {
+			slog.Error("OAuth callback failed: failed to check if user exists", "error", err)
+			redirectURL := fmt.Sprintf("%s/login?error=server_error", h.getBaseLoginURL())
+			http.Redirect(w, r, redirectURL, http.StatusTemporaryRedirect)
+			return
+		}
+
+		// If user doesn't exist, this would be a new registration
+		if !userExists {
+			// Check if database is completely empty - allow first user
+			userCount, err := h.authService.CountAllUsers()
+			if err != nil {
+				slog.Error("OAuth callback failed: failed to count users", "error", err)
+				redirectURL := fmt.Sprintf("%s/login?error=server_error", h.getBaseLoginURL())
+				http.Redirect(w, r, redirectURL, http.StatusTemporaryRedirect)
+				return
+			}
+
+			// Block registration if database already has users
+			if userCount > 0 {
+				slog.Warn("OAuth registration rejected: registration disabled",
+					"email", email,
+					"provider", providerConfig.Name,
+					"user_count", userCount,
+				)
+				_ = h.auditMw.LogAction(nil, "user.oauth.registration.disabled", "users", fmt.Sprintf("OAuth registration blocked for %s via %s (registration disabled)", email, providerConfig.Name), getIP(r), r.UserAgent())
+				redirectURL := fmt.Sprintf("%s/login?error=registration_disabled", h.getBaseLoginURL())
+				http.Redirect(w, r, redirectURL, http.StatusTemporaryRedirect)
+				return
+			}
+			// If userCount == 0, allow first user registration
+			slog.Info("Allowing first OAuth user registration despite ENABLE_OAUTH_REGISTRATION=false", "email", email)
+		}
+	}
+
 	// Try to find or create user
 	user, isNewUser, err := h.authService.FindOrCreateOAuthUser(email, firstName, lastName, providerConfig.Name, oauthProviderID)
 	if err != nil {
@@ -761,22 +800,6 @@ func (h *AuthHandler) OAuthCallback(w http.ResponseWriter, r *http.Request) {
 		redirectURL := fmt.Sprintf("%s/login?error=user_creation_failed", h.getBaseLoginURL())
 		http.Redirect(w, r, redirectURL, http.StatusTemporaryRedirect)
 		return
-	}
-
-	// If it's a new user and OAuth registration is disabled, deny access (unless it's the first user)
-	if isNewUser && !h.config.App.EnableOAuthRegistration {
-		// Check if any users exist - allow registration if database is empty
-		userCount, err := h.authService.CountAllUsers()
-		if err != nil || userCount > 1 { // userCount > 1 because the user was just created
-			slog.Warn("OAuth registration rejected: registration disabled",
-				"email", email,
-				"provider", providerConfig.Name,
-			)
-			_ = h.auditMw.LogAction(nil, "user.oauth.registration.disabled", "users", fmt.Sprintf("OAuth registration blocked for %s via %s (registration disabled)", email, providerConfig.Name), getIP(r), r.UserAgent())
-			redirectURL := fmt.Sprintf("%s/login?error=registration_disabled", h.getBaseLoginURL())
-			http.Redirect(w, r, redirectURL, http.StatusTemporaryRedirect)
-			return
-		}
 	}
 
 	if isNewUser {

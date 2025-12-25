@@ -78,6 +78,12 @@ Required:
 - `JWT_SECRET` - JWT signing key (auto-generated if missing)
 - `SMTP_*` - Email server (optional)
 
+### Registration Control
+
+- `ENABLE_REGISTRATION` - Allow email/password registration (default: false)
+- `ENABLE_OAUTH_REGISTRATION` - Allow OAuth registration (default: false)
+- **Note**: First user can always register (when database is empty)
+
 ## Documentation
 
 - `docs/ROLE_BASED_ACCESS.md` - **Role hierarchy and access control**
