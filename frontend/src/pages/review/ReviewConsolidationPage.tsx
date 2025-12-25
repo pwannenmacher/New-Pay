@@ -18,6 +18,7 @@ import {
   Select,
   Tooltip,
   Radio,
+  useMantineColorScheme,
 } from '@mantine/core';
 import { IconArrowLeft, IconAlertCircle, IconCheck } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
@@ -28,6 +29,7 @@ export function ReviewConsolidationPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { colorScheme } = useMantineColorScheme();
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<ConsolidationData | null>(null);
   const [activeCategory, setActiveCategory] = useState<string>('0');
@@ -483,7 +485,7 @@ export function ReviewConsolidationPage() {
                             </div>
                             <div>
                               <Text size="sm" fw={600} c="dimmed">Begründung</Text>
-                              <Paper p="sm" withBorder bg="gray.0">
+                              <Paper p="sm" withBorder bg={colorScheme === 'dark' ? 'dark.6' : 'gray.0'}>
                                 <Text size="sm">{userResponse.justification || 'Keine Begründung'}</Text>
                               </Paper>
                             </div>
@@ -493,7 +495,7 @@ export function ReviewConsolidationPage() {
                         )}
                       </Paper>
 
-                      <Paper p="md" withBorder bg="gray.1">
+                      <Paper p="md" withBorder bg={colorScheme === 'dark' ? 'dark.7' : 'gray.1'}>
                         <Group justify="space-between" mb="md">
                           <Title order={4}>Ihre Reviewer-Bewertung</Title>
                           <Badge color="gray">Read-only</Badge>
@@ -510,7 +512,7 @@ export function ReviewConsolidationPage() {
                             </div>
                             <div>
                               <Text size="sm" fw={600} c="dimmed">Begründung</Text>
-                              <Paper p="sm" withBorder bg="white">
+                              <Paper p="sm" withBorder bg={colorScheme === 'dark' ? 'dark.6' : 'white'}>
                                 <Text size="sm">{currentUserReview.justification || 'Keine Begründung'}</Text>
                               </Paper>
                             </div>
@@ -539,7 +541,7 @@ export function ReviewConsolidationPage() {
                             </div>
                             <div>
                               <Text size="sm" fw={600} c="dimmed" mb="xs">Kommentar-Zusammenfassung</Text>
-                              <Paper p="sm" withBorder bg="blue.0">
+                              <Paper p="sm" withBorder bg={colorScheme === 'dark' ? 'dark.5' : 'blue.0'}>
                                 <Text size="sm" fs="italic" c="dimmed">
                                   ToDo: LLM-Zusammenfassung der Review-Kommentare je Kategorie
                                 </Text>
@@ -678,7 +680,7 @@ export function ReviewConsolidationPage() {
                                           </Group>
                                           <Text size="xs" c="dimmed">{level.description}</Text>
                                           {pathLevelDesc && (
-                                            <Paper p="xs" withBorder bg="blue.0" mt="xs">
+                                            <Paper p="xs" withBorder bg={colorScheme === 'dark' ? 'dark.5' : 'blue.0'} mt="xs">
                                               <Text size="xs" fw={600} c="blue">Pfad-spezifische Beschreibung:</Text>
                                               <Text size="xs">{pathLevelDesc.description}</Text>
                                             </Paper>
@@ -844,7 +846,7 @@ export function ReviewConsolidationPage() {
                 </Paper>
 
                 {/* Overall Average */}
-                <Paper withBorder p="md" bg="blue.0">
+                <Paper withBorder p="md" bg={colorScheme === 'dark' ? 'dark.5' : 'blue.0'}>
                   <Group justify="space-between">
                     <div>
                       <Text size="lg" fw={700}>Gesamtbewertung</Text>

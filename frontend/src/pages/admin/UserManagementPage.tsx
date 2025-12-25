@@ -19,6 +19,7 @@ import {
   Switch,
   Grid,
   PasswordInput,
+  useMantineColorScheme,
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import {
@@ -43,6 +44,7 @@ import { useAuth } from '../../contexts/AuthContext';
 
 export const UserManagementPage = () => {
   const { user: currentUser } = useAuth();
+  const { colorScheme } = useMantineColorScheme();
   const [users, setUsers] = useState<UserWithRoles[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -494,7 +496,7 @@ export const UserManagementPage = () => {
         </Group>
 
         {/* Filters */}
-        <Paper withBorder p="md" mb="md" bg="dark.6">
+        <Paper withBorder p="md" mb="md" bg={colorScheme === 'dark' ? 'dark.6' : 'gray.0'}>
           <Stack gap="md">
             <Grid>
               <Grid.Col span={{ base: 12, md: 6 }}>

@@ -14,6 +14,7 @@ import {
   Button,
   ActionIcon,
   Select,
+  useMantineColorScheme,
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { IconSearch, IconX, IconChevronUp, IconChevronDown } from '@tabler/icons-react';
@@ -21,6 +22,7 @@ import { adminApi, type AuditLogListParams } from '../../services/admin';
 import type { AuditLog, ApiError } from '../../types';
 
 export const AuditLogsPage = () => {
+  const { colorScheme } = useMantineColorScheme();
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
@@ -110,7 +112,7 @@ export const AuditLogsPage = () => {
         </Title>
 
         {/* Filters */}
-        <Paper withBorder p="md" mb="md" bg="dark.6">
+        <Paper withBorder p="md" mb="md" bg={colorScheme === 'dark' ? 'dark.6' : 'gray.0'}>
           <Grid>
             <Grid.Col span={{ base: 12, md: 6 }}>
               <TextInput
