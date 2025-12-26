@@ -80,6 +80,12 @@ func (h *DiscussionConfirmationHandler) CreateConfirmation(w http.ResponseWriter
 		return
 	}
 
+	// Prevent confirmations for archived assessments
+	if assessment.Status == "archived" {
+		http.Error(w, "Cannot confirm: assessment is already archived", http.StatusBadRequest)
+		return
+	}
+
 	// Determine user type
 	// Get user roles from repository
 	roles, err := h.userRepo.GetUserRoles(user.ID)

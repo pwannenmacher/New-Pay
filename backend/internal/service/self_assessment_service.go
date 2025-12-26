@@ -225,6 +225,30 @@ func (s *SelfAssessmentService) GetOpenAssessmentsForReview(catalogID *int, user
 	return assessments, nil
 }
 
+// GetCompletedAssessmentsForReview retrieves archived assessments for reviewers with filters
+func (s *SelfAssessmentService) GetCompletedAssessmentsForReview(userID uint, isAdmin bool, catalogID *int, username string, fromDate, toDate, fromSubmittedDate, toSubmittedDate *time.Time) ([]models.SelfAssessmentWithDetails, error) {
+	assessments, err := s.selfAssessmentRepo.GetCompletedAssessmentsForReview(userID, isAdmin, catalogID, username, fromDate, toDate, fromSubmittedDate, toSubmittedDate)
+	if err != nil {
+		return nil, err
+	}
+
+	// Add review statistics to each assessment
+	if s.reviewerRepo != nil {
+		for i := range assessments {
+			started, completed, err := s.reviewerRepo.GetReviewStats(assessments[i].ID)
+			if err != nil {
+				slog.Error("Failed to get review stats", "error", err, "assessment_id", assessments[i].ID)
+				// Continue with other assessments even if one fails
+				continue
+			}
+			assessments[i].ReviewsStarted = started
+			assessments[i].ReviewsCompleted = completed
+		}
+	}
+
+	return assessments, nil
+}
+
 // UpdateSelfAssessmentStatus transitions a self-assessment to a new status
 func (s *SelfAssessmentService) UpdateSelfAssessmentStatus(assessmentID uint, newStatus string, userID uint, userRoles []string) error {
 	// Get existing assessment

@@ -112,7 +112,34 @@ export const selfAssessmentService = {
       throw error;
     }
   },
+  // Get completed assessments for review (archived)
+  getCompletedAssessmentsForReview: async (filters?: {
+    catalog_id?: number;
+    username?: string;
+    from_date?: string;
+    to_date?: string;
+    from_submitted_date?: string;
+    to_submitted_date?: string;
+  }): Promise<SelfAssessment[]> => {
+    try {
+      const params = new URLSearchParams();
+      if (filters?.catalog_id) params.append('catalog_id', filters.catalog_id.toString());
+      if (filters?.username) params.append('username', filters.username);
+      if (filters?.from_date) params.append('from_date', filters.from_date);
+      if (filters?.to_date) params.append('to_date', filters.to_date);
+      if (filters?.from_submitted_date)
+        params.append('from_submitted_date', filters.from_submitted_date);
+      if (filters?.to_submitted_date)
+        params.append('to_submitted_date', filters.to_submitted_date);
 
+      const queryString = params.toString();
+      const url = `/review/completed-assessments${queryString ? `?${queryString}` : ''}`;
+      return await api.get<SelfAssessment[]>(url);
+    } catch (error) {
+      console.error('Error fetching completed assessments for review:', error);
+      throw error;
+    }
+  },
   // Delete self-assessment (admin only)
   deleteSelfAssessment: async (id: number): Promise<void> => {
     try {

@@ -392,6 +392,91 @@ func (h *SelfAssessmentHandler) GetOpenAssessmentsForReview(w http.ResponseWrite
 	JSONResponse(w, assessments)
 }
 
+// GetCompletedAssessmentsForReview retrieves archived assessments for reviewers
+// @Summary Get completed assessments for review
+// @Description Retrieves archived assessments. Admins see all, reviewers see only those they participated in
+// @Tags Self-Assessments
+// @Security BearerAuth
+// @Param catalog_id query int false "Filter by catalog ID"
+// @Param username query string false "Filter by username (email, first name, or last name)"
+// @Param from_date query string false "Filter by creation date from (RFC3339)"
+// @Param to_date query string false "Filter by creation date to (RFC3339)"
+// @Param from_submitted_date query string false "Filter by submission date from (RFC3339)"
+// @Param to_submitted_date query string false "Filter by submission date to (RFC3339)"
+// @Success 200 {array} models.SelfAssessmentWithDetails
+// @Failure 401 {object} map[string]string "Unauthorized"
+// @Failure 403 {object} map[string]string "Forbidden"
+// @Router /review/completed-assessments [get]
+func (h *SelfAssessmentHandler) GetCompletedAssessmentsForReview(w http.ResponseWriter, r *http.Request) {
+	userID, ok := middleware.GetUserID(r)
+	if !ok {
+		http.Error(w, "User ID not found in context", http.StatusUnauthorized)
+		return
+	}
+
+	userRoles, ok := middleware.GetUserRoles(r)
+	if !ok {
+		userRoles = []string{}
+	}
+
+	// Check if user is reviewer or admin
+	isReviewer := false
+	isAdmin := false
+	for _, role := range userRoles {
+		if role == "reviewer" {
+			isReviewer = true
+		}
+		if role == "admin" {
+			isAdmin = true
+		}
+	}
+	if !isReviewer && !isAdmin {
+		http.Error(w, "Reviewer or Admin access required", http.StatusForbidden)
+		return
+	}
+
+	// Parse query parameters
+	catalogIDStr := r.URL.Query().Get("catalog_id")
+	username := r.URL.Query().Get("username")
+
+	var catalogID *int
+	if catalogIDStr != "" {
+		if parsed, err := strconv.Atoi(catalogIDStr); err == nil {
+			catalogID = &parsed
+		}
+	}
+
+	var fromDate, toDate, fromSubmittedDate, toSubmittedDate *time.Time
+	if fromStr := r.URL.Query().Get("from_date"); fromStr != "" {
+		if parsed, err := time.Parse(time.RFC3339, fromStr); err == nil {
+			fromDate = &parsed
+		}
+	}
+	if toStr := r.URL.Query().Get("to_date"); toStr != "" {
+		if parsed, err := time.Parse(time.RFC3339, toStr); err == nil {
+			toDate = &parsed
+		}
+	}
+	if fromSubStr := r.URL.Query().Get("from_submitted_date"); fromSubStr != "" {
+		if parsed, err := time.Parse(time.RFC3339, fromSubStr); err == nil {
+			fromSubmittedDate = &parsed
+		}
+	}
+	if toSubStr := r.URL.Query().Get("to_submitted_date"); toSubStr != "" {
+		if parsed, err := time.Parse(time.RFC3339, toSubStr); err == nil {
+			toSubmittedDate = &parsed
+		}
+	}
+
+	assessments, err := h.selfAssessmentService.GetCompletedAssessmentsForReview(userID, isAdmin, catalogID, username, fromDate, toDate, fromSubmittedDate, toSubmittedDate)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	JSONResponse(w, assessments)
+}
+
 // DeleteSelfAssessment deletes a self-assessment (admin only, closed without submission)
 // @Summary Delete self-assessment
 // @Description Delete a closed self-assessment that was never submitted (admin only)
@@ -742,6 +827,12 @@ func (h *SelfAssessmentHandler) ArchiveAssessment(w http.ResponseWriter, r *http
 	// Check if assessment is in discussion status
 	if assessment.Status != "discussion" {
 		http.Error(w, "Assessment must be in discussion status to be archived", http.StatusBadRequest)
+		return
+	}
+
+	// Prevent re-archiving
+	if assessment.Status == "archived" {
+		http.Error(w, "Assessment is already archived", http.StatusBadRequest)
 		return
 	}
 

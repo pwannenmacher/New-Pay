@@ -35,6 +35,7 @@ export interface DiscussionConfirmation {
 export interface DiscussionResult {
   id: number;
   assessment_id: number;
+  assessment_status?: string;
   weighted_overall_level_number: number;
   weighted_overall_level_id: number;
   weighted_overall_level_name: string;

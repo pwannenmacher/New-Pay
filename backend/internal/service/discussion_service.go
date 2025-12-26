@@ -434,6 +434,9 @@ func (s *DiscussionService) GetDiscussionResult(assessmentID uint) (*models.Disc
 		return nil, fmt.Errorf("failed to get assessment: %w", err)
 	}
 
+	// Set assessment status in result
+	result.AssessmentStatus = assessment.Status
+
 	// Get catalog with levels and categories
 	catalog, err := s.catalogRepo.GetCatalogWithDetails(assessment.CatalogID)
 	if err != nil {
@@ -528,6 +531,20 @@ func (s *DiscussionService) GetDiscussionResult(assessmentID uint) (*models.Disc
 
 // UpdateDiscussionNote updates the discussion note
 func (s *DiscussionService) UpdateDiscussionNote(assessmentID uint, note string) error {
+	// Get assessment to check status
+	assessment, err := s.assessmentRepo.GetByID(assessmentID)
+	if err != nil {
+		return fmt.Errorf("failed to get assessment: %w", err)
+	}
+	if assessment == nil {
+		return fmt.Errorf("assessment not found")
+	}
+
+	// Prevent changes if assessment is archived
+	if assessment.Status == "archived" {
+		return fmt.Errorf("cannot modify notes: assessment is archived")
+	}
+
 	result, err := s.discussionRepo.GetByAssessmentID(assessmentID)
 	if err != nil {
 		return fmt.Errorf("failed to get discussion result: %w", err)

@@ -426,6 +426,7 @@ type ConsolidationData struct {
 type DiscussionResult struct {
 	ID                       uint                       `json:"id" db:"id"`
 	AssessmentID             uint                       `json:"assessment_id" db:"assessment_id"`
+	AssessmentStatus         string                     `json:"assessment_status,omitempty" db:"-"` // Populated from assessment
 	WeightedOverallLevelNum  float64                    `json:"weighted_overall_level_number" db:"weighted_overall_level_number"`
 	WeightedOverallLevelID   uint                       `json:"weighted_overall_level_id" db:"weighted_overall_level_id"`
 	WeightedOverallLevelName string                     `json:"weighted_overall_level_name,omitempty" db:"-"` // Loaded separately

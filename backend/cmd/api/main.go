@@ -607,6 +607,13 @@ func main() {
 			),
 		),
 	)
+	mux.Handle("GET /api/v1/review/completed-assessments",
+		authMw.Authenticate(
+			rbacMw.RequireRole("reviewer")(
+				http.HandlerFunc(selfAssessmentHandler.GetCompletedAssessmentsForReview),
+			),
+		),
+	)
 
 	// Reviewer response routes (only reviewers, NOT admins - strict role separation)
 	mux.Handle("GET /api/v1/review/assessment/{id}/responses",

@@ -31,6 +31,7 @@ import SelfAssessmentPage from './pages/SelfAssessmentPage';
 import SelfAssessmentsAdminPage from './pages/admin/SelfAssessmentsAdminPage';
 import AdminSelfAssessmentDetailPage from './pages/admin/AdminSelfAssessmentDetailPage';
 import { ReviewOpenAssessmentsPage } from './pages/review/ReviewOpenAssessmentsPage';
+import { ReviewCompletedAssessmentsPage } from './pages/review/ReviewCompletedAssessmentsPage';
 import { ReviewAssessmentPage } from './pages/review/ReviewAssessmentPage';
 import { ReviewConsolidationPage } from './pages/review/ReviewConsolidationPage';
 import { ReviewDiscussionPage } from './pages/review/ReviewDiscussionPage';
@@ -152,6 +153,15 @@ function App() {
                       element={
                         <ProtectedRoute requireRole="reviewer">
                           <ReviewOpenAssessmentsPage />
+                        </ProtectedRoute>
+                      }
+                    />
+
+                    <Route
+                      path="/review/completed-assessments"
+                      element={
+                        <ProtectedRoute requireRole="reviewer">
+                          <ReviewCompletedAssessmentsPage />
                         </ProtectedRoute>
                       }
                     />

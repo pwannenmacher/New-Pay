@@ -43,6 +43,7 @@ export function ReviewDiscussionPage() {
   const [saving, setSaving] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [archiving, setArchiving] = useState(false);
+  const [assessmentStatus, setAssessmentStatus] = useState<string>('discussion');
 
   useEffect(() => {
     loadData();
@@ -54,6 +55,10 @@ export function ReviewDiscussionPage() {
       const discussionData = await discussionService.getDiscussionResult(assessmentId);
       setData(discussionData);
       setDiscussionComment(discussionData.discussion_note || '');
+      // Get assessment status
+      if (discussionData.assessment_status) {
+        setAssessmentStatus(discussionData.assessment_status);
+      }
     } catch (error: any) {
       console.error('Error loading discussion data:', error);
       notifications.show({
@@ -168,7 +173,7 @@ export function ReviewDiscussionPage() {
               <Button
                 variant="subtle"
                 leftSection={<IconArrowLeft size={16} />}
-                onClick={() => navigate('/review/open-assessments')}
+                onClick={() => navigate(assessmentStatus === 'archived' ? '/review/completed-assessments' : '/review/open-assessments')}
               >
                 Zurück
               </Button>
@@ -178,8 +183,12 @@ export function ReviewDiscussionPage() {
               Assessment ID: {assessmentId}
             </Text>
           </div>
-          <Badge color="violet" size="lg" leftSection={<IconMessageCircle size={16} />}>
-            Besprechung
+          <Badge 
+            color={assessmentStatus === 'archived' ? 'gray' : 'violet'} 
+            size="lg" 
+            leftSection={assessmentStatus === 'archived' ? <IconArchive size={16} /> : <IconMessageCircle size={16} />}
+          >
+            {assessmentStatus === 'archived' ? 'Archiviert' : 'Besprechung'}
           </Badge>
         </Group>
 
@@ -280,103 +289,122 @@ export function ReviewDiscussionPage() {
         {/* Discussion Comments Section */}
         <Paper withBorder p="md">
           <Title order={4} mb="md">Notizen zur Besprechung</Title>
-          <Stack gap="md">
-            <Textarea
-              placeholder="Notizen zur Besprechung hinzufügen..."
-              value={discussionComment}
-              onChange={(e) => setDiscussionComment(e.target.value)}
-              minRows={4}
-              disabled={saving}
-            />
-            
-            <Button
-              onClick={handleSaveComment}
-              loading={saving}
-              leftSection={<IconDeviceFloppy size={16} />}
-            >
-              Notizen speichern
-            </Button>
-          </Stack>
+          {assessmentStatus === 'archived' ? (
+            <Alert color="gray" icon={<IconInfoCircle size={16} />}>
+              Dieses Assessment ist archiviert. Notizen können nicht mehr bearbeitet werden.
+              {data.discussion_note && (
+                <Text size="sm" mt="sm" style={{ whiteSpace: 'pre-wrap' }}>
+                  {data.discussion_note}
+                </Text>
+              )}
+            </Alert>
+          ) : (
+            <Stack gap="md">
+              <Textarea
+                placeholder="Notizen zur Besprechung hinzufügen..."
+                value={discussionComment}
+                onChange={(e) => setDiscussionComment(e.target.value)}
+                minRows={4}
+                disabled={saving}
+              />
+              
+              <Button
+                onClick={handleSaveComment}
+                loading={saving}
+                leftSection={<IconDeviceFloppy size={16} />}
+              >
+                Notizen speichern
+              </Button>
+            </Stack>
+          )}
         </Paper>
 
         {/* Meeting Confirmation Section */}
-        <Paper withBorder p="md">
-          <Title order={4} mb="md">
-            Besprechungsbestätigung
-          </Title>
-          
-          <Alert icon={<IconInfoCircle size={16} />} color="blue" mb="md">
-            Bestätigen Sie hier, dass die Besprechung mit dem Mitarbeiter stattgefunden hat. 
-            Nach Ihrer Bestätigung kann der Mitarbeiter ebenfalls bestätigen.
-          </Alert>
+        {assessmentStatus !== 'archived' && (
+          <Paper withBorder p="md">
+            <Title order={4} mb="md">
+              Besprechungsbestätigung
+            </Title>
+            
+            <Alert icon={<IconInfoCircle size={16} />} color="blue" mb="md">
+              Bestätigen Sie hier, dass die Besprechung mit dem Mitarbeiter stattgefunden hat. 
+              Nach Ihrer Bestätigung kann der Mitarbeiter ebenfalls bestätigen.
+            </Alert>
 
-          <Stack gap="md">
-            <div>
-              <Text size="sm" fw={500} mb="xs">
-                Bestätigungen:
-              </Text>
-              {data.confirmations && data.confirmations.length > 0 ? (
-                <Stack gap="xs">
-                  {data.confirmations.map((confirmation) => (
-                    <Group key={confirmation.id}>
-                      <Badge
-                        color={confirmation.user_type === 'reviewer' ? 'blue' : 'green'}
-                        leftSection={<IconUserCheck size={14} />}
-                      >
-                        {confirmation.user_type === 'reviewer' ? 'Reviewer' : 'Mitarbeiter'}
-                      </Badge>
-                      <Text size="sm">
-                        {confirmation.user_name || 'Unbekannt'} - {' '}
-                        {new Date(confirmation.confirmed_at).toLocaleString('de-DE')}
-                      </Text>
-                    </Group>
-                  ))}
-                </Stack>
-              ) : (
-                <Text size="sm" c="dimmed">
-                  Noch keine Bestätigungen
+            <Stack gap="md">
+              <div>
+                <Text size="sm" fw={500} mb="xs">
+                  Bestätigungen:
                 </Text>
+                {data.confirmations && data.confirmations.length > 0 ? (
+                  <Stack gap="xs">
+                    {data.confirmations.map((confirmation) => (
+                      <Group key={confirmation.id}>
+                        <Badge
+                          color={confirmation.user_type === 'reviewer' ? 'blue' : 'green'}
+                          leftSection={<IconUserCheck size={14} />}
+                        >
+                          {confirmation.user_type === 'reviewer' ? 'Reviewer' : 'Mitarbeiter'}
+                        </Badge>
+                        <Text size="sm">
+                          {confirmation.user_name || 'Unbekannt'} - {' '}
+                          {new Date(confirmation.confirmed_at).toLocaleString('de-DE')}
+                        </Text>
+                      </Group>
+                    ))}
+                  </Stack>
+                ) : (
+                  <Text size="sm" c="dimmed">
+                    Noch keine Bestätigungen
+                  </Text>
+                )}
+              </div>
+
+              {!currentUserConfirmed && (
+                <Button
+                  onClick={handleConfirmMeeting}
+                  loading={confirming}
+                  leftSection={<IconUserCheck size={16} />}
+                  color="blue"
+                >
+                  Besprechung bestätigen (als Reviewer)
+                </Button>
               )}
-            </div>
 
-            {!currentUserConfirmed && (
-              <Button
-                onClick={handleConfirmMeeting}
-                loading={confirming}
-                leftSection={<IconUserCheck size={16} />}
-                color="blue"
-              >
-                Besprechung bestätigen (als Reviewer)
-              </Button>
-            )}
+              {currentUserConfirmed && (
+                <Alert color="green" icon={<IconCheck size={16} />}>
+                  Sie haben die Besprechung bereits bestätigt.
+                  {!ownerConfirmed && ' Der Mitarbeiter muss noch bestätigen.'}
+                </Alert>
+              )}
 
-            {currentUserConfirmed && (
-              <Alert color="green" icon={<IconCheck size={16} />}>
-                Sie haben die Besprechung bereits bestätigt.
-                {!ownerConfirmed && ' Der Mitarbeiter muss noch bestätigen.'}
-              </Alert>
-            )}
+              {ownerConfirmed && (
+                <Alert color="green" icon={<IconCheck size={16} />}>
+                  Der Mitarbeiter hat die Besprechung bestätigt.
+                </Alert>
+              )}
 
-            {ownerConfirmed && (
-              <Alert color="green" icon={<IconCheck size={16} />}>
-                Der Mitarbeiter hat die Besprechung bestätigt.
-              </Alert>
-            )}
+              {assessmentStatus !== 'archived' && currentUserConfirmed && ownerConfirmed && (
+                <Button
+                  onClick={handleArchiveAssessment}
+                  loading={archiving}
+                  leftSection={<IconArchive size={16} />}
+                  color="green"
+                  fullWidth
+                  mt="md"
+                >
+                  Assessment archivieren
+                </Button>
+              )}
 
-            {currentUserConfirmed && ownerConfirmed && (
-              <Button
-                onClick={handleArchiveAssessment}
-                loading={archiving}
-                leftSection={<IconArchive size={16} />}
-                color="green"
-                fullWidth
-                mt="md"
-              >
-                Assessment archivieren
-              </Button>
-            )}
-          </Stack>
-        </Paper>
+              {assessmentStatus === 'archived' && (
+                <Alert color="gray" icon={<IconArchive size={16} />} mt="md">
+                  Dieses Assessment wurde bereits archiviert.
+                </Alert>
+              )}
+            </Stack>
+          </Paper>
+        )}
       </Stack>
     </Container>
   );
