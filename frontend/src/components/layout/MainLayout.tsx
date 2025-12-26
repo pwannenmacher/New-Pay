@@ -177,20 +177,7 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
                     Kriterienkataloge
                   </Button>
                 )}
-                {hasUserRole && (
-                  <Button
-                    variant="subtle"
-                    component={Link}
-                    to="/classifications"
-                    fullWidth
-                    justify="flex-start"
-                    leftSection={<IconShieldCheck size={16} />}
-                    mb="xs"
-                    disabled
-                  >
-                    Einstufungen
-                  </Button>
-                )}
+
               </>
             )}
 
@@ -246,17 +233,6 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
                   }}
                 >
                   Abgeschlossene Selbsteinschätzungen
-                </Button>
-                <Button
-                  variant="subtle"
-                  component={Link}
-                  to="/review/classifications"
-                  fullWidth
-                  justify="flex-start"
-                  leftSection={<IconCheckbox size={16} />}
-                  mb="xs"
-                >
-                  Einstufungen
                 </Button>
               </>
             )}
