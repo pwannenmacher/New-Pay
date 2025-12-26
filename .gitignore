@@ -60,6 +60,7 @@ logs/
 # Compiled binary
 /cmd/api/api
 /new-pay
+/backend/api
 
 # Copilot stuff
 /prompts/
