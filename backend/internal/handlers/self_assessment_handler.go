@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"new-pay/internal/middleware"
 	"new-pay/internal/models"
+	"new-pay/internal/repository"
 	"new-pay/internal/service"
 	"strconv"
 	"strings"
@@ -16,13 +17,22 @@ import (
 type SelfAssessmentHandler struct {
 	selfAssessmentService *service.SelfAssessmentService
 	discussionService     *service.DiscussionService
+	confirmationRepo      *repository.DiscussionConfirmationRepository
+	assessmentRepo        *repository.SelfAssessmentRepository
 }
 
 // NewSelfAssessmentHandler creates a new self-assessment handler
-func NewSelfAssessmentHandler(selfAssessmentService *service.SelfAssessmentService, discussionService *service.DiscussionService) *SelfAssessmentHandler {
+func NewSelfAssessmentHandler(
+	selfAssessmentService *service.SelfAssessmentService,
+	discussionService *service.DiscussionService,
+	confirmationRepo *repository.DiscussionConfirmationRepository,
+	assessmentRepo *repository.SelfAssessmentRepository,
+) *SelfAssessmentHandler {
 	return &SelfAssessmentHandler{
 		selfAssessmentService: selfAssessmentService,
 		discussionService:     discussionService,
+		confirmationRepo:      confirmationRepo,
+		assessmentRepo:        assessmentRepo,
 	}
 }
 
@@ -687,5 +697,86 @@ func (h *SelfAssessmentHandler) SubmitAssessment(w http.ResponseWriter, r *http.
 
 	JSONResponse(w, map[string]string{
 		"message": "Assessment submitted successfully",
+	})
+}
+
+// ArchiveAssessment archives an assessment after confirmations
+func (h *SelfAssessmentHandler) ArchiveAssessment(w http.ResponseWriter, r *http.Request) {
+	// Get assessment ID from URL
+	pathParts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
+	var assessmentID uint64
+	var parseErr error
+
+	for i, part := range pathParts {
+		if part == "assessments" && i+1 < len(pathParts) {
+			assessmentID, parseErr = strconv.ParseUint(pathParts[i+1], 10, 32)
+			break
+		}
+	}
+
+	if parseErr != nil || assessmentID == 0 {
+		http.Error(w, "Invalid assessment ID", http.StatusBadRequest)
+		return
+	}
+
+	// Get user roles
+	userRoles, ok := middleware.GetUserRoles(r)
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	// Check if user is admin or reviewer
+	if !checkUserIsAdminOrReviewer(userRoles) {
+		http.Error(w, "Only admins and reviewers can archive assessments", http.StatusForbidden)
+		return
+	}
+
+	// Get assessment
+	assessment, err := h.assessmentRepo.GetByID(uint(assessmentID))
+	if err != nil {
+		http.Error(w, "Assessment not found", http.StatusNotFound)
+		return
+	}
+
+	// Check if assessment is in discussion status
+	if assessment.Status != "discussion" {
+		http.Error(w, "Assessment must be in discussion status to be archived", http.StatusBadRequest)
+		return
+	}
+
+	// Check if both reviewer and owner have confirmed
+	hasReviewerConf, err := h.confirmationRepo.HasReviewerConfirmation(uint(assessmentID))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if !hasReviewerConf {
+		http.Error(w, "At least one reviewer must confirm before archiving", http.StatusBadRequest)
+		return
+	}
+
+	hasOwnerConf, err := h.confirmationRepo.HasOwnerConfirmation(uint(assessmentID))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if !hasOwnerConf {
+		http.Error(w, "Owner must confirm before archiving", http.StatusBadRequest)
+		return
+	}
+
+	// Get userID for audit
+	userID, _ := middleware.GetUserID(r)
+
+	// Update status to archived
+	if err := h.selfAssessmentService.UpdateSelfAssessmentStatus(uint(assessmentID), "archived", userID, userRoles); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{
+		"message": "Assessment archived successfully",
 	})
 }

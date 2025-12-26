@@ -22,9 +22,11 @@ import {
   IconSearch,
   IconFilter,
   IconUsers,
+  IconArchive,
 } from '@tabler/icons-react';
 import { DateInput } from '@mantine/dates';
 import { selfAssessmentService } from '../../services/selfAssessment';
+import discussionService from '../../services/discussion';
 import type { SelfAssessment, Role } from '../../types';
 import { notifications } from '@mantine/notifications';
 import { useAuth } from '../../contexts/AuthContext';
@@ -69,6 +71,8 @@ export function ReviewOpenAssessmentsPage() {
   const [toDate, setToDate] = useState<string | null>(null);
   const [fromSubmittedDate, setFromSubmittedDate] = useState<string | null>(null);
   const [toSubmittedDate, setToSubmittedDate] = useState<string | null>(null);
+  const [confirmations, setConfirmations] = useState<Record<number, any[]>>({});
+  const [archivingId, setArchivingId] = useState<number | null>(null);
 
   useEffect(() => {
     loadData();
@@ -89,6 +93,24 @@ export function ReviewOpenAssessmentsPage() {
       const data = await selfAssessmentService.getOpenAssessmentsForReview(filters);
       const assessmentsList = Array.isArray(data) ? data : [];
       setAssessments(assessmentsList);
+      
+      // Load confirmations for discussion status assessments
+      const discussionAssessments = assessmentsList.filter(a => a.status === 'discussion');
+      const confirmationsData: Record<number, any[]> = {};
+      
+      await Promise.all(
+        discussionAssessments.map(async (assessment) => {
+          try {
+            const result = await discussionService.getDiscussionResult(assessment.id);
+            confirmationsData[assessment.id] = result.confirmations || [];
+          } catch (error) {
+            console.error(`Error loading confirmations for assessment ${assessment.id}:`, error);
+            confirmationsData[assessment.id] = [];
+          }
+        })
+      );
+      
+      setConfirmations(confirmationsData);
       
       // Store all assessments for catalog dropdown
       if (!allAssessments.length) {
@@ -137,6 +159,27 @@ export function ReviewOpenAssessmentsPage() {
         message: error.response?.data?.error || 'Fehler beim Aktualisieren des Status',
         color: 'red',
       });
+    }
+  };
+
+  const handleArchive = async (assessmentId: number) => {
+    try {
+      setArchivingId(assessmentId);
+      await discussionService.archiveAssessment(assessmentId);
+      notifications.show({
+        title: 'Erfolg',
+        message: 'Assessment wurde archiviert',
+        color: 'green',
+      });
+      loadData();
+    } catch (error: any) {
+      notifications.show({
+        title: 'Fehler',
+        message: error.response?.data?.error || 'Archivierung fehlgeschlagen',
+        color: 'red',
+      });
+    } finally {
+      setArchivingId(null);
     }
   };
 
@@ -380,6 +423,23 @@ export function ReviewOpenAssessmentsPage() {
                             >
                               Besprechungs-Ansicht
                             </Button>
+                            {(() => {
+                              const confs = confirmations[assessment.id] || [];
+                              const hasReviewer = confs.some((c: any) => c.user_type === 'reviewer');
+                              const hasOwner = confs.some((c: any) => c.user_type === 'owner');
+                              return hasReviewer && hasOwner ? (
+                                <Button
+                                  size="xs"
+                                  variant="filled"
+                                  color="green"
+                                  leftSection={<IconArchive size={14} />}
+                                  onClick={() => handleArchive(assessment.id)}
+                                  loading={archivingId === assessment.id}
+                                >
+                                  Archivieren
+                                </Button>
+                              ) : null;
+                            })()}
                           </>
                         ) : (
                           <Button

@@ -61,6 +61,10 @@ class DiscussionService {
   async createConfirmation(assessmentId: number, userType: 'reviewer' | 'owner'): Promise<void> {
     await api.post(`/discussion/${assessmentId}/confirm`, { user_type: userType });
   }
+
+  async archiveAssessment(assessmentId: number): Promise<void> {
+    await api.post(`/assessments/${assessmentId}/archive`);
+  }
 }
 
 export default new DiscussionService();

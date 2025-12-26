@@ -172,7 +172,7 @@ func main() {
 	sessionHandler := handlers.NewSessionHandler(sessionRepo, authSvc, auditMw, db.DB)
 	configHandler := handlers.NewConfigHandler(cfg)
 	catalogHandler := handlers.NewCatalogHandler(catalogService, auditMw)
-	selfAssessmentHandler := handlers.NewSelfAssessmentHandler(selfAssessmentService, discussionService)
+	selfAssessmentHandler := handlers.NewSelfAssessmentHandler(selfAssessmentService, discussionService, discussionConfirmationRepo, selfAssessmentRepo)
 	reviewerHandler := handlers.NewReviewerHandler(reviewerService, selfAssessmentRepo, discussionService)
 	consolidationHandler := handlers.NewConsolidationHandler(consolidationService)
 	discussionHandler := handlers.NewDiscussionHandler(discussionService)
@@ -574,6 +574,15 @@ func main() {
 			),
 		),
 	)
+
+	mux.Handle("POST /api/v1/assessments/{id}/archive",
+		authMw.Authenticate(
+			rbacMw.RequireAnyRole("admin", "reviewer")(
+				http.HandlerFunc(selfAssessmentHandler.ArchiveAssessment),
+			),
+		),
+	)
+
 	// Admin routes for self-assessments
 	mux.Handle("GET /api/v1/admin/self-assessments",
 		authMw.Authenticate(

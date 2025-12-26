@@ -25,6 +25,7 @@ import {
   IconDeviceFloppy,
   IconMessageCircle,
   IconUserCheck,
+  IconArchive,
 } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 import discussionService, { type DiscussionResult } from '../../services/discussion';
@@ -41,6 +42,7 @@ export function ReviewDiscussionPage() {
   const [discussionComment, setDiscussionComment] = useState('');
   const [saving, setSaving] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  const [archiving, setArchiving] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -105,6 +107,28 @@ export function ReviewDiscussionPage() {
       });
     } finally {
       setConfirming(false);
+    }
+  };
+
+  const handleArchiveAssessment = async () => {
+    try {
+      setArchiving(true);
+      await discussionService.archiveAssessment(assessmentId);
+      notifications.show({
+        title: 'Erfolg',
+        message: 'Assessment wurde archiviert',
+        color: 'green',
+      });
+      navigate('/review/open-assessments');
+    } catch (error: any) {
+      console.error('Error archiving assessment:', error);
+      notifications.show({
+        title: 'Fehler',
+        message: error.response?.data?.error || 'Archivierung fehlgeschlagen',
+        color: 'red',
+      });
+    } finally {
+      setArchiving(false);
     }
   };
 
@@ -337,6 +361,19 @@ export function ReviewDiscussionPage() {
               <Alert color="green" icon={<IconCheck size={16} />}>
                 Der Mitarbeiter hat die Besprechung bestätigt.
               </Alert>
+            )}
+
+            {currentUserConfirmed && ownerConfirmed && (
+              <Button
+                onClick={handleArchiveAssessment}
+                loading={archiving}
+                leftSection={<IconArchive size={16} />}
+                color="green"
+                fullWidth
+                mt="md"
+              >
+                Assessment archivieren
+              </Button>
             )}
           </Stack>
         </Paper>

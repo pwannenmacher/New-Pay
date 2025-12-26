@@ -28,6 +28,7 @@ import { selfAssessmentService } from '../../services/selfAssessment';
 import type { SelfAssessment, CriteriaCatalog } from '../../types';
 import { notifications } from '@mantine/notifications';
 import { WeightedScoreBadge } from '../../components/WeightedScoreDisplay';
+import discussionService, { type DiscussionResult } from '../../services/discussion';
 
 const statusConfig = {
   draft: { label: 'Entwurf', color: 'gray', icon: IconClock },
@@ -47,6 +48,7 @@ export default function SelfAssessmentsPage() {
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [creating, setCreating] = useState(false);
   const [hasActiveAssessment, setHasActiveAssessment] = useState(false);
+  const [discussionResults, setDiscussionResults] = useState<Record<number, DiscussionResult>>({});
 
   useEffect(() => {
     loadData();
@@ -70,6 +72,31 @@ export default function SelfAssessmentsPage() {
       const activeStatuses = ['draft', 'submitted', 'in_review', 'reviewed', 'discussion'];
       const hasActive = assessmentsList.some((a) => activeStatuses.includes(a.status));
       setHasActiveAssessment(hasActive);
+
+      // Load discussion results for assessments with results
+      const assessmentsWithResults = assessmentsList.filter(
+        (a) => a.status === 'discussion' || a.status === 'archived'
+      );
+      if (assessmentsWithResults.length > 0) {
+        const results = await Promise.all(
+          assessmentsWithResults.map(async (assessment) => {
+            try {
+              const result = await discussionService.getDiscussionResult(assessment.id);
+              return { assessmentId: assessment.id, result };
+            } catch (error) {
+              console.error(`Error loading result for assessment ${assessment.id}:`, error);
+              return null;
+            }
+          })
+        );
+        const resultsMap: Record<number, DiscussionResult> = {};
+        results.forEach((item) => {
+          if (item) {
+            resultsMap[item.assessmentId] = item.result;
+          }
+        });
+        setDiscussionResults(resultsMap);
+      }
     } catch (error) {
       console.error('Error loading data:', error);
       setAssessments([]);
@@ -183,6 +210,7 @@ export default function SelfAssessmentsPage() {
                   <Table.Th>Katalog</Table.Th>
                   <Table.Th>Status</Table.Th>
                   <Table.Th>Gesamtlevel</Table.Th>
+                  <Table.Th>Ergebnis</Table.Th>
                   <Table.Th>Erstellt am</Table.Th>
                   <Table.Th>Eingereicht am</Table.Th>
                   <Table.Th>Aktualisiert am</Table.Th>
@@ -198,6 +226,17 @@ export default function SelfAssessmentsPage() {
                     <Table.Td>{getStatusBadge(assessment.status)}</Table.Td>
                     <Table.Td>
                       <WeightedScoreBadge assessmentId={assessment.id} compact />
+                    </Table.Td>
+                    <Table.Td>
+                      {discussionResults[assessment.id] ? (
+                        <Badge size="sm" variant="light" color="teal">
+                          {discussionResults[assessment.id].weighted_overall_level_name} ({discussionResults[assessment.id].weighted_overall_level_number.toFixed(2)})
+                        </Badge>
+                      ) : (
+                        <Text size="sm" c="dimmed">
+                          -
+                        </Text>
+                      )}
                     </Table.Td>
                     <Table.Td>{formatDate(assessment.created_at)}</Table.Td>
                     <Table.Td>{formatDate(assessment.submitted_at)}</Table.Td>
