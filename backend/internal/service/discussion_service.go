@@ -1,7 +1,6 @@
 package service
 
 import (
-	"database/sql"
 	"fmt"
 	"log/slog"
 	"math"
@@ -22,6 +21,7 @@ type DiscussionService struct {
 	catalogRepo            *repository.CatalogRepository
 	userRepo               *repository.UserRepository
 	categoryDiscussionRepo *repository.CategoryDiscussionCommentRepository
+	confirmationRepo       *repository.DiscussionConfirmationRepository
 	secureStore            *securestore.SecureStore
 }
 
@@ -35,6 +35,7 @@ func NewDiscussionService(
 	catalogRepo *repository.CatalogRepository,
 	userRepo *repository.UserRepository,
 	categoryDiscussionRepo *repository.CategoryDiscussionCommentRepository,
+	confirmationRepo *repository.DiscussionConfirmationRepository,
 	secureStore *securestore.SecureStore,
 ) *DiscussionService {
 	return &DiscussionService{
@@ -47,6 +48,7 @@ func NewDiscussionService(
 		catalogRepo:            catalogRepo,
 		userRepo:               userRepo,
 		categoryDiscussionRepo: categoryDiscussionRepo,
+		confirmationRepo:       confirmationRepo,
 		secureStore:            secureStore,
 	}
 }
@@ -503,11 +505,29 @@ func (s *DiscussionService) GetDiscussionResult(assessmentID uint) (*models.Disc
 	}
 	result.Reviewers = reviewers
 
+	// Get confirmations
+	confirmations, err := s.confirmationRepo.GetByAssessment(assessmentID)
+	if err != nil {
+		slog.Error("Failed to get discussion confirmations", "error", err)
+		confirmations = []models.DiscussionConfirmation{} // Empty slice on error
+	}
+
+	// Populate user names for confirmations
+	for i := range confirmations {
+		user, err := s.userRepo.GetByID(confirmations[i].UserID)
+		if err == nil && user != nil {
+			confirmations[i].UserName = user.FirstName + " " + user.LastName
+			confirmations[i].UserEmail = user.Email
+		}
+	}
+
+	result.Confirmations = confirmations
+
 	return result, nil
 }
 
-// UpdateDiscussionNote updates the discussion note and user approval
-func (s *DiscussionService) UpdateDiscussionNote(assessmentID uint, note string, approved bool) error {
+// UpdateDiscussionNote updates the discussion note
+func (s *DiscussionService) UpdateDiscussionNote(assessmentID uint, note string) error {
 	result, err := s.discussionRepo.GetByAssessmentID(assessmentID)
 	if err != nil {
 		return fmt.Errorf("failed to get discussion result: %w", err)
@@ -516,11 +536,5 @@ func (s *DiscussionService) UpdateDiscussionNote(assessmentID uint, note string,
 		return fmt.Errorf("discussion result not found")
 	}
 
-	var userApprovedAt sql.NullTime
-	if approved {
-		userApprovedAt.Valid = true
-		userApprovedAt.Time = result.UpdatedAt // Use current time
-	}
-
-	return s.discussionRepo.UpdateDiscussionNote(result.ID, note, &userApprovedAt)
+	return s.discussionRepo.UpdateDiscussionNote(result.ID, note, nil)
 }

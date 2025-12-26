@@ -10,27 +10,24 @@ import {
   Stack,
   Badge,
   Group,
-  Textarea,
   Table,
   Alert,
   Divider,
   Card,
   LoadingOverlay,
-  Checkbox,
 } from '@mantine/core';
 import {
   IconArrowLeft,
-  IconCheck,
   IconInfoCircle,
-  IconDeviceFloppy,
   IconMessageCircle,
   IconUserCheck,
+  IconCheck,
 } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
-import discussionService, { type DiscussionResult } from '../../services/discussion';
-import { useAuth } from '../../contexts/AuthContext';
+import discussionService, { type DiscussionResult } from '../services/discussion';
+import { useAuth } from '../contexts/AuthContext';
 
-export function ReviewDiscussionPage() {
+export function UserDiscussionPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -38,8 +35,6 @@ export function ReviewDiscussionPage() {
 
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<DiscussionResult | null>(null);
-  const [discussionComment, setDiscussionComment] = useState('');
-  const [saving, setSaving] = useState(false);
   const [confirming, setConfirming] = useState(false);
 
   useEffect(() => {
@@ -51,7 +46,6 @@ export function ReviewDiscussionPage() {
       setLoading(true);
       const discussionData = await discussionService.getDiscussionResult(assessmentId);
       setData(discussionData);
-      setDiscussionComment(discussionData.discussion_note || '');
     } catch (error: any) {
       console.error('Error loading discussion data:', error);
       notifications.show({
@@ -64,32 +58,10 @@ export function ReviewDiscussionPage() {
     }
   };
 
-  const handleSaveComment = async () => {
-    try {
-      setSaving(true);
-      await discussionService.updateDiscussionNote(assessmentId, discussionComment);
-      notifications.show({
-        title: 'Erfolg',
-        message: 'Notizen gespeichert',
-        color: 'green',
-      });
-      await loadData(); // Reload to get updated data
-    } catch (error: any) {
-      console.error('Error saving comment:', error);
-      notifications.show({
-        title: 'Fehler',
-        message: error.response?.data?.error || 'Notizen konnten nicht gespeichert werden',
-        color: 'red',
-      });
-    } finally {
-      setSaving(false);
-    }
-  };
-
   const handleConfirmMeeting = async () => {
     try {
       setConfirming(true);
-      await discussionService.createConfirmation(assessmentId, 'reviewer');
+      await discussionService.createConfirmation(assessmentId, 'owner');
       notifications.show({
         title: 'Erfolg',
         message: 'Besprechung bestätigt',
@@ -108,13 +80,13 @@ export function ReviewDiscussionPage() {
     }
   };
 
-  // Check if current user has confirmed
+  // Check if reviewer has confirmed
+  const reviewerConfirmed = data?.confirmations?.some((c) => c.user_type === 'reviewer');
+  
+  // Check if current user (owner) has confirmed
   const currentUserConfirmed = data?.confirmations?.some(
-    (c) => c.user_id === user?.id && c.user_type === 'reviewer'
+    (c) => c.user_id === user?.id && c.user_type === 'owner'
   );
-
-  // Check if owner has confirmed
-  const ownerConfirmed = data?.confirmations?.some((c) => c.user_type === 'owner');
 
   if (loading) {
     return (
@@ -144,12 +116,12 @@ export function ReviewDiscussionPage() {
               <Button
                 variant="subtle"
                 leftSection={<IconArrowLeft size={16} />}
-                onClick={() => navigate('/review/open-assessments')}
+                onClick={() => navigate('/self-assessments')}
               >
-                Zurück
+                Zurück zu Meine Selbsteinschätzungen
               </Button>
             </Group>
-            <Title order={2}>Ergebnisbesprechung</Title>
+            <Title order={2}>Ergebnis der Besprechung</Title>
             <Text size="sm" c="dimmed">
               Assessment ID: {assessmentId}
             </Text>
@@ -161,18 +133,20 @@ export function ReviewDiscussionPage() {
 
         {/* Info Alert */}
         <Alert icon={<IconInfoCircle size={16} />} color="blue">
-          Auf dieser Seite werden die Selbsteinschätzung der/des Benutzer:in mit der konsolidierten 
-          Bewertung des Reviewer-Gremiums verglichen. Sie können hier Kommentare zur Diskussion hinzufügen.
+          Hier sehen Sie das Ergebnis Ihrer Selbsteinschätzung im Vergleich mit der Bewertung des
+          Reviewer-Gremiums. Diese Ansicht zeigt die finale Bewertung nach der Besprechung.
         </Alert>
 
         {/* Comparison Table */}
         <Paper withBorder p="md">
-          <Title order={3} mb="md">Vergleich der Bewertungen</Title>
+          <Title order={3} mb="md">
+            Vergleich der Bewertungen
+          </Title>
           <Table striped highlightOnHover>
             <Table.Thead>
               <Table.Tr>
                 <Table.Th>Kategorie</Table.Th>
-                <Table.Th>Selbsteinschätzung</Table.Th>
+                <Table.Th>Ihre Selbsteinschätzung</Table.Th>
                 <Table.Th>Reviewer-Bewertung</Table.Th>
                 <Table.Th>Begründung</Table.Th>
               </Table.Tr>
@@ -189,7 +163,9 @@ export function ReviewDiscussionPage() {
                         {categoryResult.user_level_name}
                       </Badge>
                     ) : (
-                      <Text size="sm" c="dimmed">Keine Angabe</Text>
+                      <Text size="sm" c="dimmed">
+                        Keine Angabe
+                      </Text>
                     )}
                   </Table.Td>
                   <Table.Td>
@@ -203,7 +179,9 @@ export function ReviewDiscussionPage() {
                         {categoryResult.justification}
                       </Text>
                     ) : (
-                      <Text size="sm" c="dimmed">Keine Begründung</Text>
+                      <Text size="sm" c="dimmed">
+                        Keine Begründung
+                      </Text>
                     )}
                   </Table.Td>
                 </Table.Tr>
@@ -214,12 +192,16 @@ export function ReviewDiscussionPage() {
 
         {/* Final Consolidation Result */}
         <Card withBorder shadow="sm" p="md">
-          <Title order={4} mb="md">Gesamtbewertung</Title>
-          
+          <Title order={4} mb="md">
+            Gesamtbewertung
+          </Title>
+
           <Grid>
             <Grid.Col span={4}>
               <Stack gap="xs">
-                <Text size="sm" fw={500} c="dimmed">Gewichtetes Gesamtergebnis</Text>
+                <Text size="sm" fw={500} c="dimmed">
+                  Gewichtetes Gesamtergebnis
+                </Text>
                 <div>
                   <Badge size="xl" color="green" variant="filled">
                     {data.weighted_overall_level_name}
@@ -230,21 +212,25 @@ export function ReviewDiscussionPage() {
                 </div>
               </Stack>
             </Grid.Col>
-            
+
             <Grid.Col span={8}>
               <Stack gap="xs">
-                <Text size="sm" fw={500} c="dimmed">Abschlusskommentar des Reviewer-Gremiums</Text>
+                <Text size="sm" fw={500} c="dimmed">
+                  Abschlusskommentar des Reviewer-Gremiums
+                </Text>
                 <Text size="sm" style={{ whiteSpace: 'pre-wrap' }}>
                   {data.final_comment || 'Kein Kommentar verfügbar'}
                 </Text>
               </Stack>
             </Grid.Col>
           </Grid>
-          
+
           <Divider my="md" />
-          
+
           <Group gap="xs">
-            <Text size="sm" fw={500}>Reviewer:</Text>
+            <Text size="sm" fw={500}>
+              Reviewer:
+            </Text>
             {data.reviewers?.map((reviewer) => (
               <Badge key={reviewer.id} color="blue">
                 {reviewer.reviewer_name}
@@ -253,37 +239,32 @@ export function ReviewDiscussionPage() {
           </Group>
         </Card>
 
-        {/* Discussion Comments Section */}
-        <Paper withBorder p="md">
-          <Title order={4} mb="md">Notizen zur Besprechung</Title>
-          <Stack gap="md">
-            <Textarea
-              placeholder="Notizen zur Besprechung hinzufügen..."
-              value={discussionComment}
-              onChange={(e) => setDiscussionComment(e.target.value)}
-              minRows={4}
-              disabled={saving}
-            />
-            
-            <Button
-              onClick={handleSaveComment}
-              loading={saving}
-              leftSection={<IconDeviceFloppy size={16} />}
-            >
-              Notizen speichern
-            </Button>
-          </Stack>
-        </Paper>
+        {/* Discussion Note (if available) */}
+        {data.discussion_note && (
+          <Paper withBorder p="md">
+            <Title order={4} mb="md">
+              Notizen zur Besprechung
+            </Title>
+            <Text size="sm" style={{ whiteSpace: 'pre-wrap' }}>
+              {data.discussion_note}
+            </Text>
+            {data.user_approved_at && (
+              <Text size="xs" c="dimmed" mt="md">
+                Bestätigt am {new Date(data.user_approved_at).toLocaleString('de-DE')}
+              </Text>
+            )}
+          </Paper>
+        )}
 
         {/* Meeting Confirmation Section */}
         <Paper withBorder p="md">
           <Title order={4} mb="md">
             Besprechungsbestätigung
           </Title>
-          
+
           <Alert icon={<IconInfoCircle size={16} />} color="blue" mb="md">
-            Bestätigen Sie hier, dass die Besprechung mit dem Mitarbeiter stattgefunden hat. 
-            Nach Ihrer Bestätigung kann der Mitarbeiter ebenfalls bestätigen.
+            Bitte bestätigen Sie, dass die Besprechung mit den Reviewern stattgefunden hat und Sie
+            die Bewertung verstanden haben.
           </Alert>
 
           <Stack gap="md">
@@ -299,10 +280,10 @@ export function ReviewDiscussionPage() {
                         color={confirmation.user_type === 'reviewer' ? 'blue' : 'green'}
                         leftSection={<IconUserCheck size={14} />}
                       >
-                        {confirmation.user_type === 'reviewer' ? 'Reviewer' : 'Mitarbeiter'}
+                        {confirmation.user_type === 'reviewer' ? 'Reviewer' : 'Sie'}
                       </Badge>
                       <Text size="sm">
-                        {confirmation.user_name || 'Unbekannt'} - {' '}
+                        {confirmation.user_type === 'reviewer' && `${confirmation.user_name || 'Unbekannt'} - `}
                         {new Date(confirmation.confirmed_at).toLocaleString('de-DE')}
                       </Text>
                     </Group>
@@ -315,27 +296,26 @@ export function ReviewDiscussionPage() {
               )}
             </div>
 
-            {!currentUserConfirmed && (
+            {!reviewerConfirmed && (
+              <Alert color="orange" icon={<IconInfoCircle size={16} />}>
+                Die Reviewer müssen die Besprechung zuerst bestätigen, bevor Sie bestätigen können.
+              </Alert>
+            )}
+
+            {reviewerConfirmed && !currentUserConfirmed && (
               <Button
                 onClick={handleConfirmMeeting}
                 loading={confirming}
                 leftSection={<IconUserCheck size={16} />}
-                color="blue"
+                color="green"
               >
-                Besprechung bestätigen (als Reviewer)
+                Ich bestätige, dass die Besprechung stattgefunden hat
               </Button>
             )}
 
             {currentUserConfirmed && (
               <Alert color="green" icon={<IconCheck size={16} />}>
-                Sie haben die Besprechung bereits bestätigt.
-                {!ownerConfirmed && ' Der Mitarbeiter muss noch bestätigen.'}
-              </Alert>
-            )}
-
-            {ownerConfirmed && (
-              <Alert color="green" icon={<IconCheck size={16} />}>
-                Der Mitarbeiter hat die Besprechung bestätigt.
+                Sie haben die Besprechung bereits bestätigt. Vielen Dank!
               </Alert>
             )}
           </Stack>

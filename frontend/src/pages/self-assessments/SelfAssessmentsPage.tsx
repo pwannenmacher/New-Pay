@@ -203,13 +203,26 @@ export default function SelfAssessmentsPage() {
                     <Table.Td>{formatDate(assessment.submitted_at)}</Table.Td>
                     <Table.Td>{formatDate(assessment.updated_at)}</Table.Td>
                     <Table.Td>
-                      <Button
-                        size="xs"
-                        variant="light"
-                        onClick={() => navigate(`/self-assessments/${assessment.id}`)}
-                      >
-                        Details
-                      </Button>
+                      <Group gap="xs">
+                        <Button
+                          size="xs"
+                          variant="light"
+                          onClick={() => navigate(`/self-assessments/${assessment.id}`)}
+                        >
+                          Details
+                        </Button>
+                        {(assessment.status === 'discussion' || assessment.status === 'archived') && (
+                          <Button
+                            size="xs"
+                            variant="light"
+                            color="violet"
+                            leftSection={<IconMessageCircle size={14} />}
+                            onClick={() => navigate(`/discussion/${assessment.id}`)}
+                          >
+                            Besprechung
+                          </Button>
+                        )}
+                      </Group>
                     </Table.Td>
                   </Table.Tr>
                 ))}

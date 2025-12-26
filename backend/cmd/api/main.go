@@ -109,6 +109,7 @@ func main() {
 	finalConsolidationApprovalRepo := repository.NewFinalConsolidationApprovalRepository(db.DB)
 	categoryDiscussionCommentRepo := repository.NewCategoryDiscussionCommentRepository(db.DB)
 	discussionRepo := repository.NewDiscussionRepository(db.DB)
+	discussionConfirmationRepo := repository.NewDiscussionConfirmationRepository(db.DB)
 
 	// Initialize services
 	authService := auth.NewService(&cfg.JWT)
@@ -143,7 +144,7 @@ func main() {
 		encryptedResponseSvc = service.NewEncryptedResponseService(db.DB, assessmentResponseRepo, keyManager, secureStore)
 		reviewerService = service.NewReviewerService(db.DB, reviewerResponseRepo, selfAssessmentRepo, assessmentResponseRepo, keyManager, secureStore)
 		consolidationService = service.NewConsolidationService(db.DB, consolidationOverrideRepo, consolidationOverrideApprovalRepo, consolidationAveragedApprovalRepo, finalConsolidationRepo, finalConsolidationApprovalRepo, selfAssessmentRepo, assessmentResponseRepo, reviewerResponseRepo, catalogRepo, categoryDiscussionCommentRepo, encryptedResponseSvc, keyManager, secureStore, emailService)
-		discussionService = service.NewDiscussionService(discussionRepo, selfAssessmentRepo, reviewerResponseRepo, assessmentResponseRepo, consolidationOverrideRepo, finalConsolidationRepo, catalogRepo, userRepo, categoryDiscussionCommentRepo, secureStore)
+		discussionService = service.NewDiscussionService(discussionRepo, selfAssessmentRepo, reviewerResponseRepo, assessmentResponseRepo, consolidationOverrideRepo, finalConsolidationRepo, catalogRepo, userRepo, categoryDiscussionCommentRepo, discussionConfirmationRepo, secureStore)
 
 		slog.Info("Encryption services initialized", "vault_addr", cfg.Vault.Address)
 	} else {
@@ -175,6 +176,7 @@ func main() {
 	reviewerHandler := handlers.NewReviewerHandler(reviewerService, selfAssessmentRepo, discussionService)
 	consolidationHandler := handlers.NewConsolidationHandler(consolidationService)
 	discussionHandler := handlers.NewDiscussionHandler(discussionService)
+	discussionConfirmationHandler := handlers.NewDiscussionConfirmationHandler(discussionConfirmationRepo, selfAssessmentRepo, userRepo)
 
 	// Setup router
 	mux := http.NewServeMux()
@@ -716,7 +718,7 @@ func main() {
 	// Discussion endpoints
 	mux.Handle("GET /api/v1/discussion/{id}",
 		authMw.Authenticate(
-			rbacMw.RequireRole("reviewer")(
+			rbacMw.RequireAnyRole("user", "reviewer")(
 				http.HandlerFunc(discussionHandler.GetDiscussionResult),
 			),
 		),
@@ -724,8 +726,25 @@ func main() {
 
 	mux.Handle("PUT /api/v1/discussion/{id}/note",
 		authMw.Authenticate(
-			rbacMw.RequireRole("user")(
+			rbacMw.RequireRole("reviewer")(
 				http.HandlerFunc(discussionHandler.UpdateDiscussionNote),
+			),
+		),
+	)
+
+	// Discussion confirmation endpoints
+	mux.Handle("POST /api/v1/discussion/{id}/confirm",
+		authMw.Authenticate(
+			rbacMw.RequireAnyRole("user", "reviewer")(
+				http.HandlerFunc(discussionConfirmationHandler.CreateConfirmation),
+			),
+		),
+	)
+
+	mux.Handle("GET /api/v1/discussion/{id}/confirmations",
+		authMw.Authenticate(
+			rbacMw.RequireAnyRole("user", "reviewer")(
+				http.HandlerFunc(discussionConfirmationHandler.GetConfirmations),
 			),
 		),
 	)

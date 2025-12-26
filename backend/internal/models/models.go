@@ -395,6 +395,20 @@ type CategoryDiscussionComment struct {
 	UpdatedAt          time.Time `json:"updated_at" db:"updated_at"`
 }
 
+// DiscussionConfirmation represents a confirmation that the discussion meeting took place
+type DiscussionConfirmation struct {
+	ID           uint      `json:"id" db:"id"`
+	AssessmentID uint      `json:"assessment_id" db:"assessment_id"`
+	UserID       uint      `json:"user_id" db:"user_id"`
+	UserType     string    `json:"user_type" db:"user_type"` // "reviewer" or "owner"
+	ConfirmedAt  time.Time `json:"confirmed_at" db:"confirmed_at"`
+	CreatedAt    time.Time `json:"created_at" db:"created_at"`
+
+	// Populated fields (not from DB)
+	UserName  string `json:"user_name,omitempty" db:"-"`
+	UserEmail string `json:"user_email,omitempty" db:"-"`
+}
+
 // ConsolidationData contains all data needed for the consolidation page
 type ConsolidationData struct {
 	Assessment                 SelfAssessment                  `json:"assessment"`
@@ -424,6 +438,7 @@ type DiscussionResult struct {
 	UpdatedAt                time.Time                  `json:"updated_at" db:"updated_at"`
 	CategoryResults          []DiscussionCategoryResult `json:"category_results,omitempty" db:"-"`
 	Reviewers                []DiscussionReviewer       `json:"reviewers,omitempty" db:"-"`
+	Confirmations            []DiscussionConfirmation   `json:"confirmations,omitempty" db:"-"` // Discussion confirmations
 }
 
 // DiscussionCategoryResult represents per-category results in discussion

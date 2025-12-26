@@ -21,6 +21,17 @@ export interface DiscussionReviewer {
   reviewer_name: string;
 }
 
+export interface DiscussionConfirmation {
+  id: number;
+  assessment_id: number;
+  user_id: number;
+  user_name?: string;
+  user_type: 'reviewer' | 'owner';
+  confirmed_at: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface DiscussionResult {
   id: number;
   assessment_id: number;
@@ -34,6 +45,7 @@ export interface DiscussionResult {
   updated_at: string;
   category_results: DiscussionCategoryResult[];
   reviewers: DiscussionReviewer[];
+  confirmations: DiscussionConfirmation[];
 }
 
 class DiscussionService {
@@ -42,8 +54,12 @@ class DiscussionService {
     return response;
   }
 
-  async updateDiscussionNote(assessmentId: number, note: string, approved: boolean): Promise<void> {
-    await api.put(`/discussion/${assessmentId}/note`, { note, approved });
+  async updateDiscussionNote(assessmentId: number, note: string): Promise<void> {
+    await api.put(`/discussion/${assessmentId}/note`, { note });
+  }
+
+  async createConfirmation(assessmentId: number, userType: 'reviewer' | 'owner'): Promise<void> {
+    await api.post(`/discussion/${assessmentId}/confirm`, { user_type: userType });
   }
 }
 

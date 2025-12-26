@@ -83,15 +83,14 @@ func (h *DiscussionHandler) UpdateDiscussionNote(w http.ResponseWriter, r *http.
 	}
 
 	var req struct {
-		Note     string `json:"note"`
-		Approved bool   `json:"approved"`
+		Note string `json:"note"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
 
-	if err := h.discussionService.UpdateDiscussionNote(uint(assessmentID), req.Note, req.Approved); err != nil {
+	if err := h.discussionService.UpdateDiscussionNote(uint(assessmentID), req.Note); err != nil {
 		slog.Error("Failed to update discussion note", "error", err)
 		http.Error(w, "Failed to update discussion note", http.StatusInternalServerError)
 		return

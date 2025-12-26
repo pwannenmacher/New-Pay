@@ -34,6 +34,7 @@ import { ReviewOpenAssessmentsPage } from './pages/review/ReviewOpenAssessmentsP
 import { ReviewAssessmentPage } from './pages/review/ReviewAssessmentPage';
 import { ReviewConsolidationPage } from './pages/review/ReviewConsolidationPage';
 import { ReviewDiscussionPage } from './pages/review/ReviewDiscussionPage';
+import { UserDiscussionPage } from './pages/UserDiscussionPage';
 
 import 'dayjs/locale/de';
 
@@ -196,6 +197,15 @@ function App() {
                       element={
                         <ProtectedRoute>
                           <SelfAssessmentPage />
+                        </ProtectedRoute>
+                      }
+                    />
+
+                    <Route
+                      path="/discussion/:id"
+                      element={
+                        <ProtectedRoute>
+                          <UserDiscussionPage />
                         </ProtectedRoute>
                       }
                     />

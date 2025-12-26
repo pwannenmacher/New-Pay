@@ -39,7 +39,7 @@ draft → submitted → in_review → review_consolidation → reviewed → disc
 ## 1. Status: **draft**
 
 | Aktion | User (Owner) | Reviewer | Admin |
-|-------- | -------------- | ---------- | -------|
+| -------- | -------------- | ---------- | ------- |
 | Assessment bearbeiten | ✅ Vollzugriff | ❌ Kein Zugriff | 🔒 Nur lesen |
 | Antworten hinzufügen/ändern | ✅ Ja | ❌ Nein | ❌ Nein |
 | Status ändern → submitted | ✅ Ja | ❌ Nein | ❌ Nein |
@@ -57,7 +57,7 @@ draft → submitted → in_review → review_consolidation → reviewed → disc
 ## 2. Status: **submitted**
 
 | Aktion | User (Owner) | Reviewer | Admin |
-|-------- | -------------- | ---------- | -------|
+| -------- | -------------- | ---------- | ------- |
 | Assessment bearbeiten | ❌ Gesperrt | ❌ Nein | ❌ Nein |
 | Antworten ändern | ❌ Nein | ❌ Nein | ❌ Nein |
 | Assessment anzeigen | 🔒 Read-only | 🔒 Vorbereitung | ✅ Ja |
@@ -76,7 +76,7 @@ draft → submitted → in_review → review_consolidation → reviewed → disc
 ## 3. Status: **in_review**
 
 | Aktion | User (Owner) | Reviewer | Admin |
-|-------- | -------------- | ---------- | -------|
+| -------- | -------------- | ---------- | ------- |
 | Assessment anzeigen | 🔒 Read-only | ✅ Ja | ✅ Ja |
 | Eigene Review-Antworten erstellen | ❌ Nein | ✅ Ja | ❌ Nein |
 | Eigene Review-Antworten bearbeiten | ❌ Nein | ✅ Ja (nur eigene) | ❌ Nein |
@@ -96,7 +96,7 @@ draft → submitted → in_review → review_consolidation → reviewed → disc
 ## 4. Status: **review_consolidation**
 
 | Aktion | User (Owner) | Reviewer | Admin |
-|-------- | -------------- | ---------- | -------|
+| -------- | -------------- | ---------- | ------- |
 | Assessment anzeigen | 🔒 Read-only | ✅ Ja | ✅ Ja |
 | Alle Reviews anzeigen | ❌ Nein | ✅ Ja | ❌ Nein |
 | Gemittelte Ergebnisse sehen | ❌ Nein | ✅ Ja | ❌ Nein |
@@ -121,7 +121,7 @@ draft → submitted → in_review → review_consolidation → reviewed → disc
 ## 5. Status: **reviewed**
 
 | Aktion | User (Owner) | Reviewer | Admin |
-|-------- | -------------- | ---------- | -------|
+| -------- | -------------- | ---------- | ------- |
 | Assessment anzeigen | 🔒 Read-only | ✅ Ja | ✅ Ja |
 | Konsolidierung anzeigen | ❌ Nein | ✅ Ja | ❌ Nein |
 | **Kategorie-Kommentare verfassen** | ❌ Nein | ✅ Ja | ❌ Nein |
@@ -144,7 +144,7 @@ draft → submitted → in_review → review_consolidation → reviewed → disc
 ## 6. Status: **discussion**
 
 | Aktion | User (Owner) | Reviewer | Admin |
-|-------- | -------------- | ---------- | -------|
+| -------- | -------------- | ---------- | ------- |
 | Discussion Result anzeigen | ✅ Ja | ✅ Ja | ✅ Ja |
 | Kategorie-Ergebnisse sehen | ✅ Ja | ✅ Ja | ✅ Ja |
 | **Kategorie-Kommentare lesen** | ✅ Ja | ✅ Ja | ✅ Ja |
@@ -168,7 +168,7 @@ draft → submitted → in_review → review_consolidation → reviewed → disc
 ## 7. Status: **archived**
 
 | Aktion | User (Owner) | Reviewer | Admin |
-|-------- | -------------- | ---------- | -------|
+| -------- | -------------- | ---------- | ------- |
 | Assessment anzeigen | ✅ Read-only | ✅ Read-only | ✅ Read-only |
 | Discussion Result anzeigen | ✅ Ja | ✅ Ja | ✅ Ja |
 | Kategorie-Kommentare lesen | ✅ Ja | ✅ Ja | ✅ Ja |
@@ -185,7 +185,7 @@ draft → submitted → in_review → review_consolidation → reviewed → disc
 ## 8. Status: **closed**
 
 | Aktion | User (Owner) | Reviewer | Admin |
-|-------- | -------------- | ---------- | -------|
+| -------- | -------------- | ---------- | ------- |
 | Assessment anzeigen | ✅ Ja | ✅ Ja | ✅ Ja |
 | Status wiederherstellen | ❌ Nein | ❌ Nein | ⏰ Ja (24h) |
 | Assessment löschen | ❌ Nein | ❌ Nein | ✅ Ja (nur wenn nie submitted) |
@@ -201,7 +201,7 @@ draft → submitted → in_review → review_consolidation → reviewed → disc
 ## Status-Übergänge Matrix
 
 | Von / Nach | draft | submitted | in_review | review_consolidation | reviewed | discussion | archived | closed |
-|------------ | ------- | ----------- | ----------- | --------------------- | ---------- | ------------ | ---------- | --------|
+| ------------ | ------- | ----------- | ----------- | --------------------- | ---------- | ------------ | ---------- | -------- |
 | **draft** | - | ✅ Owner | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ Owner/Admin |
 | **submitted** | ❌ | - | ✅ Reviewer | ❌ | ❌ | ❌ | ❌ | ✅ Admin |
 | **in_review** | ❌ | ❌ | - | ✅ Reviewer | ✅ Reviewer | ❌ | ❌ | ✅ Admin |
@@ -217,7 +217,7 @@ draft → submitted → in_review → review_consolidation → reviewed → disc
 
 ### 1. Normaler Review-Workflow
 
-```
+```plain
 draft (Mitarbeiter) 
   → submitted (Mitarbeiter) 
   → in_review (Reviewer) 
@@ -229,13 +229,13 @@ draft (Mitarbeiter)
 
 ### 2. Schneller Review-Workflow (ohne Konsolidierung)
 
-```
+```plain
 draft → submitted → in_review → reviewed → discussion → archived
 ```
 
 ### 3. Abbruch-Workflow
 
-```
+```plain
 Jeder Status → closed (Admin oder Owner bei draft)
   → innerhalb 24h zurück zum vorherigen Status (Admin)
 ```
@@ -272,7 +272,7 @@ Jeder Status → closed (Admin oder Owner bei draft)
 ## Zeitliche Einschränkungen
 
 | Aktion | Zeitlimit | Rolle |
-|-------- | ----------- | -------|
+| -------- | ----------- | ------- |
 | Override/Averaged Approval zurücknehmen | 1 Stunde nach "reviewed" | Reviewer |
 | Final Approval zurücknehmen | 1 Stunde nach "reviewed" | Reviewer |
 | Closed Status rückgängig machen | 24 Stunden nach "closed" | Admin |
@@ -282,7 +282,7 @@ Jeder Status → closed (Admin oder Owner bei draft)
 ## Datenschutz und Sichtbarkeit
 
 | Daten | User (Owner) | Reviewer (eigene) | Reviewer (andere) | Admin |
-|------- | -------------- | ------------------- | ------------------- | -------|
+| ------- | -------------- | ------------------- | ------------------- | ------- |
 | Eigene Antworten (draft-discussion) | ✅ Vollzugriff | 🔒 Read-only | 🔒 Read-only | 🔒 Read-only |
 | Review-Antworten (in_review) | ❌ Nicht sichtbar | ✅ Nur eigene | ❌ Nicht sichtbar | ❌ Nicht sichtbar |
 | Alle Reviews (consolidation) | ❌ Nicht sichtbar | ✅ Alle sichtbar | ✅ Alle sichtbar | ❌ Nicht sichtbar |
