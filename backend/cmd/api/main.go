@@ -107,6 +107,7 @@ func main() {
 	consolidationAveragedApprovalRepo := repository.NewConsolidationAveragedApprovalRepository(db.DB)
 	finalConsolidationRepo := repository.NewFinalConsolidationRepository(db.DB)
 	finalConsolidationApprovalRepo := repository.NewFinalConsolidationApprovalRepository(db.DB)
+	categoryDiscussionCommentRepo := repository.NewCategoryDiscussionCommentRepository(db.DB)
 	discussionRepo := repository.NewDiscussionRepository(db.DB)
 
 	// Initialize services
@@ -141,8 +142,8 @@ func main() {
 		secureStore := securestore.NewSecureStore(db.DB, keyManager)
 		encryptedResponseSvc = service.NewEncryptedResponseService(db.DB, assessmentResponseRepo, keyManager, secureStore)
 		reviewerService = service.NewReviewerService(db.DB, reviewerResponseRepo, selfAssessmentRepo, assessmentResponseRepo, keyManager, secureStore)
-		consolidationService = service.NewConsolidationService(db.DB, consolidationOverrideRepo, consolidationOverrideApprovalRepo, consolidationAveragedApprovalRepo, finalConsolidationRepo, finalConsolidationApprovalRepo, selfAssessmentRepo, assessmentResponseRepo, reviewerResponseRepo, catalogRepo, encryptedResponseSvc, keyManager, secureStore, emailService)
-		discussionService = service.NewDiscussionService(discussionRepo, selfAssessmentRepo, reviewerResponseRepo, assessmentResponseRepo, consolidationOverrideRepo, finalConsolidationRepo, catalogRepo, userRepo, secureStore)
+		consolidationService = service.NewConsolidationService(db.DB, consolidationOverrideRepo, consolidationOverrideApprovalRepo, consolidationAveragedApprovalRepo, finalConsolidationRepo, finalConsolidationApprovalRepo, selfAssessmentRepo, assessmentResponseRepo, reviewerResponseRepo, catalogRepo, categoryDiscussionCommentRepo, encryptedResponseSvc, keyManager, secureStore, emailService)
+		discussionService = service.NewDiscussionService(discussionRepo, selfAssessmentRepo, reviewerResponseRepo, assessmentResponseRepo, consolidationOverrideRepo, finalConsolidationRepo, catalogRepo, userRepo, categoryDiscussionCommentRepo, secureStore)
 
 		slog.Info("Encryption services initialized", "vault_addr", cfg.Vault.Address)
 	} else {
@@ -701,6 +702,13 @@ func main() {
 		authMw.Authenticate(
 			rbacMw.RequireRole("reviewer")(
 				http.HandlerFunc(consolidationHandler.RevokeFinalApproval),
+			),
+		),
+	)
+	mux.Handle("POST /api/v1/review/consolidation/{id}/category/{categoryId}/comment",
+		authMw.Authenticate(
+			rbacMw.RequireRole("reviewer")(
+				http.HandlerFunc(consolidationHandler.SaveCategoryDiscussionComment),
 			),
 		),
 	)

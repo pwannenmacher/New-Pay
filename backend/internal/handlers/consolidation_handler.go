@@ -496,3 +496,57 @@ func (h *ConsolidationHandler) RevokeFinalApproval(w http.ResponseWriter, r *htt
 
 	JSONResponse(w, map[string]string{"message": "Final consolidation approval revoked successfully"})
 }
+
+// SaveCategoryDiscussionComment saves or updates a category discussion comment
+// @Summary Save category discussion comment
+// @Description Saves a category-specific discussion comment
+// @Tags Consolidation
+// @Security BearerAuth
+// @Param id path int true "Assessment ID"
+// @Param categoryId path int true "Category ID"
+// @Param body body object true "Comment data"
+// @Success 200 {object} map[string]string
+// @Failure 400 {object} map[string]string "Invalid IDs or body"
+// @Failure 403 {object} map[string]string "Permission denied"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Router /review/consolidation/{id}/category/{categoryId}/comment [post]
+func (h *ConsolidationHandler) SaveCategoryDiscussionComment(w http.ResponseWriter, r *http.Request) {
+	assessmentID, err := strconv.ParseUint(r.PathValue("id"), 10, 32)
+	if err != nil {
+		http.Error(w, "Invalid assessment ID", http.StatusBadRequest)
+		return
+	}
+
+	categoryID, err := strconv.ParseUint(r.PathValue("categoryId"), 10, 32)
+	if err != nil {
+		http.Error(w, "Invalid category ID", http.StatusBadRequest)
+		return
+	}
+
+	userID, ok := middleware.GetUserID(r)
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	var req struct {
+		Comment string `json:"comment"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.consolidationService.SaveCategoryDiscussionComment(uint(assessmentID), uint(categoryID), userID, req.Comment); err != nil {
+		errMsg := err.Error()
+		switch {
+		case errMsg == "user must complete their review before adding discussion comments":
+			http.Error(w, errMsg, http.StatusForbidden)
+		default:
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
+		return
+	}
+
+	JSONResponse(w, map[string]string{"message": "Category discussion comment saved successfully"})
+}

@@ -26,6 +26,7 @@ type ConsolidationService struct {
 	responseRepo           *repository.AssessmentResponseRepository
 	reviewerRepo           *repository.ReviewerResponseRepository
 	catalogRepo            *repository.CatalogRepository
+	categoryDiscussionRepo *repository.CategoryDiscussionCommentRepository
 	encryptedResponseSvc   *EncryptedResponseService
 	keyManager             *keymanager.KeyManager
 	secureStore            *securestore.SecureStore
@@ -44,6 +45,7 @@ func NewConsolidationService(
 	responseRepo *repository.AssessmentResponseRepository,
 	reviewerRepo *repository.ReviewerResponseRepository,
 	catalogRepo *repository.CatalogRepository,
+	categoryDiscussionRepo *repository.CategoryDiscussionCommentRepository,
 	encryptedResponseSvc *EncryptedResponseService,
 	keyManager *keymanager.KeyManager,
 	secureStore *securestore.SecureStore,
@@ -60,6 +62,7 @@ func NewConsolidationService(
 		responseRepo:           responseRepo,
 		reviewerRepo:           reviewerRepo,
 		catalogRepo:            catalogRepo,
+		categoryDiscussionRepo: categoryDiscussionRepo,
 		encryptedResponseSvc:   encryptedResponseSvc,
 		keyManager:             keyManager,
 		secureStore:            secureStore,
@@ -246,15 +249,23 @@ func (s *ConsolidationService) GetConsolidationData(assessmentID uint, currentUs
 		finalConsolidation = fc
 	}
 
+	// Get category discussion comments
+	categoryDiscussionComments, err := s.GetCategoryDiscussionComments(assessmentID)
+	if err != nil {
+		slog.Error("Failed to get category discussion comments", "error", err)
+		categoryDiscussionComments = []models.CategoryDiscussionComment{} // Empty slice on error
+	}
+
 	return &models.ConsolidationData{
-		Assessment:            *assessment,
-		UserResponses:         userResponses,
-		AveragedResponses:     averagedResponses,
-		Overrides:             overrides,
-		Catalog:               *catalog,
-		CurrentUserResponses:  currentUserResponses,
-		FinalConsolidation:    finalConsolidation,
-		AllCategoriesApproved: allCategoriesApproved,
+		Assessment:                 *assessment,
+		UserResponses:              userResponses,
+		AveragedResponses:          averagedResponses,
+		Overrides:                  overrides,
+		Catalog:                    *catalog,
+		CurrentUserResponses:       currentUserResponses,
+		FinalConsolidation:         finalConsolidation,
+		CategoryDiscussionComments: categoryDiscussionComments,
+		AllCategoriesApproved:      allCategoriesApproved,
 	}, nil
 }
 
@@ -881,4 +892,97 @@ func (s *ConsolidationService) RevokeFinalApproval(assessmentID, userID uint) er
 
 	// Delete the user's approval
 	return s.finalApprovalRepo.DeleteApproval(assessmentID, userID)
+}
+
+// SaveCategoryDiscussionComment saves or updates a category-specific discussion comment
+func (s *ConsolidationService) SaveCategoryDiscussionComment(assessmentID, categoryID, userID uint, comment string) error {
+	// Check if editing is allowed
+	if err := s.checkEditingAllowed(assessmentID); err != nil {
+		return err
+	}
+
+	// Verify user has completed their review
+	hasComplete, err := s.hasCompleteReview(assessmentID, userID)
+	if err != nil {
+		return fmt.Errorf("failed to check review completion: %w", err)
+	}
+	if !hasComplete {
+		return fmt.Errorf("user must complete their review before adding discussion comments")
+	}
+
+	// Get assessment for process ID
+	assessment, err := s.assessmentRepo.GetByID(assessmentID)
+	if err != nil {
+		return fmt.Errorf("failed to get assessment: %w", err)
+	}
+	processID := fmt.Sprintf("assessment_%d", assessment.ID)
+
+	// Store the comment in secure store
+	plainData := &securestore.PlainData{
+		Fields: map[string]interface{}{
+			"comment": comment,
+		},
+		Metadata: map[string]string{
+			"assessment_id": fmt.Sprintf("%d", assessmentID),
+			"category_id":   fmt.Sprintf("%d", categoryID),
+			"user_id":       fmt.Sprintf("%d", userID),
+			"type":          "category_discussion_comment",
+		},
+	}
+
+	record, err := s.secureStore.CreateRecord(
+		processID,
+		int64(userID),
+		"CATEGORY_DISCUSSION_COMMENT",
+		plainData,
+		"",
+	)
+	if err != nil {
+		return fmt.Errorf("failed to encrypt comment: %w", err)
+	}
+
+	// Check if comment already exists
+	existing, err := s.categoryDiscussionRepo.GetByAssessmentAndCategory(assessmentID, categoryID)
+	if err != nil {
+		return fmt.Errorf("failed to check existing comment: %w", err)
+	}
+
+	if existing != nil {
+		// Update existing comment
+		existing.EncryptedCommentID = &record.ID
+		return s.categoryDiscussionRepo.Update(existing)
+	}
+
+	// Create new comment
+	newComment := &models.CategoryDiscussionComment{
+		AssessmentID:       assessmentID,
+		CategoryID:         categoryID,
+		EncryptedCommentID: &record.ID,
+		CreatedByUserID:    userID,
+	}
+	return s.categoryDiscussionRepo.Create(newComment)
+}
+
+// GetCategoryDiscussionComments retrieves all category discussion comments for an assessment (decrypted)
+func (s *ConsolidationService) GetCategoryDiscussionComments(assessmentID uint) ([]models.CategoryDiscussionComment, error) {
+	comments, err := s.categoryDiscussionRepo.GetByAssessment(assessmentID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Decrypt comments
+	for i := range comments {
+		if comments[i].EncryptedCommentID != nil {
+			plainData, err := s.secureStore.DecryptRecord(*comments[i].EncryptedCommentID)
+			if err != nil {
+				slog.Warn("Failed to decrypt category discussion comment", "error", err, "record_id", *comments[i].EncryptedCommentID)
+				continue
+			}
+			if comment, ok := plainData.Fields["comment"].(string); ok {
+				comments[i].Comment = comment
+			}
+		}
+	}
+
+	return comments, nil
 }

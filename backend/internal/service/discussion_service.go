@@ -13,15 +13,16 @@ import (
 )
 
 type DiscussionService struct {
-	discussionRepo   *repository.DiscussionRepository
-	assessmentRepo   *repository.SelfAssessmentRepository
-	reviewerRespRepo *repository.ReviewerResponseRepository
-	responseRepo     *repository.AssessmentResponseRepository
-	overrideRepo     *repository.ConsolidationOverrideRepository
-	finalConsRepo    *repository.FinalConsolidationRepository
-	catalogRepo      *repository.CatalogRepository
-	userRepo         *repository.UserRepository
-	secureStore      *securestore.SecureStore
+	discussionRepo         *repository.DiscussionRepository
+	assessmentRepo         *repository.SelfAssessmentRepository
+	reviewerRespRepo       *repository.ReviewerResponseRepository
+	responseRepo           *repository.AssessmentResponseRepository
+	overrideRepo           *repository.ConsolidationOverrideRepository
+	finalConsRepo          *repository.FinalConsolidationRepository
+	catalogRepo            *repository.CatalogRepository
+	userRepo               *repository.UserRepository
+	categoryDiscussionRepo *repository.CategoryDiscussionCommentRepository
+	secureStore            *securestore.SecureStore
 }
 
 func NewDiscussionService(
@@ -33,18 +34,20 @@ func NewDiscussionService(
 	finalConsRepo *repository.FinalConsolidationRepository,
 	catalogRepo *repository.CatalogRepository,
 	userRepo *repository.UserRepository,
+	categoryDiscussionRepo *repository.CategoryDiscussionCommentRepository,
 	secureStore *securestore.SecureStore,
 ) *DiscussionService {
 	return &DiscussionService{
-		discussionRepo:   discussionRepo,
-		assessmentRepo:   assessmentRepo,
-		reviewerRespRepo: reviewerRespRepo,
-		responseRepo:     responseRepo,
-		overrideRepo:     overrideRepo,
-		finalConsRepo:    finalConsRepo,
-		catalogRepo:      catalogRepo,
-		userRepo:         userRepo,
-		secureStore:      secureStore,
+		discussionRepo:         discussionRepo,
+		assessmentRepo:         assessmentRepo,
+		reviewerRespRepo:       reviewerRespRepo,
+		responseRepo:           responseRepo,
+		overrideRepo:           overrideRepo,
+		finalConsRepo:          finalConsRepo,
+		catalogRepo:            catalogRepo,
+		userRepo:               userRepo,
+		categoryDiscussionRepo: categoryDiscussionRepo,
+		secureStore:            secureStore,
 	}
 }
 
@@ -136,6 +139,27 @@ func (s *DiscussionService) CreateDiscussionResult(assessmentID uint) error {
 		return fmt.Errorf("failed to get completed reviewers: %w", err)
 	}
 
+	// Get category discussion comments
+	categoryComments, err := s.categoryDiscussionRepo.GetByAssessment(assessmentID)
+	if err != nil {
+		return fmt.Errorf("failed to get category discussion comments: %w", err)
+	}
+
+	// Decrypt category comments
+	categoryCommentMap := make(map[uint]string)
+	for _, comment := range categoryComments {
+		if comment.EncryptedCommentID != nil {
+			plainData, err := s.secureStore.DecryptRecord(*comment.EncryptedCommentID)
+			if err != nil {
+				slog.Warn("Failed to decrypt category discussion comment", "error", err, "record_id", *comment.EncryptedCommentID)
+				continue
+			}
+			if commentText, ok := plainData.Fields["comment"].(string); ok {
+				categoryCommentMap[comment.CategoryID] = commentText
+			}
+		}
+	}
+
 	// Calculate weighted overall level and category results
 	var totalWeight float64
 	var weightedSum float64
@@ -178,18 +202,6 @@ func (s *DiscussionService) CreateDiscussionResult(assessmentID uint) error {
 					break
 				}
 			}
-
-			// Store justification as plain text (will be shown in discussion)
-			if override.EncryptedJustificationID != nil {
-				plainData, err := s.secureStore.DecryptRecord(*override.EncryptedJustificationID)
-				if err != nil {
-					slog.Warn("Failed to decrypt override justification", "error", err, "record_id", *override.EncryptedJustificationID)
-				} else {
-					if justification, ok := plainData.Fields["justification"].(string); ok {
-						justificationPlain = &justification
-					}
-				}
-			}
 		} else {
 			// Use averaged response
 			for _, avg := range averagedResponses {
@@ -209,21 +221,14 @@ func (s *DiscussionService) CreateDiscussionResult(assessmentID uint) error {
 					if closestLevel != nil {
 						reviewerLevelID = closestLevel.ID
 					}
-
-					// Combine justifications as plain text
-					if len(avg.ReviewerJustifications) > 0 {
-						combined := ""
-						for i, just := range avg.ReviewerJustifications {
-							if i > 0 {
-								combined += "\n\n---\n\n"
-							}
-							combined += just
-						}
-						justificationPlain = &combined
-					}
 					break
 				}
 			}
+		}
+
+		// Use category discussion comment if available (public comment), otherwise internal notes
+		if publicComment, exists := categoryCommentMap[category.ID]; exists {
+			justificationPlain = &publicComment
 		}
 
 		// Add to weighted calculation

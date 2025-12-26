@@ -34,6 +34,7 @@ export function ReviewConsolidationPage() {
   const [data, setData] = useState<ConsolidationData | null>(null);
   const [activeCategory, setActiveCategory] = useState<string>('0');
   const [overrideData, setOverrideData] = useState<{ [key: number]: Partial<ConsolidationOverride> }>({});
+  const [categoryComments, setCategoryComments] = useState<{ [key: number]: string }>({});
   const [finalComment, setFinalComment] = useState<string>('');
 
   // Check if review is in read-only mode (status is 'reviewed' or 'discussion')
@@ -72,6 +73,15 @@ export function ReviewConsolidationPage() {
         });
       }
       setOverrideData(overrides);
+
+      // Initialize category comments
+      const comments: { [key: number]: string } = {};
+      if (consolidationData.category_discussion_comments) {
+        consolidationData.category_discussion_comments.forEach(comment => {
+          comments[comment.category_id] = comment.comment;
+        });
+      }
+      setCategoryComments(comments);
     } catch (error: any) {
       console.error('Error loading consolidation data:', error);
       notifications.show({
@@ -211,6 +221,36 @@ export function ReviewConsolidationPage() {
       notifications.show({
         title: 'Fehler',
         message: error.response?.data?.error || 'Fehler beim Speichern des Abschluss-Kommentars',
+        color: 'red',
+      });
+    }
+  };
+
+  const handleSaveCategoryComment = async (categoryId: number) => {
+    const comment = categoryComments[categoryId];
+    if (!comment || !comment.trim()) {
+      notifications.show({
+        title: 'Fehler',
+        message: 'Bitte geben Sie einen Kommentar ein',
+        color: 'red',
+      });
+      return;
+    }
+
+    try {
+      await consolidationService.saveCategoryDiscussionComment(parseInt(id!), categoryId, comment);
+
+      notifications.show({
+        title: 'Erfolg',
+        message: 'Kommentar gespeichert',
+        color: 'green',
+      });
+
+      loadData();
+    } catch (error: any) {
+      notifications.show({
+        title: 'Fehler',
+        message: error.response?.data?.error || 'Fehler beim Speichern des Kommentars',
         color: 'red',
       });
     }
@@ -799,54 +839,82 @@ export function ReviewConsolidationPage() {
                   </Text>
                 </Alert>
 
-                {/* Category Results Summary */}
+                {/* Category Results Summary with Comments */}
                 <Paper withBorder p="md">
-                  <Stack gap="md">
-                    <Title order={4}>Kategorie-Ergebnisse</Title>
-                    <Grid>
-                      {sortedCategories.map(category => {
-                        const override = data.overrides?.find(o => o.category_id === category.id);
-                        const averaged = data.averaged_responses.find(r => r.category_id === category.id);
-                        
-                        let resultLevel = null;
-                        let isOverride = false;
-                        
-                        if (override && override.is_approved) {
-                          // Find the level for the override from catalog levels
-                          const level = data.catalog.levels?.find((l: any) => l.id === override.level_id);
-                          if (level) {
-                            resultLevel = {
-                              level_number: level.level_number,
-                              name: level.name
-                            };
-                          }
-                          isOverride = true;
-                        } else if (averaged && averaged.is_approved) {
+                  <Stack gap="lg">
+                    <Title order={4}>Kategorie-Ergebnisse und Kommentare für Besprechungs-Ansicht</Title>
+                    {sortedCategories.map(category => {
+                      const override = data.overrides?.find(o => o.category_id === category.id);
+                      const averaged = data.averaged_responses.find(r => r.category_id === category.id);
+                      
+                      let resultLevel = null;
+                      let isOverride = false;
+                      
+                      if (override && override.is_approved) {
+                        // Find the level for the override from catalog levels
+                        const level = data.catalog.levels?.find((l: any) => l.id === override.level_id);
+                        if (level) {
                           resultLevel = {
-                            level_number: averaged.average_level_number,
-                            name: averaged.average_level_name
+                            level_number: level.level_number,
+                            name: level.name
                           };
                         }
+                        isOverride = true;
+                      } else if (averaged && averaged.is_approved) {
+                        resultLevel = {
+                          level_number: averaged.average_level_number,
+                          name: averaged.average_level_name
+                        };
+                      }
 
-                        return (
-                          <Grid.Col key={category.id} span={6}>
-                            <Paper withBorder p="sm" bg={isOverride ? 'blue.0' : undefined}>
-                              <Group justify="space-between">
-                                <div>
-                                  <Text size="sm" fw={600}>{category.name}</Text>
-                                  <Text size="xs" c="dimmed">Gewicht: {category.weight}</Text>
-                                </div>
-                                {resultLevel && (
-                                  <Badge color={isOverride ? 'blue' : 'green'}>
-                                    {resultLevel.name} ({resultLevel.level_number})
-                                  </Badge>
-                                )}
-                              </Group>
-                            </Paper>
-                          </Grid.Col>
-                        );
-                      })}
-                    </Grid>
+                      return (
+                        <Paper key={category.id} withBorder p="md" bg={colorScheme === 'dark' ? 'dark.6' : 'gray.0'}>
+                          <Stack gap="md">
+                            <Group justify="space-between">
+                              <div>
+                                <Text size="md" fw={600}>{category.name}</Text>
+                                <Text size="xs" c="dimmed">Gewicht: {category.weight}</Text>
+                              </div>
+                              {resultLevel && (
+                                <Badge size="lg" color={isOverride ? 'blue' : 'green'}>
+                                  {resultLevel.name} ({resultLevel.level_number})
+                                </Badge>
+                              )}
+                            </Group>
+                            
+                            <div>
+                              <Text size="sm" fw={600} mb="xs">Kommentar für Besprechungs-Ansicht</Text>
+                              <Text size="xs" c="dimmed" mb="sm">
+                                Dieser Kommentar wird dem Mitarbeiter in der Besprechungs-Ansicht angezeigt.
+                              </Text>
+                              <Textarea
+                                placeholder="Erklären Sie die Bewertung für diese Kategorie..."
+                                rows={4}
+                                value={categoryComments[category.id] || ''}
+                                onChange={(e) => {
+                                  const value = e.target.value;
+                                  setCategoryComments(prev => ({
+                                    ...prev,
+                                    [category.id]: value
+                                  }));
+                                }}
+                                disabled={isReadOnly}
+                              />
+                              {!isReadOnly && (
+                                <Button 
+                                  onClick={() => handleSaveCategoryComment(category.id)}
+                                  disabled={!categoryComments[category.id]?.trim()}
+                                  mt="sm"
+                                  size="sm"
+                                >
+                                  Kommentar speichern
+                                </Button>
+                              )}
+                            </div>
+                          </Stack>
+                        </Paper>
+                      );
+                    })}
                   </Stack>
                 </Paper>
 

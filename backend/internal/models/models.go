@@ -383,16 +383,29 @@ type FinalConsolidationApproval struct {
 	ApprovedAt       time.Time `json:"approved_at" db:"approved_at"`
 }
 
+// CategoryDiscussionComment represents category-specific public comments for discussion
+type CategoryDiscussionComment struct {
+	ID                 uint      `json:"id" db:"id"`
+	AssessmentID       uint      `json:"assessment_id" db:"assessment_id"`
+	CategoryID         uint      `json:"category_id" db:"category_id"`
+	Comment            string    `json:"comment" db:"-"`                                           // Decrypted comment
+	EncryptedCommentID *int64    `json:"encrypted_comment_id,omitempty" db:"encrypted_comment_id"` // Reference to encrypted_records
+	CreatedByUserID    uint      `json:"created_by_user_id" db:"created_by_user_id"`
+	CreatedAt          time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt          time.Time `json:"updated_at" db:"updated_at"`
+}
+
 // ConsolidationData contains all data needed for the consolidation page
 type ConsolidationData struct {
-	Assessment            SelfAssessment                  `json:"assessment"`
-	UserResponses         []AssessmentResponseWithDetails `json:"user_responses"`
-	AveragedResponses     []AveragedReviewerResponse      `json:"averaged_responses"`
-	Overrides             []ConsolidationOverride         `json:"overrides"`
-	Catalog               CatalogWithDetails              `json:"catalog"`
-	CurrentUserResponses  []ReviewerResponse              `json:"current_user_responses"`        // Current reviewer's own responses
-	FinalConsolidation    *FinalConsolidation             `json:"final_consolidation,omitempty"` // Final consolidation if exists
-	AllCategoriesApproved bool                            `json:"all_categories_approved"`       // True if all categories have required approvals
+	Assessment                 SelfAssessment                  `json:"assessment"`
+	UserResponses              []AssessmentResponseWithDetails `json:"user_responses"`
+	AveragedResponses          []AveragedReviewerResponse      `json:"averaged_responses"`
+	Overrides                  []ConsolidationOverride         `json:"overrides"`
+	Catalog                    CatalogWithDetails              `json:"catalog"`
+	CurrentUserResponses       []ReviewerResponse              `json:"current_user_responses"`        // Current reviewer's own responses
+	FinalConsolidation         *FinalConsolidation             `json:"final_consolidation,omitempty"` // Final consolidation if exists
+	CategoryDiscussionComments []CategoryDiscussionComment     `json:"category_discussion_comments"`  // Public category comments
+	AllCategoriesApproved      bool                            `json:"all_categories_approved"`       // True if all categories have required approvals
 }
 
 // DiscussionResult represents the frozen discussion data

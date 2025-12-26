@@ -45,6 +45,17 @@ export interface ConsolidationOverride {
   is_approved?: boolean;
 }
 
+export interface CategoryDiscussionComment {
+  id: number;
+  assessment_id: number;
+  category_id: number;
+  comment: string;
+  encrypted_comment_id?: number;
+  created_by_user_id: number;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface ConsolidationData {
   assessment: any; // SelfAssessment type
   user_responses: any[]; // AssessmentResponseWithDetails[]
@@ -54,6 +65,7 @@ export interface ConsolidationData {
   current_user_responses?: any[]; // Current user's own reviewer responses
   final_consolidation?: FinalConsolidation;
   all_categories_approved?: boolean;
+  category_discussion_comments?: CategoryDiscussionComment[];
 }
 
 export interface FinalConsolidationApproval {
@@ -122,6 +134,16 @@ class ConsolidationService {
 
   async revokeFinalApproval(assessmentId: number): Promise<void> {
     await api.delete(`/review/consolidation/${assessmentId}/final/approve`);
+  }
+
+  async saveCategoryDiscussionComment(
+    assessmentId: number,
+    categoryId: number,
+    comment: string
+  ): Promise<void> {
+    await api.post(`/review/consolidation/${assessmentId}/category/${categoryId}/comment`, {
+      comment,
+    });
   }
 }
 
