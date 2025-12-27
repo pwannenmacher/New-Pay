@@ -10,10 +10,8 @@ import {
   IconBook,
   IconClipboardList,
   IconUsers,
-  IconShieldCheck,
   IconFileText,
   IconClock,
-  IconCheckbox,
 } from '@tabler/icons-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useAppConfig } from '../../contexts/AppConfigContext';

@@ -16,7 +16,6 @@ import {
   Divider,
   Card,
   LoadingOverlay,
-  Checkbox,
 } from '@mantine/core';
 import {
   IconArrowLeft,
@@ -179,9 +178,11 @@ export function ReviewDiscussionPage() {
               </Button>
             </Group>
             <Title order={2}>Ergebnisbesprechung</Title>
-            <Text size="sm" c="dimmed">
-              Assessment ID: {assessmentId}
-            </Text>
+            {user?.roles?.some(role => role.name === 'admin') && (
+              <Text size="sm" c="dimmed">
+                Assessment ID: {assessmentId}
+              </Text>
+            )}
           </div>
           <Badge 
             color={assessmentStatus === 'archived' ? 'gray' : 'violet'} 
