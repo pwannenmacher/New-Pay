@@ -58,7 +58,7 @@ logs/
 *.sqlite3
 
 # Compiled binary
-/cmd/api/api
+api
 /new-pay
 /backend/api
 

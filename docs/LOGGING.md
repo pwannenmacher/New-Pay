@@ -210,7 +210,7 @@ grep '"duration_ms"' logs.json | awk '$NF > 1000'
 
 ```bash
 # Backend mit DEBUG-Level starten
-LOG_LEVEL=DEBUG go run ./cmd/api
+LOG_LEVEL=DEBUG go run .
 
 # Oder in Docker:
 docker-compose exec backend sh -c "LOG_LEVEL=DEBUG ./api"

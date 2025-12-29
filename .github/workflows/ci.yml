@@ -39,7 +39,7 @@ jobs:
       run: go mod verify
     
     - name: Build
-      run: go build -v -o bin/api ./cmd/api
+      run: go build -v -o bin/api .
     
     - name: Upload backend binary
       uses: actions/upload-artifact@v6
