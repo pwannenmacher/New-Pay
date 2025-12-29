@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"html/template"
+	"io"
 	"log/slog"
 	"net"
 	"net/smtp"
@@ -157,7 +158,12 @@ func (s *Service) sendEmail(to, subject, body string) error {
 		)
 		return fmt.Errorf("failed to connect to SMTP server: %w", err)
 	}
-	defer conn.Close()
+	defer func(conn net.Conn) {
+		err := conn.Close()
+		if err != nil {
+			slog.Error("Failed to close SMTP connection", "error", err)
+		}
+	}(conn)
 
 	// Create SMTP client
 	client, err := smtp.NewClient(conn, s.config.SMTPHost)
@@ -165,7 +171,12 @@ func (s *Service) sendEmail(to, subject, body string) error {
 		slog.Error("Failed to create SMTP client", "error", err)
 		return fmt.Errorf("failed to create SMTP client: %w", err)
 	}
-	defer client.Close()
+	defer func(client *smtp.Client) {
+		err := client.Close()
+		if err != nil {
+			slog.Error("Failed to close SMTP client", "error", err)
+		}
+	}(client)
 
 	// Authenticate only if credentials are provided and not empty
 	// For development (e.g., Mailpit), no authentication is needed
@@ -199,7 +210,12 @@ func (s *Service) sendEmail(to, subject, body string) error {
 		slog.Error("Failed to initiate data transfer", "error", err)
 		return fmt.Errorf("failed to initiate data transfer: %w", err)
 	}
-	defer wc.Close()
+	defer func(wc io.WriteCloser) {
+		err := wc.Close()
+		if err != nil {
+			slog.Error("Failed to close write closer", "error", err)
+		}
+	}(wc)
 
 	if _, err := wc.Write(message.Bytes()); err != nil {
 		slog.Error("Failed to write message", "error", err)

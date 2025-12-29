@@ -49,14 +49,3 @@ func parseLevel(levelStr string) slog.Level {
 		return slog.LevelInfo
 	}
 }
-
-// GetLevel returns the normalized log level string
-func GetLevel(levelStr string) string {
-	level := strings.ToUpper(levelStr)
-	switch level {
-	case "DEBUG", "INFO", "WARN", "ERROR":
-		return level
-	default:
-		return "INFO"
-	}
-}

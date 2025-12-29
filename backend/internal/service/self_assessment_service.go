@@ -12,7 +12,7 @@ import (
 type SelfAssessmentService struct {
 	selfAssessmentRepo   *repository.SelfAssessmentRepository
 	catalogRepo          *repository.CatalogRepository
-	auditRepo            *repository.AuditRepository
+	auditSvc             *AuditService
 	responseRepo         *repository.AssessmentResponseRepository
 	encryptedResponseSvc *EncryptedResponseService
 	reviewerRepo         *repository.ReviewerResponseRepository
@@ -22,7 +22,7 @@ type SelfAssessmentService struct {
 func NewSelfAssessmentService(
 	selfAssessmentRepo *repository.SelfAssessmentRepository,
 	catalogRepo *repository.CatalogRepository,
-	auditRepo *repository.AuditRepository,
+	auditSvc *AuditService,
 	responseRepo *repository.AssessmentResponseRepository,
 	encryptedResponseSvc *EncryptedResponseService,
 	reviewerRepo *repository.ReviewerResponseRepository,
@@ -30,10 +30,67 @@ func NewSelfAssessmentService(
 	return &SelfAssessmentService{
 		selfAssessmentRepo:   selfAssessmentRepo,
 		catalogRepo:          catalogRepo,
-		auditRepo:            auditRepo,
+		auditSvc:             auditSvc,
 		responseRepo:         responseRepo,
 		encryptedResponseSvc: encryptedResponseSvc,
 		reviewerRepo:         reviewerRepo,
+	}
+}
+
+// Helper functions
+
+// checkPermissionForAssessment checks if user can view an assessment
+func (s *SelfAssessmentService) checkPermissionForAssessment(assessment *models.SelfAssessment, userID uint, userRoles []string) error {
+	isOwner := assessment.UserID == userID
+	isReviewer := contains(userRoles, "reviewer")
+	isAdmin := contains(userRoles, "admin")
+
+	// Owners can always see their own assessments
+	if isOwner {
+		return nil
+	}
+
+	// CRITICAL: Admins without reviewer role cannot view assessments
+	if isAdmin && !isReviewer {
+		return fmt.Errorf("permission denied: admins cannot view assessment details")
+	}
+
+	// Reviewers can see submitted/in_review/review_consolidation/reviewed/discussion assessments
+	if isReviewer && assessment.Status != "draft" && assessment.Status != "closed" && assessment.Status != "archived" {
+		return nil
+	}
+
+	return fmt.Errorf("permission denied: cannot view this self-assessment")
+}
+
+// getAssessmentAndCheckOwnership loads an assessment and verifies ownership
+func (s *SelfAssessmentService) getAssessmentAndCheckOwnership(assessmentID, userID uint) (*models.SelfAssessment, error) {
+	assessment, err := s.selfAssessmentRepo.GetByID(assessmentID)
+	if err != nil {
+		return nil, err
+	}
+	if assessment == nil {
+		return nil, fmt.Errorf("assessment not found")
+	}
+	if assessment.UserID != userID {
+		return nil, fmt.Errorf("permission denied: not owner of assessment")
+	}
+	return assessment, nil
+}
+
+// addReviewStatsToAssessments adds review statistics to each assessment in the list
+func (s *SelfAssessmentService) addReviewStatsToAssessments(assessments []models.SelfAssessmentWithDetails) {
+	if s.reviewerRepo == nil {
+		return
+	}
+	for i := range assessments {
+		started, completed, err := s.reviewerRepo.GetReviewStats(assessments[i].ID)
+		if err != nil {
+			slog.Error("Failed to get review stats", "error", err, "assessment_id", assessments[i].ID)
+			continue
+		}
+		assessments[i].ReviewsStarted = started
+		assessments[i].ReviewsCompleted = completed
 	}
 }
 
@@ -88,12 +145,8 @@ func (s *SelfAssessmentService) CreateSelfAssessment(catalogID uint, userID uint
 	}
 
 	// Audit log
-	s.auditRepo.Create(&models.AuditLog{
-		UserID:   &userID,
-		Action:   "create",
-		Resource: "self_assessment",
-		Details:  fmt.Sprintf("Created self-assessment (ID: %d) for catalog %d", assessment.ID, catalogID),
-	})
+	s.auditSvc.Log(userID, "create", "self_assessment",
+		fmt.Sprintf("Created self-assessment (ID: %d) for catalog %d", assessment.ID, catalogID))
 
 	return assessment, nil
 }
@@ -109,27 +162,11 @@ func (s *SelfAssessmentService) GetSelfAssessment(assessmentID uint, userID uint
 	}
 
 	// Permission checks
-	isOwner := assessment.UserID == userID
-	isReviewer := contains(userRoles, "reviewer")
-	isAdmin := contains(userRoles, "admin")
-
-	// Owners can always see their own assessments
-	if isOwner {
-		return assessment, nil
+	if err := s.checkPermissionForAssessment(assessment, userID, userRoles); err != nil {
+		return nil, err
 	}
 
-	// CRITICAL: Admins without reviewer role cannot view assessments
-	if isAdmin && !isReviewer {
-		return nil, fmt.Errorf("permission denied: admins cannot view assessment details")
-	}
-
-	// Reviewers can see submitted/in_review/review_consolidation/reviewed/discussion assessments
-	if isReviewer && assessment.Status != "draft" && assessment.Status != "closed" && assessment.Status != "archived" {
-		// Return assessment metadata - justifications accessed through GetResponses
-		return assessment, nil
-	}
-
-	return nil, fmt.Errorf("permission denied: cannot view this self-assessment")
+	return assessment, nil
 }
 
 // GetSelfAssessmentWithDetails retrieves a self-assessment with user and catalog details
@@ -142,28 +179,17 @@ func (s *SelfAssessmentService) GetSelfAssessmentWithDetails(assessmentID uint, 
 		return nil, fmt.Errorf("self-assessment not found")
 	}
 
-	// Permission checks
-	isOwner := assessment.UserID == userID
-	isReviewer := contains(userRoles, "reviewer")
-	isAdmin := contains(userRoles, "admin")
-
-	// Owners can always see their own assessments
-	if isOwner {
-		return assessment, nil
+	// Permission checks - convert to SelfAssessment for permission check
+	assessmentBase := &models.SelfAssessment{
+		ID:     assessment.ID,
+		UserID: assessment.UserID,
+		Status: assessment.Status,
+	}
+	if err := s.checkPermissionForAssessment(assessmentBase, userID, userRoles); err != nil {
+		return nil, err
 	}
 
-	// CRITICAL: Admins without reviewer role cannot view assessment details
-	if isAdmin && !isReviewer {
-		return nil, fmt.Errorf("permission denied: admins cannot view assessment details")
-	}
-
-	// Reviewers can see submitted/in_review/review_consolidation/reviewed/discussion assessments
-	if isReviewer && assessment.Status != "draft" && assessment.Status != "closed" && assessment.Status != "archived" {
-		// Return assessment metadata - justifications accessed through GetResponses
-		return assessment, nil
-	}
-
-	return nil, fmt.Errorf("permission denied: cannot view this self-assessment")
+	return assessment, nil
 }
 
 // GetUserSelfAssessments retrieves all self-assessments for a user
@@ -209,18 +235,7 @@ func (s *SelfAssessmentService) GetOpenAssessmentsForReview(catalogID *int, user
 	}
 
 	// Add review statistics to each assessment
-	if s.reviewerRepo != nil {
-		for i := range assessments {
-			started, completed, err := s.reviewerRepo.GetReviewStats(assessments[i].ID)
-			if err != nil {
-				slog.Error("Failed to get review stats", "error", err, "assessment_id", assessments[i].ID)
-				// Continue with other assessments even if one fails
-				continue
-			}
-			assessments[i].ReviewsStarted = started
-			assessments[i].ReviewsCompleted = completed
-		}
-	}
+	s.addReviewStatsToAssessments(assessments)
 
 	return assessments, nil
 }
@@ -233,18 +248,7 @@ func (s *SelfAssessmentService) GetCompletedAssessmentsForReview(userID uint, is
 	}
 
 	// Add review statistics to each assessment
-	if s.reviewerRepo != nil {
-		for i := range assessments {
-			started, completed, err := s.reviewerRepo.GetReviewStats(assessments[i].ID)
-			if err != nil {
-				slog.Error("Failed to get review stats", "error", err, "assessment_id", assessments[i].ID)
-				// Continue with other assessments even if one fails
-				continue
-			}
-			assessments[i].ReviewsStarted = started
-			assessments[i].ReviewsCompleted = completed
-		}
-	}
+	s.addReviewStatsToAssessments(assessments)
 
 	return assessments, nil
 }
@@ -337,12 +341,8 @@ func (s *SelfAssessmentService) UpdateSelfAssessmentStatus(assessmentID uint, ne
 	}
 
 	// Audit log
-	s.auditRepo.Create(&models.AuditLog{
-		UserID:   &userID,
-		Action:   "update_status",
-		Resource: "self_assessment",
-		Details:  fmt.Sprintf("Self-assessment %d status changed: %s -> %s", assessmentID, oldStatus, newStatus),
-	})
+	s.auditSvc.Log(userID, "update_status", "self_assessment",
+		fmt.Sprintf("Self-assessment %d status changed: %s -> %s", assessmentID, oldStatus, newStatus))
 
 	return nil
 }
@@ -420,12 +420,8 @@ func (s *SelfAssessmentService) DeleteSelfAssessment(assessmentID uint, userID u
 	}
 
 	// Audit log
-	s.auditRepo.Create(&models.AuditLog{
-		UserID:   &userID,
-		Action:   "delete",
-		Resource: "self_assessment",
-		Details:  fmt.Sprintf("Deleted self-assessment %d (catalog: %d, user: %d)", assessmentID, assessment.CatalogID, assessment.UserID),
-	})
+	s.auditSvc.Log(userID, "delete", "self_assessment",
+		fmt.Sprintf("Deleted self-assessment %d (catalog: %d, user: %d)", assessmentID, assessment.CatalogID, assessment.UserID))
 
 	return nil
 }
@@ -501,12 +497,8 @@ func (s *SelfAssessmentService) SaveResponse(userID, assessmentID uint, response
 		}
 
 		// Audit log
-		s.auditRepo.Create(&models.AuditLog{
-			UserID:   &userID,
-			Action:   "update",
-			Resource: "assessment_response",
-			Details:  fmt.Sprintf("Updated response for assessment %d, category %d", assessmentID, response.CategoryID),
-		})
+		s.auditSvc.Log(userID, "update", "assessment_response",
+			fmt.Sprintf("Updated response for assessment %d, category %d", assessmentID, response.CategoryID))
 	} else {
 		// Create new response using encrypted service
 		if err := s.encryptedResponseSvc.CreateResponse(response, userID); err != nil {
@@ -514,12 +506,8 @@ func (s *SelfAssessmentService) SaveResponse(userID, assessmentID uint, response
 		}
 
 		// Audit log
-		s.auditRepo.Create(&models.AuditLog{
-			UserID:   &userID,
-			Action:   "create",
-			Resource: "assessment_response",
-			Details:  fmt.Sprintf("Created response for assessment %d, category %d", assessmentID, response.CategoryID),
-		})
+		s.auditSvc.Log(userID, "create", "assessment_response",
+			fmt.Sprintf("Created response for assessment %d, category %d", assessmentID, response.CategoryID))
 	}
 
 	return response, nil
@@ -528,15 +516,9 @@ func (s *SelfAssessmentService) SaveResponse(userID, assessmentID uint, response
 // DeleteResponse deletes an assessment response
 func (s *SelfAssessmentService) DeleteResponse(userID, assessmentID, categoryID uint) error {
 	// Get assessment and verify ownership and status
-	assessment, err := s.selfAssessmentRepo.GetByID(assessmentID)
+	assessment, err := s.getAssessmentAndCheckOwnership(assessmentID, userID)
 	if err != nil {
 		return err
-	}
-	if assessment == nil {
-		return fmt.Errorf("assessment not found")
-	}
-	if assessment.UserID != userID {
-		return fmt.Errorf("permission denied: not owner of assessment")
 	}
 	if assessment.Status != "draft" {
 		return fmt.Errorf("can only delete responses in draft status")
@@ -557,12 +539,8 @@ func (s *SelfAssessmentService) DeleteResponse(userID, assessmentID, categoryID 
 	}
 
 	// Audit log
-	s.auditRepo.Create(&models.AuditLog{
-		UserID:   &userID,
-		Action:   "delete",
-		Resource: "assessment_response",
-		Details:  fmt.Sprintf("Deleted response for assessment %d, category %d", assessmentID, categoryID),
-	})
+	s.auditSvc.Log(userID, "delete", "assessment_response",
+		fmt.Sprintf("Deleted response for assessment %d, category %d", assessmentID, categoryID))
 
 	return nil
 }
@@ -637,15 +615,8 @@ func (s *SelfAssessmentService) GetResponses(userID uint, assessmentID uint, use
 // GetCompleteness calculates the completeness of an assessment
 func (s *SelfAssessmentService) GetCompleteness(userID uint, assessmentID uint) (*models.AssessmentCompleteness, error) {
 	// Get assessment and verify ownership
-	assessment, err := s.selfAssessmentRepo.GetByID(assessmentID)
-	if err != nil {
+	if _, err := s.getAssessmentAndCheckOwnership(assessmentID, userID); err != nil {
 		return nil, err
-	}
-	if assessment == nil {
-		return nil, fmt.Errorf("assessment not found")
-	}
-	if assessment.UserID != userID {
-		return nil, fmt.Errorf("permission denied: not owner of assessment")
 	}
 
 	// Get completeness from repository
@@ -660,21 +631,18 @@ func (s *SelfAssessmentService) GetCompleteness(userID uint, assessmentID uint) 
 // CalculateWeightedScore calculates the weighted average score for a self-assessment
 func (s *SelfAssessmentService) CalculateWeightedScore(userID uint, assessmentID uint) (*models.WeightedScore, error) {
 	// Verify ownership
-	assessment, err := s.selfAssessmentRepo.GetByID(assessmentID)
+	assessment, err := s.getAssessmentAndCheckOwnership(assessmentID, userID)
 	if err != nil {
 		return nil, err
-	}
-	if assessment == nil {
-		return nil, fmt.Errorf("assessment not found")
-	}
-	if assessment.UserID != userID {
-		return nil, fmt.Errorf("permission denied: not owner of assessment")
 	}
 
 	// Get catalog details including weights
 	catalogDetails, err := s.catalogRepo.GetCatalogWithDetails(assessment.CatalogID)
 	if err != nil {
 		return nil, err
+	}
+	if catalogDetails == nil {
+		return nil, fmt.Errorf("catalog not found")
 	}
 
 	// Get all responses for this assessment with details (includes level_number)
@@ -733,15 +701,9 @@ func (s *SelfAssessmentService) CalculateWeightedScore(userID uint, assessmentID
 // SubmitAssessment submits an assessment for review (changes status from draft to submitted)
 func (s *SelfAssessmentService) SubmitAssessment(userID, assessmentID uint) error {
 	// Get assessment and verify ownership and status
-	assessment, err := s.selfAssessmentRepo.GetByID(assessmentID)
+	assessment, err := s.getAssessmentAndCheckOwnership(assessmentID, userID)
 	if err != nil {
 		return err
-	}
-	if assessment == nil {
-		return fmt.Errorf("assessment not found")
-	}
-	if assessment.UserID != userID {
-		return fmt.Errorf("permission denied: not owner of assessment")
 	}
 	if assessment.Status != "draft" {
 		return fmt.Errorf("can only submit assessments in draft status")
@@ -767,12 +729,8 @@ func (s *SelfAssessmentService) SubmitAssessment(userID, assessmentID uint) erro
 	}
 
 	// Audit log
-	s.auditRepo.Create(&models.AuditLog{
-		UserID:   &userID,
-		Action:   "submit",
-		Resource: "self_assessment",
-		Details:  fmt.Sprintf("Submitted self-assessment %d for review", assessmentID),
-	})
+	s.auditSvc.Log(userID, "submit", "self_assessment",
+		fmt.Sprintf("Submitted self-assessment %d for review", assessmentID))
 
 	return nil
 }

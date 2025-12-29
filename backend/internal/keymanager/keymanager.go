@@ -106,7 +106,7 @@ func (km *KeyManager) GetUserSigningKey(userID int64) (ed25519.PrivateKey, error
 		return nil, fmt.Errorf("private key decryption failed: %w", err)
 	}
 
-	return ed25519.PrivateKey(privateKeyBytes), nil
+	return privateKeyBytes, nil
 }
 
 // GetUserPublicKey retrieves a user's public key
@@ -124,7 +124,7 @@ func (km *KeyManager) GetUserPublicKey(userID int64) (ed25519.PublicKey, error) 
 		return nil, fmt.Errorf("invalid public key: %w", err)
 	}
 
-	return ed25519.PublicKey(publicKey), nil
+	return publicKey, nil
 }
 
 // CreateProcessKey generates a new 256-bit symmetric key for a process

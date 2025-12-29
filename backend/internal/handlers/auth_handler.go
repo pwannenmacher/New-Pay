@@ -71,8 +71,8 @@ type RefreshTokenRequest struct {
 // @Summary Register a new user
 // @Description Create a new user account with email verification
 // @Tags Authentication
-// @Accept json
-// @Produce json
+// @Accept JSON
+// @Produce JSON
 // @Param request body RegisterRequest true "Registration details"
 // @Success 201 {object} map[string]interface{} "Registration successful"
 // @Failure 400 {object} map[string]string "Invalid request"
@@ -187,8 +187,8 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 // @Summary User login
 // @Description Authenticate user and return JWT tokens
 // @Tags Authentication
-// @Accept json
-// @Produce json
+// @Accept JSON
+// @Produce JSON
 // @Param request body LoginRequest true "Login credentials"
 // @Success 200 {object} map[string]interface{} "Login successful with tokens"
 // @Failure 400 {object} map[string]string "Invalid request"
@@ -278,8 +278,8 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 // @Summary Verify email address
 // @Description Verify user's email address using token from email
 // @Tags Authentication
-// @Accept json
-// @Produce json
+// @Accept JSON
+// @Produce JSON
 // @Param token query string true "Verification token"
 // @Success 200 {object} map[string]string "Email verified successfully"
 // @Failure 400 {object} map[string]string "Invalid or expired token"
@@ -316,8 +316,8 @@ func (h *AuthHandler) VerifyEmail(w http.ResponseWriter, r *http.Request) {
 // @Summary Request password reset
 // @Description Send password reset email to user
 // @Tags Authentication
-// @Accept json
-// @Produce json
+// @Accept JSON
+// @Produce JSON
 // @Param request body PasswordResetRequest true "Email address"
 // @Success 200 {object} map[string]string "Reset email sent if user exists"
 // @Failure 400 {object} map[string]string "Invalid request"
@@ -356,8 +356,8 @@ func (h *AuthHandler) RequestPasswordReset(w http.ResponseWriter, r *http.Reques
 // @Summary Reset password
 // @Description Reset user password using token from email
 // @Tags Authentication
-// @Accept json
-// @Produce json
+// @Accept JSON
+// @Produce JSON
 // @Param request body ResetPasswordRequest true "Reset token and new password"
 // @Success 200 {object} map[string]string "Password reset successful"
 // @Failure 400 {object} map[string]string "Invalid or expired token"
@@ -394,8 +394,8 @@ func (h *AuthHandler) ResetPassword(w http.ResponseWriter, r *http.Request) {
 // @Summary Refresh access token
 // @Description Get a new access token using refresh token from cookie
 // @Tags Authentication
-// @Accept json
-// @Produce json
+// @Accept JSON
+// @Produce JSON
 // @Success 200 {object} map[string]string "New access token"
 // @Failure 401 {object} map[string]string "Invalid refresh token"
 // @Router /auth/refresh [post]
@@ -463,8 +463,8 @@ func (h *AuthHandler) RefreshToken(w http.ResponseWriter, r *http.Request) {
 // @Summary User logout
 // @Description Clear refresh token cookie and invalidate session
 // @Tags Authentication
-// @Accept json
-// @Produce json
+// @Accept JSON
+// @Produce JSON
 // @Success 200 {object} map[string]string "Logout successful"
 // @Router /auth/logout [post]
 func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
@@ -714,7 +714,7 @@ func (h *AuthHandler) OAuthCallback(w http.ResponseWriter, r *http.Request) {
 		lastName = familyName
 	}
 
-	// Extract OAuth provider user ID (sub claim is standard in OAuth 2.0/OIDC)
+	// Extract OAuth provider user ID (subclaim is standard in OAuth 2.0/OIDC)
 	var oauthProviderID string
 	if sub, ok := userInfo["sub"].(string); ok {
 		oauthProviderID = sub

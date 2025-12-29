@@ -53,6 +53,79 @@ func NewDiscussionService(
 	}
 }
 
+// Helper functions
+
+// deriveDiscussionKey derives an encryption key for discussion data
+func (s *DiscussionService) deriveDiscussionKey(assessmentID uint) []byte {
+	keyMaterial := []byte(fmt.Sprintf("discussion-key-%d", assessmentID))
+	return vault.DeriveKey(keyMaterial, nil, "discussion-final-comment", 32)
+}
+
+// getDiscussionAdditionalData returns the additional data for encryption
+func (s *DiscussionService) getDiscussionAdditionalData(assessmentID uint) []byte {
+	return []byte(fmt.Sprintf("discussion:assessment:%d", assessmentID))
+}
+
+// encryptDiscussionComment encrypts a comment for discussion
+func (s *DiscussionService) encryptDiscussionComment(assessmentID uint, comment string) ([]byte, []byte, error) {
+	key := s.deriveDiscussionKey(assessmentID)
+	additionalData := s.getDiscussionAdditionalData(assessmentID)
+	return vault.EncryptLocal([]byte(comment), key, additionalData)
+}
+
+// decryptDiscussionComment decrypts a comment from discussion
+func (s *DiscussionService) decryptDiscussionComment(assessmentID uint, encrypted, nonce []byte) (string, error) {
+	key := s.deriveDiscussionKey(assessmentID)
+	additionalData := s.getDiscussionAdditionalData(assessmentID)
+	decrypted, err := vault.DecryptLocal(encrypted, key, nonce, additionalData)
+	if err != nil {
+		return "", err
+	}
+	return string(decrypted), nil
+}
+
+// decryptSecureStoreField decrypts a field from secure store
+func (s *DiscussionService) decryptSecureStoreField(recordID int64, fieldName string) (string, error) {
+	plainData, err := s.secureStore.DecryptRecord(recordID)
+	if err != nil {
+		return "", err
+	}
+	if value, ok := plainData.Fields[fieldName].(string); ok {
+		return value, nil
+	}
+	return "", fmt.Errorf("field %s not found or not a string", fieldName)
+}
+
+// findCategoryName finds a category name by ID in catalog
+func (s *DiscussionService) findCategoryName(catalog *models.CatalogWithDetails, categoryID uint) string {
+	for i := range catalog.Categories {
+		if catalog.Categories[i].ID == categoryID {
+			return catalog.Categories[i].Name
+		}
+	}
+	return ""
+}
+
+// populateLevelNames populates level names in category results
+func (s *DiscussionService) populateLevelNames(categoryResults []models.DiscussionCategoryResult, catalog *models.CatalogWithDetails) {
+	for i := range categoryResults {
+		// Find category name
+		categoryResults[i].CategoryName = s.findCategoryName(catalog, categoryResults[i].CategoryID)
+
+		// Find user level name
+		if categoryResults[i].UserLevelID != nil {
+			if level := findLevelByID(catalog, *categoryResults[i].UserLevelID); level != nil {
+				categoryResults[i].UserLevelName = level.Name
+			}
+		}
+
+		// Find reviewer level name
+		if level := findLevelByID(catalog, categoryResults[i].ReviewerLevelID); level != nil {
+			categoryResults[i].ReviewerLevelName = level.Name
+		}
+	}
+}
+
 // CreateDiscussionResult generates and stores discussion results when status changes to 'discussion'
 func (s *DiscussionService) CreateDiscussionResult(assessmentID uint) error {
 	// Check if discussion result already exists
@@ -79,6 +152,9 @@ func (s *DiscussionService) CreateDiscussionResult(assessmentID uint) error {
 	if err != nil {
 		return fmt.Errorf("failed to get catalog: %w", err)
 	}
+	if catalog == nil {
+		return fmt.Errorf("catalog not found")
+	}
 
 	// Get user responses
 	userResponses, err := s.responseRepo.GetAllByAssessment(assessmentID)
@@ -101,14 +177,12 @@ func (s *DiscussionService) CreateDiscussionResult(assessmentID uint) error {
 	// Decrypt reviewer justifications for averaged responses
 	for i := range allReviewerResponses {
 		if allReviewerResponses[i].EncryptedJustificationID != nil {
-			plainData, err := s.secureStore.DecryptRecord(*allReviewerResponses[i].EncryptedJustificationID)
+			justification, err := s.decryptSecureStoreField(*allReviewerResponses[i].EncryptedJustificationID, "justification")
 			if err != nil {
 				slog.Warn("Failed to decrypt reviewer justification", "error", err, "record_id", *allReviewerResponses[i].EncryptedJustificationID)
 				continue
 			}
-			if justification, ok := plainData.Fields["justification"].(string); ok {
-				allReviewerResponses[i].Justification = justification
-			}
+			allReviewerResponses[i].Justification = justification
 		}
 	}
 
@@ -126,13 +200,11 @@ func (s *DiscussionService) CreateDiscussionResult(assessmentID uint) error {
 
 	// Decrypt final comment
 	if finalCons.EncryptedCommentID != nil {
-		plainData, err := s.secureStore.DecryptRecord(*finalCons.EncryptedCommentID)
+		comment, err := s.decryptSecureStoreField(*finalCons.EncryptedCommentID, "comment")
 		if err != nil {
 			return fmt.Errorf("failed to decrypt comment: %w", err)
 		}
-		if comment, ok := plainData.Fields["comment"].(string); ok {
-			finalCons.Comment = comment
-		}
+		finalCons.Comment = comment
 	}
 
 	// Get all reviewers who completed reviews
@@ -151,21 +223,19 @@ func (s *DiscussionService) CreateDiscussionResult(assessmentID uint) error {
 	categoryCommentMap := make(map[uint]string)
 	for _, comment := range categoryComments {
 		if comment.EncryptedCommentID != nil {
-			plainData, err := s.secureStore.DecryptRecord(*comment.EncryptedCommentID)
+			commentText, err := s.decryptSecureStoreField(*comment.EncryptedCommentID, "comment")
 			if err != nil {
 				slog.Warn("Failed to decrypt category discussion comment", "error", err, "record_id", *comment.EncryptedCommentID)
 				continue
 			}
-			if commentText, ok := plainData.Fields["comment"].(string); ok {
-				categoryCommentMap[comment.CategoryID] = commentText
-			}
+			categoryCommentMap[comment.CategoryID] = commentText
 		}
 	}
 
 	// Calculate weighted overall level and category results
 	var totalWeight float64
 	var weightedSum float64
-	categoryResults := []models.DiscussionCategoryResult{}
+	var categoryResults []models.DiscussionCategoryResult
 
 	for _, category := range catalog.Categories {
 		// Get user's level for this category
@@ -198,11 +268,8 @@ func (s *DiscussionService) CreateDiscussionResult(assessmentID uint) error {
 			isOverride = true
 
 			// Find level number
-			for _, level := range catalog.Levels {
-				if level.ID == override.LevelID {
-					reviewerLevelNumber = float64(level.LevelNumber)
-					break
-				}
+			if level := findLevelByID(catalog, override.LevelID); level != nil {
+				reviewerLevelNumber = float64(level.LevelNumber)
 			}
 		} else {
 			// Use averaged response
@@ -266,16 +333,8 @@ func (s *DiscussionService) CreateDiscussionResult(assessmentID uint) error {
 		}
 	}
 
-	// Encrypt final comment using simple encryption
-	// Use assessment ID as additional context
-	additionalData := []byte(fmt.Sprintf("discussion:assessment:%d", assessmentID))
-
-	// Derive a key from the assessment ID (simple approach for discussion data)
-	// In production, this should use proper key management
-	keyMaterial := []byte(fmt.Sprintf("discussion-key-%d", assessmentID))
-	encryptionKey := vault.DeriveKey(keyMaterial, nil, "discussion-final-comment", 32)
-
-	encryptedData, nonce, err := vault.EncryptLocal([]byte(finalCons.Comment), encryptionKey, additionalData)
+	// Encrypt final comment
+	encryptedData, nonce, err := s.encryptDiscussionComment(assessmentID, finalCons.Comment)
 	if err != nil {
 		return fmt.Errorf("failed to encrypt final comment: %w", err)
 	}
@@ -355,11 +414,11 @@ func (s *DiscussionService) calculateAveragedResponses(reviewerResponses []model
 
 		// Calculate average level number
 		var sum float64
-		justifications := []string{}
+		var justifications []string
 
 		for _, resp := range responses {
 			// Find level number from catalog
-			levelNumber := s.findLevelNumber(catalog, resp.LevelID)
+			levelNumber := findLevelNumber(catalog, resp.LevelID)
 			sum += float64(levelNumber)
 
 			// Collect justifications if present
@@ -370,8 +429,7 @@ func (s *DiscussionService) calculateAveragedResponses(reviewerResponses []model
 
 		avgLevelNumber := sum / float64(len(responses))
 
-		// Find closest level name
-		avgLevelName := s.findClosestLevelName(catalog, avgLevelNumber)
+		avgLevelName := findClosestLevelName(catalog, avgLevelNumber)
 
 		info := categoryInfo[categoryID]
 		averaged = append(averaged, models.AveragedReviewerResponse{
@@ -386,36 +444,6 @@ func (s *DiscussionService) calculateAveragedResponses(reviewerResponses []model
 	}
 
 	return averaged
-}
-
-// findLevelNumber finds the level number for a given level ID
-func (s *DiscussionService) findLevelNumber(catalog *models.CatalogWithDetails, levelID uint) int {
-	for _, level := range catalog.Levels {
-		if level.ID == levelID {
-			return level.LevelNumber
-		}
-	}
-	return 0
-}
-
-// findClosestLevelName finds the closest level name for an average level number
-func (s *DiscussionService) findClosestLevelName(catalog *models.CatalogWithDetails, avgNumber float64) string {
-	if len(catalog.Levels) == 0 {
-		return ""
-	}
-
-	closestLevel := catalog.Levels[0]
-	minDiff := math.Abs(float64(closestLevel.LevelNumber) - avgNumber)
-
-	for _, level := range catalog.Levels[1:] {
-		diff := math.Abs(float64(level.LevelNumber) - avgNumber)
-		if diff < minDiff {
-			minDiff = diff
-			closestLevel = level
-		}
-	}
-
-	return closestLevel.Name
 }
 
 // GetDiscussionResult retrieves discussion result with all data
@@ -433,6 +461,9 @@ func (s *DiscussionService) GetDiscussionResult(assessmentID uint) (*models.Disc
 	if err != nil {
 		return nil, fmt.Errorf("failed to get assessment: %w", err)
 	}
+	if assessment == nil {
+		return nil, fmt.Errorf("assessment not found")
+	}
 
 	// Set assessment status in result
 	result.AssessmentStatus = assessment.Status
@@ -442,24 +473,19 @@ func (s *DiscussionService) GetDiscussionResult(assessmentID uint) (*models.Disc
 	if err != nil {
 		return nil, fmt.Errorf("failed to get catalog: %w", err)
 	}
+	if catalog == nil {
+		return nil, fmt.Errorf("catalog not found")
+	}
 
 	// Decrypt final comment
-	additionalData := []byte(fmt.Sprintf("discussion:assessment:%d", assessmentID))
-	keyMaterial := []byte(fmt.Sprintf("discussion-key-%d", assessmentID))
-	encryptionKey := vault.DeriveKey(keyMaterial, nil, "discussion-final-comment", 32)
-
-	decrypted, err := vault.DecryptLocal(result.FinalCommentEncrypted, encryptionKey, result.FinalCommentNonce, additionalData)
+	result.FinalComment, err = s.decryptDiscussionComment(assessmentID, result.FinalCommentEncrypted, result.FinalCommentNonce)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decrypt final comment: %w", err)
 	}
-	result.FinalComment = string(decrypted)
 
 	// Set weighted overall level name
-	for _, level := range catalog.Levels {
-		if level.ID == result.WeightedOverallLevelID {
-			result.WeightedOverallLevelName = level.Name
-			break
-		}
+	if level := findLevelByID(catalog, result.WeightedOverallLevelID); level != nil {
+		result.WeightedOverallLevelName = level.Name
 	}
 
 	// Get category results
@@ -469,33 +495,7 @@ func (s *DiscussionService) GetDiscussionResult(assessmentID uint) (*models.Disc
 	}
 
 	// Populate category and level names
-	for i := range categoryResults {
-		// Find category name
-		for _, category := range catalog.Categories {
-			if category.ID == categoryResults[i].CategoryID {
-				categoryResults[i].CategoryName = category.Name
-				break
-			}
-		}
-
-		// Find user level name
-		if categoryResults[i].UserLevelID != nil {
-			for _, level := range catalog.Levels {
-				if level.ID == *categoryResults[i].UserLevelID {
-					categoryResults[i].UserLevelName = level.Name
-					break
-				}
-			}
-		}
-
-		// Find reviewer level name
-		for _, level := range catalog.Levels {
-			if level.ID == categoryResults[i].ReviewerLevelID {
-				categoryResults[i].ReviewerLevelName = level.Name
-				break
-			}
-		}
-	}
+	s.populateLevelNames(categoryResults, catalog)
 
 	// Category results already have plain text justifications stored
 	// No need to decrypt - justifications are stored as plain text in discussion results

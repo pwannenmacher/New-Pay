@@ -182,7 +182,7 @@ func (ss *SecureStore) DecryptRecordData(record *SecureRecord) (*PlainData, erro
 	signatureInput := append(record.EncryptedData, record.EncryptionNonce...)
 	signatureInput = append(signatureInput, record.EncryptionTag...)
 
-	if !ed25519.Verify(ed25519.PublicKey(publicKey), signatureInput, signature) {
+	if !ed25519.Verify(publicKey, signatureInput, signature) {
 		return nil, fmt.Errorf("signature verification failed - data may be tampered")
 	}
 
@@ -228,7 +228,7 @@ func (ss *SecureStore) VerifyChain(processID string) (bool, []string, error) {
 	}
 	defer rows.Close()
 
-	var prevHash string = "0000000000000000000000000000000000000000000000000000000000000000"
+	var prevHash = "0000000000000000000000000000000000000000000000000000000000000000"
 	recordCount := 0
 	var errors []string
 
@@ -284,7 +284,7 @@ func (ss *SecureStore) VerifyChain(processID string) (bool, []string, error) {
 		signatureInput := append(record.EncryptedData, record.EncryptionNonce...)
 		signatureInput = append(signatureInput, record.EncryptionTag...)
 
-		if !ed25519.Verify(ed25519.PublicKey(publicKey), signatureInput, signature) {
+		if !ed25519.Verify(publicKey, signatureInput, signature) {
 			errors = append(errors, fmt.Sprintf("record %d: signature verification failed", record.ID))
 		}
 

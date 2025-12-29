@@ -7,7 +7,6 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
-	"encoding/hex"
 	"fmt"
 	"time"
 
@@ -105,7 +104,7 @@ func (c *Client) CreateKey(keyName string, keyType string) error {
 
 // Encrypt encrypts data using Vault's transit engine
 func (c *Client) Encrypt(keyName string, plaintext []byte, ctx map[string]string) (string, error) {
-	context := context.Background()
+	bgCtx := context.Background()
 
 	path := fmt.Sprintf("%s/encrypt/%s", c.transitMount, keyName)
 
@@ -121,7 +120,7 @@ func (c *Client) Encrypt(keyName string, plaintext []byte, ctx map[string]string
 		data["context"] = base64.StdEncoding.EncodeToString([]byte(contextStr))
 	}
 
-	secret, err := c.client.Logical().WriteWithContext(context, path, data)
+	secret, err := c.client.Logical().WriteWithContext(bgCtx, path, data)
 	if err != nil {
 		return "", fmt.Errorf("failed to encrypt: %w", err)
 	}
@@ -136,7 +135,7 @@ func (c *Client) Encrypt(keyName string, plaintext []byte, ctx map[string]string
 
 // Decrypt decrypts data using Vault's transit engine
 func (c *Client) Decrypt(keyName string, ciphertext string, ctx map[string]string) ([]byte, error) {
-	context := context.Background()
+	bgCtx := context.Background()
 
 	path := fmt.Sprintf("%s/decrypt/%s", c.transitMount, keyName)
 
@@ -150,7 +149,7 @@ func (c *Client) Decrypt(keyName string, ciphertext string, ctx map[string]strin
 		data["context"] = base64.StdEncoding.EncodeToString([]byte(contextStr))
 	}
 
-	secret, err := c.client.Logical().WriteWithContext(context, path, data)
+	secret, err := c.client.Logical().WriteWithContext(bgCtx, path, data)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decrypt: %w", err)
 	}
@@ -338,10 +337,4 @@ func DeriveKey(masterKey []byte, salt []byte, info string, length int) []byte {
 	}
 
 	return result
-}
-
-// HashData creates a SHA-256 hash of data
-func HashData(data []byte) string {
-	hash := sha256.Sum256(data)
-	return hex.EncodeToString(hash[:])
 }

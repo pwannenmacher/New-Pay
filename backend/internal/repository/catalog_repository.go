@@ -2,6 +2,7 @@ package repository
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"new-pay/internal/models"
 	"time"
@@ -62,7 +63,7 @@ func (r *CatalogRepository) GetCatalogByID(id uint) (*models.CriteriaCatalog, er
 		&catalog.ArchivedAt,
 	)
 
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
 
@@ -84,7 +85,7 @@ func (r *CatalogRepository) GetAllCatalogs() ([]models.CriteriaCatalog, error) {
 	}
 	defer rows.Close()
 
-	catalogs := []models.CriteriaCatalog{} // Initialize to empty slice instead of nil
+	var catalogs []models.CriteriaCatalog // Initialize to empty slice instead of nil
 	for rows.Next() {
 		var catalog models.CriteriaCatalog
 		err := rows.Scan(
@@ -125,7 +126,7 @@ func (r *CatalogRepository) GetCatalogsByPhase(phase string) ([]models.CriteriaC
 	}
 	defer rows.Close()
 
-	catalogs := []models.CriteriaCatalog{} // Initialize to empty slice instead of nil
+	var catalogs []models.CriteriaCatalog // Initialize to empty slice instead of nil
 	for rows.Next() {
 		var catalog models.CriteriaCatalog
 		err := rows.Scan(
@@ -286,7 +287,7 @@ func (r *CatalogRepository) GetCategoriesByCatalogID(catalogID uint) ([]models.C
 	}
 	defer rows.Close()
 
-	categories := []models.Category{}
+	var categories []models.Category
 	for rows.Next() {
 		var category models.Category
 		err := rows.Scan(
@@ -370,7 +371,7 @@ func (r *CatalogRepository) GetLevelsByCatalogID(catalogID uint) ([]models.Level
 	}
 	defer rows.Close()
 
-	levels := []models.Level{}
+	var levels []models.Level
 	for rows.Next() {
 		var level models.Level
 		err := rows.Scan(
@@ -452,7 +453,7 @@ func (r *CatalogRepository) GetPathsByCategoryID(categoryID uint) ([]models.Path
 	}
 	defer rows.Close()
 
-	paths := []models.Path{}
+	var paths []models.Path
 	for rows.Next() {
 		var path models.Path
 		err := rows.Scan(
@@ -535,7 +536,7 @@ func (r *CatalogRepository) GetDescriptionsByPathID(pathID uint) ([]models.PathL
 	}
 	defer rows.Close()
 
-	descriptions := []models.PathLevelDescription{}
+	var descriptions []models.PathLevelDescription
 	for rows.Next() {
 		var desc models.PathLevelDescription
 		err := rows.Scan(
@@ -572,7 +573,7 @@ func (r *CatalogRepository) GetDescriptionsByCatalogID(catalogID uint) ([]models
 	}
 	defer rows.Close()
 
-	descriptions := []models.PathLevelDescription{}
+	var descriptions []models.PathLevelDescription
 	for rows.Next() {
 		var desc models.PathLevelDescription
 		err := rows.Scan(
@@ -636,7 +637,7 @@ func (r *CatalogRepository) GetChangesByCatalogID(catalogID uint) ([]models.Cata
 	}
 	defer rows.Close()
 
-	changes := []models.CatalogChange{}
+	var changes []models.CatalogChange
 	for rows.Next() {
 		var change models.CatalogChange
 		err := rows.Scan(
@@ -683,14 +684,14 @@ func (r *CatalogRepository) GetCatalogWithDetails(id uint) (*models.CatalogWithD
 		return nil, err
 	}
 
-	categoriesWithPaths := []models.CategoryWithPaths{}
+	var categoriesWithPaths []models.CategoryWithPaths
 	for _, category := range categories {
 		paths, err := r.GetPathsByCategoryID(category.ID)
 		if err != nil {
 			return nil, err
 		}
 
-		pathsWithDescriptions := []models.PathWithDescriptions{}
+		var pathsWithDescriptions []models.PathWithDescriptions
 		for _, path := range paths {
 			descriptions, err := r.GetDescriptionsByPathID(path.ID)
 			if err != nil {

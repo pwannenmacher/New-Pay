@@ -1,12 +1,14 @@
 package database
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"time"
 
-	_ "github.com/lib/pq"
 	"new-pay/internal/config"
+
+	_ "github.com/lib/pq"
 )
 
 // Database wraps the SQL database connection
@@ -49,19 +51,6 @@ func (d *Database) Close() error {
 	return d.DB.Close()
 }
 
-// Ping checks if the database connection is alive
-func (d *Database) Ping() error {
-	return d.DB.Ping()
-}
-
-// RunMigrations runs database migrations from the migrations directory
-func (d *Database) RunMigrations(migrationsPath string) error {
-	// Read and execute migration file
-	// For now, this is a placeholder - you would typically use a migration library
-	// like golang-migrate/migrate
-	return nil
-}
-
 // HealthCheck performs a health check on the database
 func (d *Database) HealthCheck() error {
 	ctx, cancel := getContext(5 * time.Second)
@@ -72,4 +61,9 @@ func (d *Database) HealthCheck() error {
 	}
 
 	return nil
+}
+
+// getContext creates a context with timeout
+func getContext(timeout time.Duration) (context.Context, context.CancelFunc) {
+	return context.WithTimeout(context.Background(), timeout)
 }

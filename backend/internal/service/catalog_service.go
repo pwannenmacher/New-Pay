@@ -12,19 +12,21 @@ import (
 type CatalogService struct {
 	catalogRepo        *repository.CatalogRepository
 	selfAssessmentRepo *repository.SelfAssessmentRepository
-	auditRepo          *repository.AuditRepository
+	auditSvc           *AuditService
 	emailService       *email.Service
 }
 
 // NewCatalogService creates a new catalog service
-func NewCatalogService(catalogRepo *repository.CatalogRepository, selfAssessmentRepo *repository.SelfAssessmentRepository, auditRepo *repository.AuditRepository, emailService *email.Service) *CatalogService {
+func NewCatalogService(catalogRepo *repository.CatalogRepository, selfAssessmentRepo *repository.SelfAssessmentRepository, auditSvc *AuditService, emailService *email.Service) *CatalogService {
 	return &CatalogService{
 		catalogRepo:        catalogRepo,
 		selfAssessmentRepo: selfAssessmentRepo,
-		auditRepo:          auditRepo,
+		auditSvc:           auditSvc,
 		emailService:       emailService,
 	}
 }
+
+// Helper functions
 
 // CreateCatalog creates a new catalog in draft phase
 func (s *CatalogService) CreateCatalog(catalog *models.CriteriaCatalog, userID uint) error {
@@ -51,12 +53,7 @@ func (s *CatalogService) CreateCatalog(catalog *models.CriteriaCatalog, userID u
 	}
 
 	// Audit log
-	s.auditRepo.Create(&models.AuditLog{
-		UserID:   &userID,
-		Action:   "create",
-		Resource: "catalog",
-		Details:  fmt.Sprintf("Created catalog: %s (ID: %d)", catalog.Name, catalog.ID),
-	})
+	s.auditSvc.Log(userID, "create", "catalog", fmt.Sprintf("Created catalog: %s (ID: %d)", catalog.Name, catalog.ID))
 
 	return nil
 }
@@ -215,12 +212,7 @@ func (s *CatalogService) UpdateCatalog(catalog *models.CriteriaCatalog, userID u
 	if existing.Phase != catalog.Phase {
 		details = fmt.Sprintf("Updated catalog: %s (ID: %d), Phase: %s -> %s", catalog.Name, catalog.ID, existing.Phase, catalog.Phase)
 	}
-	s.auditRepo.Create(&models.AuditLog{
-		UserID:   &userID,
-		Action:   "update",
-		Resource: "catalog",
-		Details:  details,
-	})
+	s.auditSvc.Log(userID, "update", "catalog", details)
 
 	return nil
 }
@@ -372,12 +364,7 @@ func (s *CatalogService) DeleteCatalog(catalogID uint, userID uint, userRoles []
 	}
 
 	// Audit log
-	s.auditRepo.Create(&models.AuditLog{
-		UserID:   &userID,
-		Action:   "delete",
-		Resource: "catalog",
-		Details:  fmt.Sprintf("Deleted catalog: %s (ID: %d)", catalog.Name, catalogID),
-	})
+	s.auditSvc.Log(userID, "delete", "catalog", fmt.Sprintf("Deleted catalog: %s (ID: %d)", catalog.Name, catalogID))
 
 	return nil
 }
@@ -419,12 +406,7 @@ func (s *CatalogService) CreateCategory(category *models.Category, userID uint, 
 	}
 
 	// Audit log
-	s.auditRepo.Create(&models.AuditLog{
-		UserID:   &userID,
-		Action:   "create",
-		Resource: "category",
-		Details:  fmt.Sprintf("Created category: %s (ID: %d) in catalog %d", category.Name, category.ID, category.CatalogID),
-	})
+	s.auditSvc.Log(userID, "create", "category", fmt.Sprintf("Created category: %s (ID: %d) in catalog %d", category.Name, category.ID, category.CatalogID))
 
 	return nil
 }
@@ -453,6 +435,9 @@ func (s *CatalogService) UpdateCategory(category *models.Category, userID uint, 
 	if err != nil {
 		return err
 	}
+	if catalog == nil {
+		return fmt.Errorf("catalog not found")
+	}
 
 	if !canEditCatalog(catalog.Phase, userRoles) {
 		return fmt.Errorf("permission denied: cannot edit catalog in %s phase", catalog.Phase)
@@ -470,12 +455,7 @@ func (s *CatalogService) UpdateCategory(category *models.Category, userID uint, 
 	}
 
 	// Audit log
-	s.auditRepo.Create(&models.AuditLog{
-		UserID:   &userID,
-		Action:   "update",
-		Resource: "category",
-		Details:  fmt.Sprintf("Updated category: %s (ID: %d) in catalog %d", category.Name, category.ID, category.CatalogID),
-	})
+	s.auditSvc.Log(userID, "update", "category", fmt.Sprintf("Updated category: %s (ID: %d) in catalog %d", category.Name, category.ID, category.CatalogID))
 
 	return nil
 }
@@ -499,12 +479,7 @@ func (s *CatalogService) DeleteCategory(categoryID, catalogID uint, userID uint,
 	}
 
 	// Audit log
-	s.auditRepo.Create(&models.AuditLog{
-		UserID:   &userID,
-		Action:   "delete",
-		Resource: "category",
-		Details:  fmt.Sprintf("Deleted category ID: %d from catalog %d", categoryID, catalogID),
-	})
+	s.auditSvc.Log(userID, "delete", "category", fmt.Sprintf("Deleted category ID: %d from catalog %d", categoryID, catalogID))
 
 	return nil
 }
@@ -528,12 +503,7 @@ func (s *CatalogService) CreateLevel(level *models.Level, userID uint, userRoles
 	}
 
 	// Audit log
-	s.auditRepo.Create(&models.AuditLog{
-		UserID:   &userID,
-		Action:   "create",
-		Resource: "level",
-		Details:  fmt.Sprintf("Created level: %s (ID: %d) in catalog %d", level.Name, level.ID, level.CatalogID),
-	})
+	s.auditSvc.Log(userID, "create", "level", fmt.Sprintf("Created level: %s (ID: %d) in catalog %d", level.Name, level.ID, level.CatalogID))
 
 	return nil
 }
@@ -543,6 +513,9 @@ func (s *CatalogService) UpdateLevel(level *models.Level, userID uint, userRoles
 	catalog, err := s.catalogRepo.GetCatalogByID(level.CatalogID)
 	if err != nil {
 		return err
+	}
+	if catalog == nil {
+		return fmt.Errorf("catalog not found")
 	}
 
 	if !canEditCatalog(catalog.Phase, userRoles) {
@@ -558,12 +531,7 @@ func (s *CatalogService) UpdateLevel(level *models.Level, userID uint, userRoles
 	}
 
 	// Audit log
-	s.auditRepo.Create(&models.AuditLog{
-		UserID:   &userID,
-		Action:   "update",
-		Resource: "level",
-		Details:  fmt.Sprintf("Updated level: %s (ID: %d) in catalog %d", level.Name, level.ID, level.CatalogID),
-	})
+	s.auditSvc.Log(userID, "update", "level", fmt.Sprintf("Updated level: %s (ID: %d) in catalog %d", level.Name, level.ID, level.CatalogID))
 
 	return nil
 }
@@ -587,12 +555,7 @@ func (s *CatalogService) DeleteLevel(levelID, catalogID uint, userID uint, userR
 	}
 
 	// Audit log
-	s.auditRepo.Create(&models.AuditLog{
-		UserID:   &userID,
-		Action:   "delete",
-		Resource: "level",
-		Details:  fmt.Sprintf("Deleted level ID: %d from catalog %d", levelID, catalogID),
-	})
+	s.auditSvc.Log(userID, "delete", "level", fmt.Sprintf("Deleted level ID: %d from catalog %d", levelID, catalogID))
 
 	return nil
 }
@@ -616,12 +579,7 @@ func (s *CatalogService) CreatePath(path *models.Path, userID uint, userRoles []
 	}
 
 	// Audit log
-	s.auditRepo.Create(&models.AuditLog{
-		UserID:   &userID,
-		Action:   "create",
-		Resource: "path",
-		Details:  fmt.Sprintf("Created path: %s (ID: %d) in catalog %d", path.Name, path.ID, catalogID),
-	})
+	s.auditSvc.Log(userID, "create", "path", fmt.Sprintf("Created path: %s (ID: %d) in catalog %d", path.Name, path.ID, catalogID))
 
 	return nil
 }
@@ -631,6 +589,9 @@ func (s *CatalogService) UpdatePath(path *models.Path, userID uint, userRoles []
 	catalog, err := s.catalogRepo.GetCatalogByID(catalogID)
 	if err != nil {
 		return err
+	}
+	if catalog == nil {
+		return fmt.Errorf("catalog not found")
 	}
 
 	if !canEditCatalog(catalog.Phase, userRoles) {
@@ -642,12 +603,7 @@ func (s *CatalogService) UpdatePath(path *models.Path, userID uint, userRoles []
 	}
 
 	// Audit log
-	s.auditRepo.Create(&models.AuditLog{
-		UserID:   &userID,
-		Action:   "update",
-		Resource: "path",
-		Details:  fmt.Sprintf("Updated path: %s (ID: %d) in catalog %d", path.Name, path.ID, catalogID),
-	})
+	s.auditSvc.Log(userID, "update", "path", fmt.Sprintf("Updated path: %s (ID: %d) in catalog %d", path.Name, path.ID, catalogID))
 
 	return nil
 }
@@ -671,12 +627,7 @@ func (s *CatalogService) DeletePath(pathID, catalogID uint, userID uint, userRol
 	}
 
 	// Audit log
-	s.auditRepo.Create(&models.AuditLog{
-		UserID:   &userID,
-		Action:   "delete",
-		Resource: "path",
-		Details:  fmt.Sprintf("Deleted path ID: %d from catalog %d", pathID, catalogID),
-	})
+	s.auditSvc.Log(userID, "delete", "path", fmt.Sprintf("Deleted path ID: %d from catalog %d", pathID, catalogID))
 
 	return nil
 }
@@ -831,20 +782,14 @@ func (s *CatalogService) validatePhaseTransition(catalogID uint, fromPhase, toPh
 	return nil
 }
 
-func contains(slice []string, item string) bool {
-	for _, s := range slice {
-		if s == item {
-			return true
-		}
-	}
-	return false
-}
-
 func (s *CatalogService) validateCatalogCompleteness(catalogID uint) error {
 	// Get catalog with details
 	catalogDetails, err := s.catalogRepo.GetCatalogWithDetails(catalogID)
 	if err != nil {
 		return err
+	}
+	if catalogDetails == nil {
+		return fmt.Errorf("catalog not found")
 	}
 
 	// Must have at least one category
@@ -894,7 +839,7 @@ func (s *CatalogService) validateCatalogCompleteness(catalogID uint) error {
 }
 
 func (s *CatalogService) logCatalogChanges(oldCatalog, newCatalog *models.CriteriaCatalog, userID uint) error {
-	changes := []models.CatalogChange{}
+	var changes []models.CatalogChange
 
 	if oldCatalog.Name != newCatalog.Name {
 		oldVal := oldCatalog.Name
@@ -962,7 +907,7 @@ func (s *CatalogService) logCatalogChanges(oldCatalog, newCatalog *models.Criter
 }
 
 func (s *CatalogService) logCategoryChanges(catalogID uint, oldCategory, newCategory *models.Category, userID uint) error {
-	changes := []models.CatalogChange{}
+	var changes []models.CatalogChange
 
 	if oldCategory.Name != newCategory.Name {
 		oldVal := oldCategory.Name

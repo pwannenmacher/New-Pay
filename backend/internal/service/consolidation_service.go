@@ -70,15 +70,80 @@ func NewConsolidationService(
 	}
 }
 
-// GetConsolidationData retrieves all data needed for consolidation page
-func (s *ConsolidationService) GetConsolidationData(assessmentID uint, currentUserID uint) (*models.ConsolidationData, error) {
-	// Get assessment
+// Helper functions
+
+// getAssessment loads an assessment and checks if it exists
+func (s *ConsolidationService) getAssessment(assessmentID uint) (*models.SelfAssessment, error) {
 	assessment, err := s.assessmentRepo.GetByID(assessmentID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get assessment: %w", err)
 	}
 	if assessment == nil {
 		return nil, fmt.Errorf("assessment not found")
+	}
+	return assessment, nil
+}
+
+// decryptField decrypts a field from secure store
+func (s *ConsolidationService) decryptField(recordID int64, fieldName string) (string, error) {
+	plainData, err := s.secureStore.DecryptRecord(recordID)
+	if err != nil {
+		return "", err
+	}
+	if value, ok := plainData.Fields[fieldName].(string); ok {
+		return value, nil
+	}
+	return "", fmt.Errorf("field %s not found or not a string", fieldName)
+}
+
+// decryptJustifications decrypts justifications for reviewer responses in place
+func (s *ConsolidationService) decryptJustifications(responses []models.ReviewerResponse) {
+	for i := range responses {
+		if responses[i].EncryptedJustificationID != nil {
+			justification, err := s.decryptField(*responses[i].EncryptedJustificationID, "justification")
+			if err != nil {
+				slog.Warn("Failed to decrypt reviewer justification", "error", err, "record_id", *responses[i].EncryptedJustificationID)
+				continue
+			}
+			responses[i].Justification = justification
+		}
+	}
+}
+
+// decryptOverrideJustifications decrypts justifications for overrides in place
+func (s *ConsolidationService) decryptOverrideJustifications(overrides []models.ConsolidationOverride) {
+	for i := range overrides {
+		if overrides[i].EncryptedJustificationID != nil {
+			justification, err := s.decryptField(*overrides[i].EncryptedJustificationID, "justification")
+			if err != nil {
+				slog.Warn("Failed to decrypt override justification", "error", err, "record_id", *overrides[i].EncryptedJustificationID)
+				continue
+			}
+			overrides[i].Justification = justification
+		}
+	}
+}
+
+// decryptCategoryDiscussionComments decrypts comments in place
+func (s *ConsolidationService) decryptCategoryDiscussionComments(comments []models.CategoryDiscussionComment) {
+	for i := range comments {
+		if comments[i].EncryptedCommentID != nil {
+			comment, err := s.decryptField(*comments[i].EncryptedCommentID, "comment")
+			if err != nil {
+				slog.Warn("Failed to decrypt category discussion comment", "error", err, "record_id", *comments[i].EncryptedCommentID)
+				continue
+			}
+			comments[i].Comment = comment
+		}
+	}
+}
+
+// GetConsolidationData retrieves all data needed for consolidation page
+func (s *ConsolidationService) GetConsolidationData(assessmentID uint, currentUserID uint) (*models.ConsolidationData, error) {
+	// Get assessment
+	assessment, err := s.getAssessment(assessmentID)
+	if err != nil {
+		return nil, err
 	}
 
 	// Check that assessment is in consolidation, reviewed, or discussion status
@@ -100,6 +165,9 @@ func (s *ConsolidationService) GetConsolidationData(assessmentID uint, currentUs
 	if err != nil {
 		return nil, fmt.Errorf("failed to get catalog: %w", err)
 	}
+	if catalog == nil {
+		return nil, fmt.Errorf("catalog not found")
+	}
 
 	// Get user responses with details (decrypted)
 	userResponsesPtr, err := s.encryptedResponseSvc.GetResponsesWithDetailsByAssessment(assessmentID)
@@ -120,19 +188,7 @@ func (s *ConsolidationService) GetConsolidationData(assessmentID uint, currentUs
 	}
 
 	// Decrypt reviewer justifications
-	for i := range reviewerResponses {
-		if reviewerResponses[i].EncryptedJustificationID != nil {
-			plainData, err := s.secureStore.DecryptRecord(*reviewerResponses[i].EncryptedJustificationID)
-			if err != nil {
-				slog.Error("Failed to decrypt justification", "error", err, "record_id", *reviewerResponses[i].EncryptedJustificationID)
-				continue
-			}
-
-			if justification, ok := plainData.Fields["justification"].(string); ok {
-				reviewerResponses[i].Justification = justification
-			}
-		}
-	}
+	s.decryptJustifications(reviewerResponses)
 
 	// Calculate averaged responses per category
 	averagedResponses := s.calculateAveragedResponses(reviewerResponses, catalog)
@@ -164,18 +220,9 @@ func (s *ConsolidationService) GetConsolidationData(assessmentID uint, currentUs
 	}
 
 	// Decrypt override justifications and load approvals
-	for i := range overrides {
-		if overrides[i].EncryptedJustificationID != nil {
-			plainData, err := s.secureStore.DecryptRecord(*overrides[i].EncryptedJustificationID)
-			if err != nil {
-				slog.Error("Failed to decrypt justification", "error", err, "record_id", *overrides[i].EncryptedJustificationID)
-				continue
-			}
+	s.decryptOverrideJustifications(overrides)
 
-			if justification, ok := plainData.Fields["justification"].(string); ok {
-				overrides[i].Justification = justification
-			}
-		}
+	for i := range overrides {
 
 		// Load approvals for this override
 		approvals, err := s.approvalRepo.GetApprovalsByOverride(overrides[i].ID)
@@ -195,19 +242,7 @@ func (s *ConsolidationService) GetConsolidationData(assessmentID uint, currentUs
 	}
 
 	// Decrypt current user's justifications
-	for i := range currentUserResponses {
-		if currentUserResponses[i].EncryptedJustificationID != nil {
-			plainData, err := s.secureStore.DecryptRecord(*currentUserResponses[i].EncryptedJustificationID)
-			if err != nil {
-				slog.Error("Failed to decrypt justification", "error", err, "record_id", *currentUserResponses[i].EncryptedJustificationID)
-				continue
-			}
-
-			if justification, ok := plainData.Fields["justification"].(string); ok {
-				currentUserResponses[i].Justification = justification
-			}
-		}
-	}
+	s.decryptJustifications(currentUserResponses)
 
 	// Check if all categories are approved
 	allCategoriesApproved := s.areAllCategoriesApproved(catalog.Categories, averagedResponses, overrides)
@@ -220,10 +255,10 @@ func (s *ConsolidationService) GetConsolidationData(assessmentID uint, currentUs
 	} else if fc != nil {
 		// Decrypt comment
 		if fc.EncryptedCommentID != nil {
-			plainData, err := s.secureStore.DecryptRecord(*fc.EncryptedCommentID)
+			comment, err := s.decryptField(*fc.EncryptedCommentID, "comment")
 			if err != nil {
 				slog.Error("Failed to decrypt final consolidation comment", "error", err)
-			} else if comment, ok := plainData.Fields["comment"].(string); ok {
+			} else {
 				fc.Comment = comment
 			}
 		}
@@ -304,12 +339,9 @@ func (s *ConsolidationService) areAllCategoriesApproved(categories []models.Cate
 
 // checkRevocationAllowed checks if approval revocation is allowed based on assessment status and time
 func (s *ConsolidationService) checkRevocationAllowed(assessmentID uint) error {
-	assessment, err := s.assessmentRepo.GetByID(assessmentID)
+	assessment, err := s.getAssessment(assessmentID)
 	if err != nil {
-		return fmt.Errorf("failed to get assessment: %w", err)
-	}
-	if assessment == nil {
-		return fmt.Errorf("assessment not found")
+		return err
 	}
 
 	// Allow revocation in review_consolidation status
@@ -336,12 +368,9 @@ func (s *ConsolidationService) checkRevocationAllowed(assessmentID uint) error {
 
 // checkEditingAllowed checks if editing is allowed (only in review_consolidation status)
 func (s *ConsolidationService) checkEditingAllowed(assessmentID uint) error {
-	assessment, err := s.assessmentRepo.GetByID(assessmentID)
+	assessment, err := s.getAssessment(assessmentID)
 	if err != nil {
-		return fmt.Errorf("failed to get assessment: %w", err)
-	}
-	if assessment == nil {
-		return fmt.Errorf("assessment not found")
+		return err
 	}
 
 	if assessment.Status != "review_consolidation" {
@@ -354,12 +383,9 @@ func (s *ConsolidationService) checkEditingAllowed(assessmentID uint) error {
 // hasCompleteReview checks if a user has completed their review for an assessment
 func (s *ConsolidationService) hasCompleteReview(assessmentID, userID uint) (bool, error) {
 	// Get assessment to find catalog
-	assessment, err := s.assessmentRepo.GetByID(assessmentID)
+	assessment, err := s.getAssessment(assessmentID)
 	if err != nil {
 		return false, err
-	}
-	if assessment == nil {
-		return false, fmt.Errorf("assessment not found")
 	}
 
 	// Get categories for this catalog
@@ -415,14 +441,14 @@ func (s *ConsolidationService) calculateAveragedResponses(reviewerResponses []mo
 		var sum float64
 		for _, resp := range responses {
 			// Find level number from catalog
-			levelNumber := s.findLevelNumber(catalog, resp.LevelID)
+			levelNumber := findLevelNumber(catalog, resp.LevelID)
 			sum += float64(levelNumber)
 		}
 
 		avgLevelNumber := sum / float64(len(responses))
 
 		// Find closest level name
-		avgLevelName := s.findClosestLevelName(catalog, avgLevelNumber)
+		avgLevelName := findClosestLevelName(catalog, avgLevelNumber)
 
 		info := categoryInfo[categoryID]
 		averaged = append(averaged, models.AveragedReviewerResponse{
@@ -439,36 +465,6 @@ func (s *ConsolidationService) calculateAveragedResponses(reviewerResponses []mo
 	return averaged
 }
 
-// findLevelNumber finds the level number for a given level ID
-func (s *ConsolidationService) findLevelNumber(catalog *models.CatalogWithDetails, levelID uint) int {
-	for _, level := range catalog.Levels {
-		if level.ID == levelID {
-			return level.LevelNumber
-		}
-	}
-	return 0
-}
-
-// findClosestLevelName finds the closest level name for an average level number
-func (s *ConsolidationService) findClosestLevelName(catalog *models.CatalogWithDetails, avgNumber float64) string {
-	if len(catalog.Levels) == 0 {
-		return ""
-	}
-
-	closestLevel := catalog.Levels[0]
-	minDiff := math.Abs(float64(closestLevel.LevelNumber) - avgNumber)
-
-	for _, level := range catalog.Levels[1:] {
-		diff := math.Abs(float64(level.LevelNumber) - avgNumber)
-		if diff < minDiff {
-			minDiff = diff
-			closestLevel = level
-		}
-	}
-
-	return closestLevel.Name
-}
-
 // CreateOrUpdateOverride creates or updates a consolidation override with encryption
 func (s *ConsolidationService) CreateOrUpdateOverride(override *models.ConsolidationOverride, userID uint) error {
 	// Check if editing is allowed
@@ -477,12 +473,9 @@ func (s *ConsolidationService) CreateOrUpdateOverride(override *models.Consolida
 	}
 
 	// Verify assessment is in review_consolidation status
-	assessment, err := s.assessmentRepo.GetByID(override.AssessmentID)
+	assessment, err := s.getAssessment(override.AssessmentID)
 	if err != nil {
-		return fmt.Errorf("failed to get assessment: %w", err)
-	}
-	if assessment == nil {
-		return fmt.Errorf("assessment not found")
+		return err
 	}
 	if assessment.Status != "review_consolidation" {
 		return fmt.Errorf("assessment must be in review_consolidation status")
@@ -826,9 +819,9 @@ func (s *ConsolidationService) ApproveFinalConsolidation(assessmentID, userID ui
 
 	// If all reviewers approved, change status to 'reviewed'
 	if approvalCount >= requiredApprovals {
-		assessment, err := s.assessmentRepo.GetByID(assessmentID)
+		assessment, err := s.getAssessment(assessmentID)
 		if err != nil {
-			return fmt.Errorf("failed to get assessment: %w", err)
+			return err
 		}
 
 		// Get assessment details with user info for email
@@ -911,9 +904,9 @@ func (s *ConsolidationService) SaveCategoryDiscussionComment(assessmentID, categ
 	}
 
 	// Get assessment for process ID
-	assessment, err := s.assessmentRepo.GetByID(assessmentID)
+	assessment, err := s.getAssessment(assessmentID)
 	if err != nil {
-		return fmt.Errorf("failed to get assessment: %w", err)
+		return err
 	}
 	processID := fmt.Sprintf("assessment_%d", assessment.ID)
 
@@ -971,18 +964,7 @@ func (s *ConsolidationService) GetCategoryDiscussionComments(assessmentID uint) 
 	}
 
 	// Decrypt comments
-	for i := range comments {
-		if comments[i].EncryptedCommentID != nil {
-			plainData, err := s.secureStore.DecryptRecord(*comments[i].EncryptedCommentID)
-			if err != nil {
-				slog.Warn("Failed to decrypt category discussion comment", "error", err, "record_id", *comments[i].EncryptedCommentID)
-				continue
-			}
-			if comment, ok := plainData.Fields["comment"].(string); ok {
-				comments[i].Comment = comment
-			}
-		}
-	}
+	s.decryptCategoryDiscussionComments(comments)
 
 	return comments, nil
 }

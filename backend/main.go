@@ -61,6 +61,8 @@ func main() {
 		Level: cfg.Log.Level,
 	})
 
+	slog.Info("Logger initialized", "level", cfg.Log.Level)
+
 	slog.Info("Starting application",
 		"name", cfg.App.Name,
 		"version", cfg.App.Version,
@@ -114,8 +116,9 @@ func main() {
 	// Initialize services
 	authService := auth.NewService(&cfg.JWT)
 	emailService := email.NewService(&cfg.Email)
+	auditService := service.NewAuditService(auditRepo)
 	authSvc := service.NewAuthService(userRepo, tokenRepo, roleRepo, sessionRepo, oauthConnRepo, authService, emailService)
-	catalogService := service.NewCatalogService(catalogRepo, selfAssessmentRepo, auditRepo, emailService)
+	catalogService := service.NewCatalogService(catalogRepo, selfAssessmentRepo, auditService, emailService)
 
 	// Initialize encryption services (if Vault is enabled)
 	var encryptedResponseSvc *service.EncryptedResponseService
@@ -151,7 +154,7 @@ func main() {
 		slog.Warn("Vault is disabled - encrypted responses will not work")
 	}
 
-	selfAssessmentService := service.NewSelfAssessmentService(selfAssessmentRepo, catalogRepo, auditRepo, assessmentResponseRepo, encryptedResponseSvc, reviewerResponseRepo)
+	selfAssessmentService := service.NewSelfAssessmentService(selfAssessmentRepo, catalogRepo, auditService, assessmentResponseRepo, encryptedResponseSvc, reviewerResponseRepo)
 
 	// Initialize scheduler
 	schedulerService := scheduler.NewScheduler(selfAssessmentRepo, userRepo, roleRepo, emailService, &cfg.Scheduler)

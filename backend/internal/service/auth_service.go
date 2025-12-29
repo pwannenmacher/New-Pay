@@ -14,7 +14,6 @@ import (
 
 var (
 	ErrInvalidCredentials = errors.New("invalid credentials")
-	ErrEmailNotVerified   = errors.New("email not verified")
 	ErrUserInactive       = errors.New("user account is inactive")
 )
 
@@ -77,29 +76,8 @@ func (s *AuthService) Register(email, password, firstName, lastName string) (*mo
 		return nil, fmt.Errorf("failed to create user: %w", err)
 	}
 
-	// Check if this is the first user in the system
-	userCount, err := s.userRepo.CountAll()
-	if err != nil {
-		slog.Error("Failed to count users", "error", err)
-	}
-
-	// Assign role: first user gets admin, others get user role
-	var roleName string
-	if userCount == 1 {
-		roleName = "admin"
-		slog.Info("Assigning admin role to first user", "email", email)
-	} else {
-		roleName = "user"
-	}
-
-	role, err := s.roleRepo.GetByName(roleName)
-	if err == nil {
-		if err := s.userRepo.AssignRole(user.ID, role.ID); err != nil {
-			slog.Error("Failed to assign role to user", "role", roleName, "user_id", user.ID, "error", err)
-		}
-	} else {
-		slog.Error("Failed to find role", "role", roleName, "error", err)
-	}
+	// Assign initial role (admin for first user, user for others)
+	s.assignInitialRole(user.ID, email)
 
 	// Generate email verification token
 	token, err := auth.GenerateRandomToken(32)
@@ -205,13 +183,6 @@ func (s *AuthService) CreateSession(userID uint, sessionID, jti, tokenType, ipAd
 // GenerateSessionID generates a unique session identifier
 func (s *AuthService) GenerateSessionID() (string, error) {
 	return auth.GenerateRandomToken(16)
-}
-
-// GetAccessAndRefreshJTI returns both access and refresh token JTIs from login
-func (s *AuthService) GetAccessAndRefreshJTI(email, password string) (accessJTI, refreshJTI string, user *models.User, err error) {
-	// This is a helper to get JTIs after token generation in Login
-	// We need to refactor Login to return JTIs
-	return "", "", nil, errors.New("not implemented - use Login instead")
 }
 
 // VerifyEmail verifies a user's email address
@@ -573,29 +544,8 @@ func (s *AuthService) FindOrCreateOAuthUser(email, firstName, lastName, oauthPro
 		}
 	}
 
-	// Check if this is the first user in the system
-	userCount, err := s.userRepo.CountAll()
-	if err != nil {
-		slog.Error("Failed to count users", "error", err)
-	}
-
-	// Assign role: first user gets admin, others get user role
-	var roleName string
-	if userCount == 1 {
-		roleName = "admin"
-		slog.Info("Assigning admin role to first OAuth user", "email", email)
-	} else {
-		roleName = "user"
-	}
-
-	role, err := s.roleRepo.GetByName(roleName)
-	if err != nil {
-		slog.Error("Failed to find role", "role", roleName, "error", err)
-	} else {
-		if err := s.userRepo.AssignRole(user.ID, role.ID); err != nil {
-			slog.Error("Failed to assign role", "role", roleName, "error", err)
-		}
-	}
+	// Assign initial role (admin for first user, user for others)
+	s.assignInitialRole(user.ID, email)
 
 	slog.Info("Successfully created OAuth user: id=%d, email=%s, provider=%s", "user_id", user.ID, "email", user.Email, "provider", oauthProvider)
 	return user, isNewUser, nil
@@ -634,33 +584,7 @@ func (s *AuthService) ResendVerificationEmail(userID uint) error {
 		return errors.New("email already verified")
 	}
 
-	// Delete any existing pending verification tokens for this user
-	if err := s.tokenRepo.DeletePendingEmailVerificationTokens(userID); err != nil {
-		slog.Error("Failed to delete pending tokens", "error", err)
-	}
-
-	// Generate new token
-	token, err := auth.GenerateRandomToken(32)
-	if err != nil {
-		return fmt.Errorf("failed to generate token: %w", err)
-	}
-
-	verificationToken := &models.EmailVerificationToken{
-		UserID:    userID,
-		Token:     token,
-		ExpiresAt: time.Now().Add(24 * time.Hour),
-	}
-
-	if err := s.tokenRepo.CreateEmailVerificationToken(verificationToken); err != nil {
-		return fmt.Errorf("failed to create verification token: %w", err)
-	}
-
-	// Send verification email
-	if err := s.emailSvc.SendVerificationEmail(user.Email, token); err != nil {
-		return fmt.Errorf("failed to send verification email: %w", err)
-	}
-
-	return nil
+	return s.sendVerificationEmail(userID, user.Email)
 }
 
 // SendVerificationEmailToUser sends a verification email to any user (admin only)
@@ -671,6 +595,11 @@ func (s *AuthService) SendVerificationEmailToUser(userID uint) error {
 		return fmt.Errorf("user not found: %w", err)
 	}
 
+	return s.sendVerificationEmail(userID, user.Email)
+}
+
+// sendVerificationEmail is a helper that creates and sends a verification email
+func (s *AuthService) sendVerificationEmail(userID uint, email string) error {
 	// Delete any existing pending verification tokens for this user
 	if err := s.tokenRepo.DeletePendingEmailVerificationTokens(userID); err != nil {
 		slog.Error("Failed to delete pending tokens", "error", err)
@@ -693,7 +622,7 @@ func (s *AuthService) SendVerificationEmailToUser(userID uint) error {
 	}
 
 	// Send verification email
-	if err := s.emailSvc.SendVerificationEmail(user.Email, token); err != nil {
+	if err := s.emailSvc.SendVerificationEmail(email, token); err != nil {
 		return fmt.Errorf("failed to send verification email: %w", err)
 	}
 
@@ -725,6 +654,36 @@ func (s *AuthService) RevokeEmailVerification(userID uint) error {
 
 func timePtr(t time.Time) *time.Time {
 	return &t
+}
+
+// assignInitialRole assigns the appropriate role to a user based on whether they're the first user.
+// the first user gets admin role, subsequent users get user role
+func (s *AuthService) assignInitialRole(userID uint, email string) {
+	// Check if this is the first user in the system
+	userCount, err := s.userRepo.CountAll()
+	if err != nil {
+		slog.Error("Failed to count users", "error", err)
+		return
+	}
+
+	// Assign role: first user gets admin, others get user role
+	var roleName string
+	if userCount == 1 {
+		roleName = "admin"
+		slog.Info("Assigning admin role to first user", "email", email)
+	} else {
+		roleName = "user"
+	}
+
+	role, err := s.roleRepo.GetByName(roleName)
+	if err != nil {
+		slog.Error("Failed to find role", "role", roleName, "error", err)
+		return
+	}
+
+	if err := s.userRepo.AssignRole(userID, role.ID); err != nil {
+		slog.Error("Failed to assign role to user", "role", roleName, "user_id", userID, "error", err)
+	}
 }
 
 // SyncUserRolesFromGroups synchronizes user roles based on OAuth group membership
@@ -781,7 +740,7 @@ func (s *AuthService) SyncUserRolesFromGroups(userID uint, groups []string, grou
 	}
 
 	// Check admin protection before removing admin role
-	if containsString(removed, "admin") {
+	if contains(removed, "admin") {
 		canRemove, err := s.CanRemoveAdminRole(userID)
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to check admin removal: %w", err)
@@ -830,7 +789,7 @@ func (s *AuthService) CanRemoveAdminRole(userID uint) (bool, error) {
 		return false, fmt.Errorf("failed to get admin users: %w", err)
 	}
 
-	// If there's only one admin and it's this user, cannot remove
+	// If there's only one admin, and it's this user, cannot remove
 	if len(adminUsers) <= 1 {
 		for _, admin := range adminUsers {
 			if admin.ID == userID {
@@ -850,24 +809,4 @@ func (s *AuthService) GetRoleByName(name string) (*models.Role, error) {
 // AssignRoleToUser assigns a role to a user
 func (s *AuthService) AssignRoleToUser(userID, roleID uint) error {
 	return s.userRepo.AssignRole(userID, roleID)
-}
-
-// Helper functions
-func containsString(slice []string, item string) bool {
-	for _, s := range slice {
-		if s == item {
-			return true
-		}
-	}
-	return false
-}
-
-func removeString(slice []string, item string) []string {
-	result := []string{}
-	for _, s := range slice {
-		if s != item {
-			result = append(result, s)
-		}
-	}
-	return result
 }

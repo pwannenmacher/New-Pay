@@ -153,7 +153,12 @@ func (m *MigrationExecutor) getAppliedMigrations() ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			slog.Error("Failed to close rows", "error", err)
+		}
+	}(rows)
 
 	var versions []string
 	for rows.Next() {
@@ -173,7 +178,12 @@ func (m *MigrationExecutor) executeMigration(migration Migration) error {
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	defer func(tx *sql.Tx) {
+		err := tx.Rollback()
+		if err != nil {
+			slog.Error("Failed to rollback transaction", "error", err)
+		}
+	}(tx)
 
 	// Execute migration SQL
 	if _, err := tx.Exec(migration.UpSQL); err != nil {
