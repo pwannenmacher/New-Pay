@@ -19,6 +19,7 @@ type SelfAssessmentHandler struct {
 	discussionService     *service.DiscussionService
 	confirmationRepo      *repository.DiscussionConfirmationRepository
 	assessmentRepo        *repository.SelfAssessmentRepository
+	consolidationService  *service.ConsolidationService
 }
 
 // NewSelfAssessmentHandler creates a new self-assessment handler
@@ -27,12 +28,14 @@ func NewSelfAssessmentHandler(
 	discussionService *service.DiscussionService,
 	confirmationRepo *repository.DiscussionConfirmationRepository,
 	assessmentRepo *repository.SelfAssessmentRepository,
+	consolidationService *service.ConsolidationService,
 ) *SelfAssessmentHandler {
 	return &SelfAssessmentHandler{
 		selfAssessmentService: selfAssessmentService,
 		discussionService:     discussionService,
 		confirmationRepo:      confirmationRepo,
 		assessmentRepo:        assessmentRepo,
+		consolidationService:  consolidationService,
 	}
 }
 
@@ -240,6 +243,17 @@ func (h *SelfAssessmentHandler) UpdateStatus(w http.ResponseWriter, r *http.Requ
 			http.Error(w, err.Error(), http.StatusBadRequest)
 		}
 		return
+	}
+
+	// If status changes to 'review_consolidation', generate consolidation proposals
+	if req.Status == "review_consolidation" && h.consolidationService != nil {
+		go func(id uint) {
+			if err := h.consolidationService.GenerateConsolidationProposals(id); err != nil {
+				slog.Error("Failed to generate consolidation proposals", "assessmentID", id, "error", err)
+			} else {
+				slog.Info("Consolidation proposals generated", "assessmentID", id)
+			}
+		}(uint(id))
 	}
 
 	// If status changes to 'discussion', create discussion results

@@ -119,6 +119,12 @@ func main() {
 	auditService := service.NewAuditService(auditRepo)
 	authSvc := service.NewAuthService(userRepo, tokenRepo, roleRepo, sessionRepo, oauthConnRepo, authService, emailService)
 	catalogService := service.NewCatalogService(catalogRepo, selfAssessmentRepo, auditService, emailService)
+	llmService := service.NewLLMService(cfg.LLM.BaseURL, cfg.LLM.Model, cfg.LLM.Enabled)
+
+	// Ensure LLM model is available (in background)
+	if cfg.LLM.Enabled {
+		go llmService.PullModel()
+	}
 
 	// Initialize encryption services (if Vault is enabled)
 	var encryptedResponseSvc *service.EncryptedResponseService
@@ -146,7 +152,7 @@ func main() {
 		secureStore := securestore.NewSecureStore(db.DB, keyManager)
 		encryptedResponseSvc = service.NewEncryptedResponseService(db.DB, assessmentResponseRepo, keyManager, secureStore)
 		reviewerService = service.NewReviewerService(db.DB, reviewerResponseRepo, selfAssessmentRepo, assessmentResponseRepo, keyManager, secureStore)
-		consolidationService = service.NewConsolidationService(db.DB, consolidationOverrideRepo, consolidationOverrideApprovalRepo, consolidationAveragedApprovalRepo, finalConsolidationRepo, finalConsolidationApprovalRepo, selfAssessmentRepo, assessmentResponseRepo, reviewerResponseRepo, catalogRepo, categoryDiscussionCommentRepo, encryptedResponseSvc, keyManager, secureStore, emailService)
+		consolidationService = service.NewConsolidationService(db.DB, consolidationOverrideRepo, consolidationOverrideApprovalRepo, consolidationAveragedApprovalRepo, finalConsolidationRepo, finalConsolidationApprovalRepo, selfAssessmentRepo, assessmentResponseRepo, reviewerResponseRepo, catalogRepo, categoryDiscussionCommentRepo, encryptedResponseSvc, keyManager, secureStore, emailService, llmService)
 		discussionService = service.NewDiscussionService(discussionRepo, selfAssessmentRepo, reviewerResponseRepo, assessmentResponseRepo, consolidationOverrideRepo, finalConsolidationRepo, catalogRepo, userRepo, categoryDiscussionCommentRepo, discussionConfirmationRepo, secureStore)
 
 		slog.Info("Encryption services initialized", "vault_addr", cfg.Vault.Address)
@@ -175,7 +181,7 @@ func main() {
 	sessionHandler := handlers.NewSessionHandler(sessionRepo, authSvc, auditMw, db.DB)
 	configHandler := handlers.NewConfigHandler(cfg)
 	catalogHandler := handlers.NewCatalogHandler(catalogService, auditMw)
-	selfAssessmentHandler := handlers.NewSelfAssessmentHandler(selfAssessmentService, discussionService, discussionConfirmationRepo, selfAssessmentRepo)
+	selfAssessmentHandler := handlers.NewSelfAssessmentHandler(selfAssessmentService, discussionService, discussionConfirmationRepo, selfAssessmentRepo, consolidationService)
 	reviewerHandler := handlers.NewReviewerHandler(reviewerService, selfAssessmentRepo, discussionService)
 	consolidationHandler := handlers.NewConsolidationHandler(consolidationService)
 	discussionHandler := handlers.NewDiscussionHandler(discussionService)

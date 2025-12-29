@@ -24,6 +24,7 @@ type Config struct {
 	Log       LogConfig
 	Scheduler SchedulerConfig
 	Vault     VaultConfig
+	LLM       LLMConfig
 }
 
 // ServerConfig holds server-related configuration
@@ -133,12 +134,19 @@ type SchedulerConfig struct {
 	EnableReviewerSummary bool   // Enable/disable reviewer summaries
 }
 
-// VaultConfig holds Vault configuration
+// VaultConfig holds Vault-related configuration
 type VaultConfig struct {
-	Address      string // Vault server address (e.g., http://localhost:8200)
-	Token        string // Root token or service token for authentication
-	TransitMount string // Transit engine mount path (default: transit)
-	Enabled      bool   // Enable/disable Vault integration
+	Address      string
+	Token        string
+	TransitMount string
+	Enabled      bool
+}
+
+// LLMConfig holds LLM-related configuration
+type LLMConfig struct {
+	BaseURL string
+	Model   string
+	Enabled bool
 }
 
 // Load loads configuration from environment variables
@@ -223,6 +231,11 @@ func Load() (*Config, error) {
 			Token:        getEnv("VAULT_TOKEN", ""),
 			TransitMount: getEnv("VAULT_TRANSIT_MOUNT", "transit"),
 			Enabled:      getBoolEnv("VAULT_ENABLED", true),
+		},
+		LLM: LLMConfig{
+			BaseURL: getEnv("LLM_BASE_URL", "http://localhost:11434"),
+			Model:   getEnv("LLM_MODEL", "llama3"),
+			Enabled: getBoolEnv("LLM_ENABLED", true),
 		},
 	}
 

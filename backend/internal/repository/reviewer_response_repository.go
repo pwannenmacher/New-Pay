@@ -2,7 +2,9 @@ package repository
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
+	"log/slog"
 	"new-pay/internal/models"
 )
 
@@ -14,6 +16,37 @@ type ReviewerResponseRepository struct {
 // NewReviewerResponseRepository creates a new reviewer response repository
 func NewReviewerResponseRepository(db *sql.DB) *ReviewerResponseRepository {
 	return &ReviewerResponseRepository{db: db}
+}
+
+// scanReviewerResponses scans rows into a slice of ReviewerResponse
+func (r *ReviewerResponseRepository) scanReviewerResponses(rows *sql.Rows) ([]models.ReviewerResponse, error) {
+	// Initialize with empty slice instead of nil to avoid JSON null
+	var responses []models.ReviewerResponse
+
+	for rows.Next() {
+		var resp models.ReviewerResponse
+		err := rows.Scan(
+			&resp.ID,
+			&resp.AssessmentID,
+			&resp.CategoryID,
+			&resp.ReviewerUserID,
+			&resp.PathID,
+			&resp.LevelID,
+			&resp.EncryptedJustificationID,
+			&resp.CreatedAt,
+			&resp.UpdatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+		responses = append(responses, resp)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return responses, nil
 }
 
 // CreateOrUpdate creates or updates a reviewer response
@@ -56,30 +89,38 @@ func (r *ReviewerResponseRepository) GetByAssessmentAndReviewer(assessmentID, re
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
-
-	// Initialize with empty slice instead of nil to avoid JSON null
-	responses := []models.ReviewerResponse{}
-	for rows.Next() {
-		var resp models.ReviewerResponse
-		err := rows.Scan(
-			&resp.ID,
-			&resp.AssessmentID,
-			&resp.CategoryID,
-			&resp.ReviewerUserID,
-			&resp.PathID,
-			&resp.LevelID,
-			&resp.EncryptedJustificationID,
-			&resp.CreatedAt,
-			&resp.UpdatedAt,
-		)
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
 		if err != nil {
-			return nil, err
+			slog.Error("Failed to close rows", "error",
+				err)
 		}
-		responses = append(responses, resp)
-	}
+	}(rows)
 
-	return responses, rows.Err()
+	return r.scanReviewerResponses(rows)
+}
+
+// GetByAssessmentAndCategory retrieves all reviewer responses for a specific category in an assessment
+func (r *ReviewerResponseRepository) GetByAssessmentAndCategory(assessmentID, categoryID uint) ([]models.ReviewerResponse, error) {
+	query := `
+		SELECT id, assessment_id, category_id, reviewer_user_id, path_id, level_id, 
+		       encrypted_justification_id, created_at, updated_at
+		FROM reviewer_responses
+		WHERE assessment_id = $1 AND category_id = $2
+	`
+
+	rows, err := r.db.Query(query, assessmentID, categoryID)
+	if err != nil {
+		return nil, err
+	}
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			slog.Error("Failed to close rows", "error", err)
+		}
+	}(rows)
+
+	return r.scanReviewerResponses(rows)
 }
 
 // GetByCategoryAndReviewer retrieves a specific reviewer response for a category
@@ -104,7 +145,7 @@ func (r *ReviewerResponseRepository) GetByCategoryAndReviewer(assessmentID, cate
 		&resp.UpdatedAt,
 	)
 
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
 	if err != nil {
@@ -181,8 +222,14 @@ func (r *ReviewerResponseRepository) GetCompleteReviewers(assessmentID uint) ([]
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			slog.Error("Failed to close rows", "error", err)
+		}
+	}(rows)
 
+	// Initialize with empty slice instead of nil to avoid JSON null
 	var reviewers []models.ReviewerCompletionInfo
 	for rows.Next() {
 		var info models.ReviewerCompletionInfo
@@ -193,7 +240,11 @@ func (r *ReviewerResponseRepository) GetCompleteReviewers(assessmentID uint) ([]
 		reviewers = append(reviewers, info)
 	}
 
-	return reviewers, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return reviewers, nil
 }
 
 // CountCompleteReviews counts how many reviewers have completed all categories
@@ -251,28 +302,12 @@ func (r *ReviewerResponseRepository) GetAllByAssessment(assessmentID uint) ([]mo
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
-
-	// Initialize with empty slice instead of nil to avoid JSON null
-	responses := []models.ReviewerResponse{}
-	for rows.Next() {
-		var resp models.ReviewerResponse
-		err := rows.Scan(
-			&resp.ID,
-			&resp.AssessmentID,
-			&resp.CategoryID,
-			&resp.ReviewerUserID,
-			&resp.PathID,
-			&resp.LevelID,
-			&resp.EncryptedJustificationID,
-			&resp.CreatedAt,
-			&resp.UpdatedAt,
-		)
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
 		if err != nil {
-			return nil, err
+			slog.Error("Failed to close rows", "error", err)
 		}
-		responses = append(responses, resp)
-	}
+	}(rows)
 
-	return responses, rows.Err()
+	return r.scanReviewerResponses(rows)
 }

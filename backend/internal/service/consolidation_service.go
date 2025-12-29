@@ -31,6 +31,7 @@ type ConsolidationService struct {
 	keyManager             *keymanager.KeyManager
 	secureStore            *securestore.SecureStore
 	emailService           *email.Service
+	llmService             *LLMService
 }
 
 // NewConsolidationService creates a new consolidation service
@@ -50,6 +51,7 @@ func NewConsolidationService(
 	keyManager *keymanager.KeyManager,
 	secureStore *securestore.SecureStore,
 	emailService *email.Service,
+	llmService *LLMService,
 ) *ConsolidationService {
 	return &ConsolidationService{
 		db:                     db,
@@ -67,6 +69,7 @@ func NewConsolidationService(
 		keyManager:             keyManager,
 		secureStore:            secureStore,
 		emailService:           emailService,
+		llmService:             llmService,
 	}
 }
 
@@ -903,6 +906,10 @@ func (s *ConsolidationService) SaveCategoryDiscussionComment(assessmentID, categ
 		return fmt.Errorf("user must complete their review before adding discussion comments")
 	}
 
+	return s.saveCategoryDiscussionCommentInternal(assessmentID, categoryID, userID, comment)
+}
+
+func (s *ConsolidationService) saveCategoryDiscussionCommentInternal(assessmentID, categoryID, userID uint, comment string) error {
 	// Get assessment for process ID
 	assessment, err := s.getAssessment(assessmentID)
 	if err != nil {
@@ -954,6 +961,68 @@ func (s *ConsolidationService) SaveCategoryDiscussionComment(assessmentID, categ
 		CreatedByUserID:    userID,
 	}
 	return s.categoryDiscussionRepo.Create(newComment)
+}
+
+// GenerateConsolidationProposals generates proposals for category discussion comments using LLM
+func (s *ConsolidationService) GenerateConsolidationProposals(assessmentID uint) error {
+	// Get all categories for the assessment
+	assessment, err := s.getAssessment(assessmentID)
+	if err != nil {
+		return err
+	}
+
+	catalog, err := s.catalogRepo.GetCatalogWithDetails(assessment.CatalogID)
+	if err != nil {
+		return err
+	}
+
+	// For each category, get reviewer comments
+	for _, category := range catalog.Categories {
+		// Get reviewer responses for this category
+		responses, err := s.reviewerRepo.GetByAssessmentAndCategory(assessmentID, category.ID)
+		if err != nil {
+			slog.Error("Failed to get reviewer responses", "error", err)
+			continue
+		}
+
+		// Decrypt justifications
+		s.decryptJustifications(responses)
+
+		var comments []string
+		var creatorID uint
+		for _, r := range responses {
+			if r.Justification != "" {
+				comments = append(comments, r.Justification)
+			}
+			// Use the first reviewer as the creator if not set
+			if creatorID == 0 {
+				creatorID = r.ReviewerUserID
+			}
+		}
+
+		if len(comments) == 0 {
+			slog.Info("No reviewer comments found for category", "category_id", category.ID)
+			comments = append(comments, "Alle Reviewer stimmen der Einschätzung des Mitarbeiters zu.") // Default comment
+		}
+
+		// Generate summary
+		summary, err := s.llmService.SummarizeComments(comments)
+		if err != nil {
+			slog.Error("Failed to summarize comments", "error", err)
+			continue
+		}
+
+		// Save as category discussion comment
+		if creatorID != 0 {
+			// Prepend "Vorschlag (KI): " to indicate it's AI generated
+			summary = "Vorschlag (KI): " + summary
+			if err := s.saveCategoryDiscussionCommentInternal(assessmentID, category.ID, creatorID, summary); err != nil {
+				slog.Error("Failed to save generated proposal", "error", err)
+			}
+		}
+	}
+
+	return nil
 }
 
 // GetCategoryDiscussionComments retrieves all category discussion comments for an assessment (decrypted)
