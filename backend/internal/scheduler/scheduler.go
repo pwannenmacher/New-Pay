@@ -1,12 +1,14 @@
 package scheduler
 
 import (
+	"database/sql"
 	"fmt"
 	"log/slog"
 	"new-pay/internal/config"
 	"new-pay/internal/email"
 	"new-pay/internal/models"
 	"new-pay/internal/repository"
+	"new-pay/internal/securestore"
 	"strconv"
 	"strings"
 	"time"
@@ -18,6 +20,8 @@ type Scheduler struct {
 	userRepo           *repository.UserRepository
 	roleRepo           *repository.RoleRepository
 	emailService       *email.Service
+	secureStore        *securestore.SecureStore
+	db                 *sql.DB
 	config             *config.SchedulerConfig
 	stopChan           chan bool
 }
@@ -28,6 +32,8 @@ func NewScheduler(
 	userRepo *repository.UserRepository,
 	roleRepo *repository.RoleRepository,
 	emailService *email.Service,
+	secureStore *securestore.SecureStore,
+	db *sql.DB,
 	cfg *config.SchedulerConfig,
 ) *Scheduler {
 	return &Scheduler{
@@ -35,6 +41,8 @@ func NewScheduler(
 		userRepo:           userRepo,
 		roleRepo:           roleRepo,
 		emailService:       emailService,
+		secureStore:        secureStore,
+		db:                 db,
 		config:             cfg,
 		stopChan:           make(chan bool),
 	}
@@ -42,7 +50,10 @@ func NewScheduler(
 
 // Start starts all scheduled tasks
 func (s *Scheduler) Start() {
-	slog.Info("Starting scheduler", "draft_reminders_enabled", s.config.EnableDraftReminders, "reviewer_summary_enabled", s.config.EnableReviewerSummary)
+	slog.Info("Starting scheduler",
+		"draft_reminders_enabled", s.config.EnableDraftReminders,
+		"reviewer_summary_enabled", s.config.EnableReviewerSummary,
+		"hash_chain_validation_enabled", s.config.EnableHashChainValidation)
 
 	if s.config.EnableDraftReminders {
 		// Parse cron and start draft reminders
@@ -55,6 +66,13 @@ func (s *Scheduler) Start() {
 		// Parse cron and start reviewer summaries
 		if err := s.startCronTask(s.config.ReviewerSummaryCron, "reviewer_summaries", s.sendReviewerSummaries); err != nil {
 			slog.Error("Failed to start reviewer summaries", "error", err)
+		}
+	}
+
+	if s.config.EnableHashChainValidation {
+		// Parse cron and start hash chain validation
+		if err := s.startCronTask(s.config.HashChainValidationCron, "hash_chain_validation", s.validateHashChains); err != nil {
+			slog.Error("Failed to start hash chain validation", "error", err)
 		}
 	}
 
@@ -423,4 +441,113 @@ func (s *Scheduler) sendReviewerSummaries() {
 		"summaries_sent", summariesSent,
 		"total_items", len(allItems),
 	)
+}
+
+// validateHashChains validates all hash chains and alerts admins on errors
+func (s *Scheduler) validateHashChains() {
+	// Skip if secure store is not available (Vault disabled)
+	if s.secureStore == nil {
+		slog.Warn("Hash chain validation skipped - Vault is disabled")
+		return
+	}
+
+	slog.Info("Starting hash chain validation")
+
+	// Get all unique process IDs from encrypted_records
+	query := `SELECT DISTINCT process_id FROM encrypted_records ORDER BY process_id`
+	rows, err := s.db.Query(query)
+	if err != nil {
+		slog.Error("Failed to query process IDs for hash chain validation", "error", err)
+		return
+	}
+	defer rows.Close()
+
+	var processIDs []string
+	for rows.Next() {
+		var processID string
+		if err := rows.Scan(&processID); err != nil {
+			slog.Error("Failed to scan process ID", "error", err)
+			continue
+		}
+		processIDs = append(processIDs, processID)
+	}
+
+	if len(processIDs) == 0 {
+		slog.Info("No process IDs found for hash chain validation")
+		return
+	}
+
+	slog.Info("Validating hash chains", "process_count", len(processIDs))
+
+	// Validate each chain
+	var failedProcesses []string
+	var allErrors []string
+	totalProcesses := len(processIDs)
+	validProcesses := 0
+
+	for _, processID := range processIDs {
+		valid, errors, err := s.secureStore.VerifyChain(processID)
+		if err != nil {
+			slog.Error("Hash chain validation error", "process_id", processID, "error", err)
+			failedProcesses = append(failedProcesses, processID)
+			allErrors = append(allErrors, fmt.Sprintf("Process %s: %v", processID, err))
+			continue
+		}
+
+		if !valid {
+			slog.Warn("Hash chain validation failed", "process_id", processID, "errors", errors)
+			failedProcesses = append(failedProcesses, processID)
+			for _, e := range errors {
+				allErrors = append(allErrors, fmt.Sprintf("Process %s: %s", processID, e))
+			}
+		} else {
+			validProcesses++
+		}
+	}
+
+	slog.Info("Hash chain validation completed",
+		"total_processes", totalProcesses,
+		"valid_processes", validProcesses,
+		"failed_processes", len(failedProcesses),
+	)
+
+	// If there are failures, send alert to admins
+	if len(failedProcesses) > 0 {
+		if err := s.sendHashChainAlert(totalProcesses, validProcesses, failedProcesses, allErrors); err != nil {
+			slog.Error("Failed to send hash chain alert", "error", err)
+		}
+	}
+}
+
+// sendHashChainAlert sends an alert email to all admin users
+func (s *Scheduler) sendHashChainAlert(totalProcesses, validProcesses int, failedProcesses, errors []string) error {
+	// Get all admin users
+	admins, err := s.userRepo.GetUsersByRoleName("admin")
+	if err != nil {
+		return fmt.Errorf("failed to get admin users: %w", err)
+	}
+
+	if len(admins) == 0 {
+		slog.Warn("No admin users found to send hash chain alert")
+		return nil
+	}
+
+	// Send alert to each admin
+	alertsSent := 0
+	for _, admin := range admins {
+		if admin.Email == "" {
+			continue
+		}
+
+		if err := s.emailService.SendHashChainAlert(admin.Email, admin.FirstName, totalProcesses, validProcesses, failedProcesses, errors); err != nil {
+			slog.Error("Failed to send hash chain alert", "admin_email", admin.Email, "error", err)
+			continue
+		}
+
+		alertsSent++
+		slog.Info("Hash chain alert sent", "admin_email", admin.Email)
+	}
+
+	slog.Info("Hash chain alerts completed", "alerts_sent", alertsSent)
+	return nil
 }

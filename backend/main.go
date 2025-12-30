@@ -131,6 +131,7 @@ func main() {
 	var reviewerService *service.ReviewerService
 	var consolidationService *service.ConsolidationService
 	var discussionService *service.DiscussionService
+	var secureStore *securestore.SecureStore
 	if cfg.Vault.Enabled {
 		slog.Info("Vault is enabled - initializing encryption services")
 		vaultClient, err := vault.NewClient(&vault.Config{
@@ -149,7 +150,7 @@ func main() {
 			os.Exit(1)
 		}
 
-		secureStore := securestore.NewSecureStore(db.DB, keyManager)
+		secureStore = securestore.NewSecureStore(db.DB, keyManager)
 		encryptedResponseSvc = service.NewEncryptedResponseService(db.DB, assessmentResponseRepo, keyManager, secureStore)
 		reviewerService = service.NewReviewerService(db.DB, reviewerResponseRepo, selfAssessmentRepo, assessmentResponseRepo, keyManager, secureStore)
 		consolidationService = service.NewConsolidationService(db.DB, consolidationOverrideRepo, consolidationOverrideApprovalRepo, consolidationAveragedApprovalRepo, finalConsolidationRepo, finalConsolidationApprovalRepo, selfAssessmentRepo, assessmentResponseRepo, reviewerResponseRepo, catalogRepo, categoryDiscussionCommentRepo, encryptedResponseSvc, keyManager, secureStore, emailService, llmService)
@@ -163,7 +164,7 @@ func main() {
 	selfAssessmentService := service.NewSelfAssessmentService(selfAssessmentRepo, catalogRepo, auditService, assessmentResponseRepo, encryptedResponseSvc, reviewerResponseRepo)
 
 	// Initialize scheduler
-	schedulerService := scheduler.NewScheduler(selfAssessmentRepo, userRepo, roleRepo, emailService, &cfg.Scheduler)
+	schedulerService := scheduler.NewScheduler(selfAssessmentRepo, userRepo, roleRepo, emailService, secureStore, db.DB, &cfg.Scheduler)
 	schedulerService.Start()
 	defer schedulerService.Stop()
 
