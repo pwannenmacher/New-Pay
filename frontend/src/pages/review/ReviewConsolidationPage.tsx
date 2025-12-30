@@ -579,14 +579,6 @@ export function ReviewConsolidationPage() {
                                 Basierend auf {averagedResponse.reviewer_count} Review(s)
                               </Text>
                             </div>
-                            <div>
-                              <Text size="sm" fw={600} c="dimmed" mb="xs">Kommentar-Zusammenfassung</Text>
-                              <Paper p="sm" withBorder bg={colorScheme === 'dark' ? 'dark.5' : 'blue.0'}>
-                                <Text size="sm" fs="italic" c="dimmed">
-                                  ToDo: LLM-Zusammenfassung der Review-Kommentare je Kategorie
-                                </Text>
-                              </Paper>
-                            </div>
 
                             {/* Show approval badges if averaged response has approvals */}
                             {!existingOverride && averagedResponse.approvals && averagedResponse.approvals.length > 0 && (
