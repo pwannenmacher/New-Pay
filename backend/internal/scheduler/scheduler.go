@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"new-pay/internal/config"
 	"new-pay/internal/email"
+	"new-pay/internal/models"
 	"new-pay/internal/repository"
 	"strconv"
 	"strings"
@@ -328,12 +329,16 @@ func (s *Scheduler) sendReviewerSummaries() {
 		return
 	}
 
-	// Also get admins (they can review too)
-	admins, err := s.roleRepo.GetUsersByRole("admin")
-	if err != nil {
-		slog.Error("Failed to get admins", "error", err)
-	} else {
-		reviewers = append(reviewers, admins...)
+	// Deduplicate by user ID (ignore admin role if user is already a reviewer)
+	uniqueReviewers := make(map[uint]models.User)
+	for _, reviewer := range reviewers {
+		uniqueReviewers[reviewer.ID] = reviewer
+	}
+
+	// Convert map back to slice
+	reviewers = make([]models.User, 0, len(uniqueReviewers))
+	for _, reviewer := range uniqueReviewers {
+		reviewers = append(reviewers, reviewer)
 	}
 
 	if len(reviewers) == 0 {
