@@ -145,6 +145,14 @@ class ConsolidationService {
       comment,
     });
   }
+
+  async regenerateProposals(assessmentId: number): Promise<void> {
+    await api.post(`/review/consolidation/${assessmentId}/regenerate-proposals`, {});
+  }
+
+  async generateFinalProposal(assessmentId: number): Promise<void> {
+    await api.post(`/review/consolidation/${assessmentId}/generate-final-proposal`, {});
+  }
 }
 
 export default new ConsolidationService();

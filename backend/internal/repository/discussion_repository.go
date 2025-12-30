@@ -20,17 +20,16 @@ func (r *DiscussionRepository) Create(result *models.DiscussionResult) error {
 	query := `
 		INSERT INTO discussion_results (
 			assessment_id, weighted_overall_level_number, weighted_overall_level_id,
-			final_comment_encrypted, final_comment_nonce, discussion_note, user_approved_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7)
+			encrypted_final_comment_id, encrypted_discussion_note_id, user_approved_at
+		) VALUES ($1, $2, $3, $4, $5, $6)
 		RETURNING id, created_at, updated_at
 	`
 	return r.db.QueryRow(query,
 		result.AssessmentID,
 		result.WeightedOverallLevelNum,
 		result.WeightedOverallLevelID,
-		result.FinalCommentEncrypted,
-		result.FinalCommentNonce,
-		result.DiscussionNote,
+		result.EncryptedFinalCommentID,
+		result.EncryptedDiscussionNoteID,
 		result.UserApprovedAt,
 	).Scan(&result.ID, &result.CreatedAt, &result.UpdatedAt)
 }
@@ -40,9 +39,8 @@ func (r *DiscussionRepository) CreateCategoryResult(categoryResult *models.Discu
 	query := `
 		INSERT INTO discussion_category_results (
 			discussion_result_id, category_id, user_level_id, reviewer_level_id,
-			reviewer_level_number, justification_encrypted, justification_nonce,
-			justification_plain, is_override
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+			reviewer_level_number, encrypted_justification_id, is_override
+		) VALUES ($1, $2, $3, $4, $5, $6, $7)
 		RETURNING id
 	`
 	return r.db.QueryRow(query,
@@ -51,9 +49,7 @@ func (r *DiscussionRepository) CreateCategoryResult(categoryResult *models.Discu
 		categoryResult.UserLevelID,
 		categoryResult.ReviewerLevelID,
 		categoryResult.ReviewerLevelNumber,
-		categoryResult.JustificationEncrypted,
-		categoryResult.JustificationNonce,
-		categoryResult.JustificationPlain,
+		categoryResult.EncryptedJustificationID,
 		categoryResult.IsOverride,
 	).Scan(&categoryResult.ID)
 }
@@ -77,8 +73,7 @@ func (r *DiscussionRepository) GetByAssessmentID(assessmentID uint) (*models.Dis
 	var result models.DiscussionResult
 	query := `
 		SELECT id, assessment_id, weighted_overall_level_number, weighted_overall_level_id,
-			final_comment_encrypted, final_comment_nonce, discussion_note, user_approved_at,
-			created_at, updated_at
+			encrypted_final_comment_id, encrypted_discussion_note_id, user_approved_at, created_at, updated_at
 		FROM discussion_results
 		WHERE assessment_id = $1
 	`
@@ -87,9 +82,8 @@ func (r *DiscussionRepository) GetByAssessmentID(assessmentID uint) (*models.Dis
 		&result.AssessmentID,
 		&result.WeightedOverallLevelNum,
 		&result.WeightedOverallLevelID,
-		&result.FinalCommentEncrypted,
-		&result.FinalCommentNonce,
-		&result.DiscussionNote,
+		&result.EncryptedFinalCommentID,
+		&result.EncryptedDiscussionNoteID,
 		&result.UserApprovedAt,
 		&result.CreatedAt,
 		&result.UpdatedAt,
@@ -108,8 +102,7 @@ func (r *DiscussionRepository) GetCategoryResults(discussionResultID uint) ([]mo
 	results := []models.DiscussionCategoryResult{}
 	query := `
 		SELECT id, discussion_result_id, category_id, user_level_id, reviewer_level_id,
-			reviewer_level_number, justification_encrypted, justification_nonce,
-			justification_plain, is_override
+			reviewer_level_number, encrypted_justification_id, is_override
 		FROM discussion_category_results
 		WHERE discussion_result_id = $1
 		ORDER BY category_id
@@ -129,9 +122,7 @@ func (r *DiscussionRepository) GetCategoryResults(discussionResultID uint) ([]mo
 			&result.UserLevelID,
 			&result.ReviewerLevelID,
 			&result.ReviewerLevelNumber,
-			&result.JustificationEncrypted,
-			&result.JustificationNonce,
-			&result.JustificationPlain,
+			&result.EncryptedJustificationID,
 			&result.IsOverride,
 		)
 		if err != nil {
@@ -184,13 +175,13 @@ func (r *DiscussionRepository) GetReviewers(discussionResultID uint) ([]models.D
 }
 
 // UpdateDiscussionNote updates the discussion note and user approval
-func (r *DiscussionRepository) UpdateDiscussionNote(discussionResultID uint, note string, userApprovedAt *sql.NullTime) error {
+func (r *DiscussionRepository) UpdateDiscussionNote(discussionResultID uint, encryptedNoteID *int64, userApprovedAt *sql.NullTime) error {
 	query := `
 		UPDATE discussion_results
-		SET discussion_note = $1, user_approved_at = $2, updated_at = CURRENT_TIMESTAMP
+		SET encrypted_discussion_note_id = $1, user_approved_at = $2, updated_at = CURRENT_TIMESTAMP
 		WHERE id = $3
 	`
-	_, err := r.db.Exec(query, note, userApprovedAt, discussionResultID)
+	_, err := r.db.Exec(query, encryptedNoteID, userApprovedAt, discussionResultID)
 	if err != nil {
 		return fmt.Errorf("failed to update discussion note: %w", err)
 	}

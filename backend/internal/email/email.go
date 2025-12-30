@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net"
 	"net/smtp"
+	"time"
 
 	"new-pay/internal/config"
 )
@@ -457,6 +458,104 @@ func (s *Service) SendReviewCompletedNotification(to, userName, catalogName stri
 </body>
 </html>
 	`, userName, catalogName, assessmentID)
+
+	return s.sendEmail(to, subject, body)
+}
+
+// SendHashChainAlert sends critical alert to admins when hash chain validation fails
+func (s *Service) SendHashChainAlert(to, adminName string, totalProcesses, validProcesses int, failedProcesses, errors []string) error {
+	subject := "🚨 CRITICAL: Hash Chain Validation Failed - Data Integrity Issue"
+
+	// Build error list HTML
+	errorListHTML := ""
+	for i, err := range errors {
+		if i >= 20 { // Limit to first 20 errors in email
+			errorListHTML += fmt.Sprintf("<li style='color: #721c24;'><em>... and %d more errors (see logs for details)</em></li>", len(errors)-20)
+			break
+		}
+		errorListHTML += fmt.Sprintf("<li style='color: #721c24;'>%s</li>", err)
+	}
+
+	failedProcessList := ""
+	for i, procID := range failedProcesses {
+		if i >= 10 { // Limit to first 10 process IDs
+			failedProcessList += fmt.Sprintf("<li><code>... and %d more processes</code></li>", len(failedProcesses)-10)
+			break
+		}
+		failedProcessList += fmt.Sprintf("<li><code>%s</code></li>", procID)
+	}
+
+	body := fmt.Sprintf(`
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>CRITICAL: Hash Chain Validation Failed</title>
+</head>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+    <div style="max-width: 700px; margin: 0 auto; padding: 20px;">
+        <div style="background-color: #f8d7da; border-left: 5px solid #dc3545; padding: 20px; margin-bottom: 20px;">
+            <h2 style="color: #721c24; margin-top: 0;">🚨 CRITICAL SECURITY ALERT</h2>
+            <p style="font-size: 16px; font-weight: bold; color: #721c24;">Hash Chain Validation Failed - Potential Data Tampering Detected</p>
+        </div>
+        
+        <p>Hallo %s,</p>
+        
+        <p>Die automatische Validierung der kryptografischen Hash-Chains hat <strong>Inkonsistenzen</strong> festgestellt. Dies könnte auf eine Manipulation der verschlüsselten Daten hinweisen.</p>
+        
+        <div style="background-color: #fff3cd; border: 2px solid #ffc107; padding: 15px; margin: 20px 0;">
+            <h3 style="margin-top: 0; color: #856404;">Validierungs-Ergebnis:</h3>
+            <table style="width: 100%%; border-collapse: collapse;">
+                <tr>
+                    <td style="padding: 8px; border-bottom: 1px solid #ddd;"><strong>Geprüfte Prozesse:</strong></td>
+                    <td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: right;">%d</td>
+                </tr>
+                <tr style="background-color: #d4edda;">
+                    <td style="padding: 8px; border-bottom: 1px solid #ddd;"><strong>✅ Gültige Chains:</strong></td>
+                    <td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: right; color: #155724;">%d</td>
+                </tr>
+                <tr style="background-color: #f8d7da;">
+                    <td style="padding: 8px;"><strong>❌ Fehlerhafte Chains:</strong></td>
+                    <td style="padding: 8px; text-align: right; color: #721c24; font-weight: bold;">%d</td>
+                </tr>
+            </table>
+        </div>
+        
+        <h3 style="color: #dc3545;">Betroffene Prozesse:</h3>
+        <ul style="background-color: #f8f9fa; padding: 15px; border-left: 3px solid #dc3545;">
+            %s
+        </ul>
+        
+        <h3 style="color: #dc3545;">Fehlerdetails:</h3>
+        <ul style="background-color: #f8f9fa; padding: 15px; border-left: 3px solid #dc3545; font-family: 'Courier New', monospace; font-size: 13px;">
+            %s
+        </ul>
+        
+        <div style="background-color: #d1ecf1; border-left: 5px solid #0c5460; padding: 15px; margin: 20px 0;">
+            <h3 style="margin-top: 0; color: #0c5460;">⚡ Sofortmaßnahmen erforderlich:</h3>
+            <ol style="margin: 10px 0;">
+                <li><strong>System-Logs prüfen:</strong> Analysieren Sie die Backend-Logs auf verdächtige Aktivitäten</li>
+                <li><strong>Backup wiederherstellen:</strong> Erwägen Sie ein Rollback auf den letzten bekannt guten Zustand</li>
+                <li><strong>Vault prüfen:</strong> Überprüfen Sie die Vault Audit Logs auf unerlaubte Zugriffe</li>
+                <li><strong>Datenbank-Forensik:</strong> Untersuchen Sie die PostgreSQL Logs</li>
+                <li><strong>Security-Team informieren:</strong> Eskalieren Sie den Vorfall</li>
+            </ol>
+        </div>
+        
+        <div style="background-color: #e7f3ff; padding: 15px; margin: 20px 0; border-radius: 5px;">
+            <p style="margin: 5px 0;"><strong>Zeitpunkt der Validierung:</strong> %s</p>
+            <p style="margin: 5px 0;"><strong>System:</strong> NewPay Encryption System</p>
+            <p style="margin: 5px 0;"><strong>Validation Job:</strong> Scheduled Hash Chain Verification</p>
+        </div>
+        
+        <p style="color: #dc3545; font-weight: bold;">⚠️ Bitte reagieren Sie umgehend auf diese Warnung. Die Integrität Ihrer verschlüsselten Daten könnte kompromittiert sein.</p>
+        
+        <hr style="border: none; border-top: 2px solid #dc3545; margin: 30px 0;">
+        <p style="color: #999; font-size: 12px;">Dies ist eine automatische Sicherheitswarnung des NewPay Systems. Kontaktieren Sie bei Fragen das Entwicklungs-Team.</p>
+    </div>
+</body>
+</html>
+	`, adminName, totalProcesses, validProcesses, len(failedProcesses), failedProcessList, errorListHTML, time.Now().Format("2006-01-02 15:04:05 MST"))
 
 	return s.sendEmail(to, subject, body)
 }

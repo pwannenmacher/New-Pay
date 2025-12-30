@@ -366,6 +366,50 @@ func (r *UserRepository) GetUsersByRole(roleID uint) ([]models.User, error) {
 	return users, nil
 }
 
+// GetUsersByRoleName retrieves all users with a specific role name
+func (r *UserRepository) GetUsersByRoleName(roleName string) ([]models.User, error) {
+	query := `
+		SELECT u.id, u.email, u.password_hash, u.first_name, u.last_name, 
+		       u.email_verified, u.email_verified_at, u.is_active, u.last_login_at,
+		       u.oauth_provider, u.oauth_provider_id, u.created_at, u.updated_at
+		FROM users u
+		INNER JOIN user_roles ur ON u.id = ur.user_id
+		INNER JOIN roles r ON ur.role_id = r.id
+		WHERE r.name = $1 AND u.is_active = true
+	`
+
+	rows, err := r.db.Query(query, roleName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get users by role name: %w", err)
+	}
+	defer rows.Close()
+
+	var users []models.User
+	for rows.Next() {
+		var user models.User
+		if err := rows.Scan(
+			&user.ID,
+			&user.Email,
+			&user.PasswordHash,
+			&user.FirstName,
+			&user.LastName,
+			&user.EmailVerified,
+			&user.EmailVerifiedAt,
+			&user.IsActive,
+			&user.LastLoginAt,
+			&user.OAuthProvider,
+			&user.OAuthProviderID,
+			&user.CreatedAt,
+			&user.UpdatedAt,
+		); err != nil {
+			return nil, fmt.Errorf("failed to scan user: %w", err)
+		}
+		users = append(users, user)
+	}
+
+	return users, nil
+}
+
 // UpdateActiveStatus updates the is_active status of a user
 func (r *UserRepository) UpdateActiveStatus(userID uint, isActive bool) error {
 	query := `

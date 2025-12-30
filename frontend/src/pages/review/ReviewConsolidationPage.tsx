@@ -20,7 +20,7 @@ import {
   Radio,
   useMantineColorScheme,
 } from '@mantine/core';
-import { IconArrowLeft, IconAlertCircle, IconCheck } from '@tabler/icons-react';
+import { IconArrowLeft, IconAlertCircle, IconCheck, IconSparkles } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 import consolidationService, { type ConsolidationData, type ConsolidationOverride } from '../../services/consolidation';
 import { useAuth } from '../../contexts/AuthContext';
@@ -331,6 +331,56 @@ export function ReviewConsolidationPage() {
       notifications.show({
         title: 'Fehler',
         message: error.response?.data?.error || 'Fehler beim Bestätigen des Abschlusses',
+        color: 'red',
+      });
+    }
+  };
+
+  const handleRegenerateProposals = async () => {
+    try {
+      setLoading(true);
+      await consolidationService.regenerateProposals(parseInt(id!));
+
+      notifications.show({
+        title: 'Erfolg',
+        message: 'Kategorie-Zusammenfassungen werden neu generiert',
+        color: 'green',
+      });
+
+      // Reload data after a short delay to allow backend to complete
+      setTimeout(() => {
+        loadData();
+      }, 2000);
+    } catch (error: any) {
+      setLoading(false);
+      notifications.show({
+        title: 'Fehler',
+        message: error.response?.data?.error || 'Fehler beim Generieren der Kategorie-Zusammenfassungen',
+        color: 'red',
+      });
+    }
+  };
+
+  const handleGenerateFinalProposal = async () => {
+    try {
+      setLoading(true);
+      await consolidationService.generateFinalProposal(parseInt(id!));
+
+      notifications.show({
+        title: 'Erfolg',
+        message: 'Abschluss-Kommentar wird generiert',
+        color: 'green',
+      });
+
+      // Reload data after a short delay to allow backend to complete
+      setTimeout(() => {
+        loadData();
+      }, 2000);
+    } catch (error: any) {
+      setLoading(false);
+      notifications.show({
+        title: 'Fehler',
+        message: error.response?.data?.error || 'Fehler beim Generieren des Abschluss-Kommentars',
         color: 'red',
       });
     }
@@ -737,7 +787,7 @@ export function ReviewConsolidationPage() {
                             label="Begründung"
                             description="Erklären Sie, warum Sie diese Anpassung vornehmen"
                             placeholder="Begründung für die Anpassung (erforderlich)"
-                            rows={4}
+                            rows={8}
                             value={override?.justification || ''}
                             onChange={(e) => {
                               const value = e.target.value;
@@ -840,7 +890,20 @@ export function ReviewConsolidationPage() {
                 {/* Category Results Summary with Comments */}
                 <Paper withBorder p="md">
                   <Stack gap="lg">
-                    <Title order={4}>Kategorie-Ergebnisse und Kommentare für Besprechungs-Ansicht</Title>
+                    <Group justify="space-between">
+                      <Title order={4}>Kategorie-Ergebnisse und Kommentare für Besprechungs-Ansicht</Title>
+                      {!isReadOnly && (
+                        <Button
+                          leftSection={<IconSparkles size={16} />}
+                          onClick={handleRegenerateProposals}
+                          size="sm"
+                          variant="light"
+                          loading={loading}
+                        >
+                          Kategorie-Zusammenfassungen neu generieren
+                        </Button>
+                      )}
+                    </Group>
                     {sortedCategories.map(category => {
                       const override = data.overrides?.find(o => o.category_id === category.id);
                       const averaged = data.averaged_responses.find(r => r.category_id === category.id);
@@ -887,7 +950,7 @@ export function ReviewConsolidationPage() {
                               </Text>
                               <Textarea
                                 placeholder="Erklären Sie die Bewertung für diese Kategorie..."
-                                rows={4}
+                                rows={8}
                                 value={categoryComments[category.id] || ''}
                                 onChange={(e) => {
                                   const value = e.target.value;
@@ -932,17 +995,30 @@ export function ReviewConsolidationPage() {
                 {/* Final Comment */}
                 <Paper withBorder p="md">
                   <Stack gap="md">
-                    <div>
-                      <Title order={4}>Abschluss-Kommentar</Title>
-                      <Text size="sm" c="dimmed">
-                        Verfassen Sie einen zusammenfassenden Kommentar zur Gesamtbewertung
-                      </Text>
-                    </div>
+                    <Group justify="space-between" align="flex-start">
+                      <div>
+                        <Title order={4}>Abschluss-Kommentar</Title>
+                        <Text size="sm" c="dimmed">
+                          Verfassen Sie einen zusammenfassenden Kommentar zur Gesamtbewertung
+                        </Text>
+                      </div>
+                      {!isReadOnly && (
+                        <Button
+                          leftSection={<IconSparkles size={16} />}
+                          variant="light"
+                          size="sm"
+                          onClick={handleGenerateFinalProposal}
+                          loading={loading}
+                        >
+                          Abschluss-Kommentar generieren
+                        </Button>
+                      )}
+                    </Group>
                     <Textarea
                       value={finalComment}
                       onChange={(e) => setFinalComment(e.target.value)}
-                      placeholder="ToDo: LLM-Zusammenfassung - Geben Sie hier einen abschließenden Kommentar zur Konsolidierung ein..."
-                      minRows={8}
+                      placeholder="Geben Sie hier einen abschließenden Kommentar zur Konsolidierung ein..."
+                      minRows={16}
                       required
                       disabled={isReadOnly}
                     />

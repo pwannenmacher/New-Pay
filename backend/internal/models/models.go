@@ -424,39 +424,38 @@ type ConsolidationData struct {
 
 // DiscussionResult represents the frozen discussion data
 type DiscussionResult struct {
-	ID                       uint                       `json:"id" db:"id"`
-	AssessmentID             uint                       `json:"assessment_id" db:"assessment_id"`
-	AssessmentStatus         string                     `json:"assessment_status,omitempty" db:"-"` // Populated from assessment
-	WeightedOverallLevelNum  float64                    `json:"weighted_overall_level_number" db:"weighted_overall_level_number"`
-	WeightedOverallLevelID   uint                       `json:"weighted_overall_level_id" db:"weighted_overall_level_id"`
-	WeightedOverallLevelName string                     `json:"weighted_overall_level_name,omitempty" db:"-"` // Loaded separately
-	FinalComment             string                     `json:"final_comment" db:"-"`                         // Decrypted
-	FinalCommentEncrypted    []byte                     `json:"-" db:"final_comment_encrypted"`
-	FinalCommentNonce        []byte                     `json:"-" db:"final_comment_nonce"`
-	DiscussionNote           *string                    `json:"discussion_note,omitempty" db:"discussion_note"`
-	UserApprovedAt           *time.Time                 `json:"user_approved_at,omitempty" db:"user_approved_at"`
-	CreatedAt                time.Time                  `json:"created_at" db:"created_at"`
-	UpdatedAt                time.Time                  `json:"updated_at" db:"updated_at"`
-	CategoryResults          []DiscussionCategoryResult `json:"category_results,omitempty" db:"-"`
-	Reviewers                []DiscussionReviewer       `json:"reviewers,omitempty" db:"-"`
-	Confirmations            []DiscussionConfirmation   `json:"confirmations,omitempty" db:"-"` // Discussion confirmations
+	ID                        uint                       `json:"id" db:"id"`
+	AssessmentID              uint                       `json:"assessment_id" db:"assessment_id"`
+	AssessmentStatus          string                     `json:"assessment_status,omitempty" db:"-"` // Populated from assessment
+	WeightedOverallLevelNum   float64                    `json:"weighted_overall_level_number" db:"weighted_overall_level_number"`
+	WeightedOverallLevelID    uint                       `json:"weighted_overall_level_id" db:"weighted_overall_level_id"`
+	WeightedOverallLevelName  string                     `json:"weighted_overall_level_name,omitempty" db:"-"` // Loaded separately
+	FinalComment              string                     `json:"final_comment" db:"-"`                         // Decrypted
+	EncryptedFinalCommentID   *int64                     `json:"-" db:"encrypted_final_comment_id"`            // Reference to encrypted_records
+	DiscussionNote            string                     `json:"discussion_note,omitempty" db:"-"`             // Decrypted
+	EncryptedDiscussionNoteID *int64                     `json:"-" db:"encrypted_discussion_note_id"`          // Reference to encrypted_records
+	UserApprovedAt            *time.Time                 `json:"user_approved_at,omitempty" db:"user_approved_at"`
+	CreatedAt                 time.Time                  `json:"created_at" db:"created_at"`
+	UpdatedAt                 time.Time                  `json:"updated_at" db:"updated_at"`
+	CategoryResults           []DiscussionCategoryResult `json:"category_results,omitempty" db:"-"`
+	Reviewers                 []DiscussionReviewer       `json:"reviewers,omitempty" db:"-"`
+	Confirmations             []DiscussionConfirmation   `json:"confirmations,omitempty" db:"-"` // Discussion confirmations
 }
 
 // DiscussionCategoryResult represents per-category results in discussion
 type DiscussionCategoryResult struct {
-	ID                     uint    `json:"id" db:"id"`
-	DiscussionResultID     uint    `json:"discussion_result_id" db:"discussion_result_id"`
-	CategoryID             uint    `json:"category_id" db:"category_id"`
-	CategoryName           string  `json:"category_name,omitempty" db:"-"`
-	UserLevelID            *uint   `json:"user_level_id,omitempty" db:"user_level_id"`
-	UserLevelName          string  `json:"user_level_name,omitempty" db:"-"`
-	ReviewerLevelID        uint    `json:"reviewer_level_id" db:"reviewer_level_id"`
-	ReviewerLevelName      string  `json:"reviewer_level_name,omitempty" db:"-"`
-	ReviewerLevelNumber    float64 `json:"reviewer_level_number" db:"reviewer_level_number"`
-	JustificationEncrypted []byte  `json:"-" db:"justification_encrypted"`
-	JustificationNonce     []byte  `json:"-" db:"justification_nonce"`
-	JustificationPlain     *string `json:"justification,omitempty" db:"justification_plain"` // Combined or decrypted
-	IsOverride             bool    `json:"is_override" db:"is_override"`
+	ID                       uint    `json:"id" db:"id"`
+	DiscussionResultID       uint    `json:"discussion_result_id" db:"discussion_result_id"`
+	CategoryID               uint    `json:"category_id" db:"category_id"`
+	CategoryName             string  `json:"category_name,omitempty" db:"-"`
+	UserLevelID              *uint   `json:"user_level_id,omitempty" db:"user_level_id"`
+	UserLevelName            string  `json:"user_level_name,omitempty" db:"-"`
+	ReviewerLevelID          uint    `json:"reviewer_level_id" db:"reviewer_level_id"`
+	ReviewerLevelName        string  `json:"reviewer_level_name,omitempty" db:"-"`
+	ReviewerLevelNumber      float64 `json:"reviewer_level_number" db:"reviewer_level_number"`
+	EncryptedJustificationID *int64  `json:"-" db:"encrypted_justification_id"` // Reference to encrypted_records
+	Justification            string  `json:"justification,omitempty" db:"-"`    // Decrypted justification
+	IsOverride               bool    `json:"is_override" db:"is_override"`
 }
 
 // DiscussionReviewer represents reviewers who participated

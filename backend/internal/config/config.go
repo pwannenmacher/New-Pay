@@ -127,11 +127,13 @@ type LogConfig struct {
 
 // SchedulerConfig holds scheduler configuration
 type SchedulerConfig struct {
-	DraftReminderCron     string // e.g., "0 9 * * 1" (Monday 9 AM)
-	ReviewerSummaryCron   string // e.g., "0 8 * * *" (Daily 8 AM)
-	ReminderIntervalMins  int    // Interval in minutes for draft reminders (default: 10080 = 7 days)
-	EnableDraftReminders  bool   // Enable/disable draft reminders
-	EnableReviewerSummary bool   // Enable/disable reviewer summaries
+	DraftReminderCron         string // e.g., "0 9 * * 1" (Monday 9 AM)
+	ReviewerSummaryCron       string // e.g., "0 8 * * *" (Daily 8 AM)
+	HashChainValidationCron   string // e.g., "0 3 * * *" (Daily 3 AM)
+	ReminderIntervalMins      int    // Interval in minutes for draft reminders (default: 10080 = 7 days)
+	EnableDraftReminders      bool   // Enable/disable draft reminders
+	EnableReviewerSummary     bool   // Enable/disable reviewer summaries
+	EnableHashChainValidation bool   // Enable/disable hash chain validation
 }
 
 // VaultConfig holds Vault-related configuration
@@ -220,11 +222,13 @@ func Load() (*Config, error) {
 			Level: getEnv("LOG_LEVEL", "info"),
 		},
 		Scheduler: SchedulerConfig{
-			DraftReminderCron:     getEnv("SCHEDULER_DRAFT_REMINDER_CRON", "0 9 * * 1"),   // Monday 9 AM
-			ReviewerSummaryCron:   getEnv("SCHEDULER_REVIEWER_SUMMARY_CRON", "0 8 * * *"), // Daily 8 AM
-			ReminderIntervalMins:  getIntEnv("SCHEDULER_REMINDER_INTERVAL_MINS", 10080),   // 7 days = 10080 minutes
-			EnableDraftReminders:  getBoolEnv("SCHEDULER_ENABLE_DRAFT_REMINDERS", true),
-			EnableReviewerSummary: getBoolEnv("SCHEDULER_ENABLE_REVIEWER_SUMMARY", true),
+			DraftReminderCron:         getEnv("SCHEDULER_DRAFT_REMINDER_CRON", "0 9 * * 1"),        // Monday 9 AM
+			ReviewerSummaryCron:       getEnv("SCHEDULER_REVIEWER_SUMMARY_CRON", "0 8 * * *"),      // Daily 8 AM
+			HashChainValidationCron:   getEnv("SCHEDULER_HASH_CHAIN_VALIDATION_CRON", "0 3 * * *"), // Daily 3 AM
+			ReminderIntervalMins:      getIntEnv("SCHEDULER_REMINDER_INTERVAL_MINS", 10080),        // 7 days = 10080 minutes
+			EnableDraftReminders:      getBoolEnv("SCHEDULER_ENABLE_DRAFT_REMINDERS", true),
+			EnableReviewerSummary:     getBoolEnv("SCHEDULER_ENABLE_REVIEWER_SUMMARY", true),
+			EnableHashChainValidation: getBoolEnv("SCHEDULER_ENABLE_HASH_CHAIN_VALIDATION", true),
 		},
 		Vault: VaultConfig{
 			Address:      getEnv("VAULT_ADDR", "http://localhost:8200"),

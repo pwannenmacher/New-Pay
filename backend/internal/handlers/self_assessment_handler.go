@@ -245,17 +245,6 @@ func (h *SelfAssessmentHandler) UpdateStatus(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	// If status changes to 'review_consolidation', generate consolidation proposals
-	if req.Status == "review_consolidation" && h.consolidationService != nil {
-		go func(id uint) {
-			if err := h.consolidationService.GenerateConsolidationProposals(id); err != nil {
-				slog.Error("Failed to generate consolidation proposals", "assessmentID", id, "error", err)
-			} else {
-				slog.Info("Consolidation proposals generated", "assessmentID", id)
-			}
-		}(uint(id))
-	}
-
 	// If status changes to 'discussion', create discussion results
 	if req.Status == "discussion" && h.discussionService != nil {
 		if err := h.discussionService.CreateDiscussionResult(uint(id)); err != nil {

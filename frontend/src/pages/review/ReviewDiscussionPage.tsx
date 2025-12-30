@@ -308,7 +308,7 @@ export function ReviewDiscussionPage() {
                 placeholder="Notizen zur Besprechung hinzufügen..."
                 value={discussionComment}
                 onChange={(e) => setDiscussionComment(e.target.value)}
-                minRows={4}
+                minRows={8}
                 disabled={saving}
               />
               

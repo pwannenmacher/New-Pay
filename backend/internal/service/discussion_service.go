@@ -8,7 +8,6 @@ import (
 	"new-pay/internal/models"
 	"new-pay/internal/repository"
 	"new-pay/internal/securestore"
-	"new-pay/internal/vault"
 )
 
 type DiscussionService struct {
@@ -54,35 +53,6 @@ func NewDiscussionService(
 }
 
 // Helper functions
-
-// deriveDiscussionKey derives an encryption key for discussion data
-func (s *DiscussionService) deriveDiscussionKey(assessmentID uint) []byte {
-	keyMaterial := []byte(fmt.Sprintf("discussion-key-%d", assessmentID))
-	return vault.DeriveKey(keyMaterial, nil, "discussion-final-comment", 32)
-}
-
-// getDiscussionAdditionalData returns the additional data for encryption
-func (s *DiscussionService) getDiscussionAdditionalData(assessmentID uint) []byte {
-	return []byte(fmt.Sprintf("discussion:assessment:%d", assessmentID))
-}
-
-// encryptDiscussionComment encrypts a comment for discussion
-func (s *DiscussionService) encryptDiscussionComment(assessmentID uint, comment string) ([]byte, []byte, error) {
-	key := s.deriveDiscussionKey(assessmentID)
-	additionalData := s.getDiscussionAdditionalData(assessmentID)
-	return vault.EncryptLocal([]byte(comment), key, additionalData)
-}
-
-// decryptDiscussionComment decrypts a comment from discussion
-func (s *DiscussionService) decryptDiscussionComment(assessmentID uint, encrypted, nonce []byte) (string, error) {
-	key := s.deriveDiscussionKey(assessmentID)
-	additionalData := s.getDiscussionAdditionalData(assessmentID)
-	decrypted, err := vault.DecryptLocal(encrypted, key, nonce, additionalData)
-	if err != nil {
-		return "", err
-	}
-	return string(decrypted), nil
-}
 
 // decryptSecureStoreField decrypts a field from secure store
 func (s *DiscussionService) decryptSecureStoreField(recordID int64, fieldName string) (string, error) {
@@ -250,7 +220,7 @@ func (s *DiscussionService) CreateDiscussionResult(assessmentID uint) error {
 		// Determine reviewer level (override takes precedence)
 		var reviewerLevelID uint
 		var reviewerLevelNumber float64
-		var justificationPlain *string
+		var encryptedJustificationID *int64
 		var isOverride bool
 
 		// Check for override first
@@ -295,9 +265,26 @@ func (s *DiscussionService) CreateDiscussionResult(assessmentID uint) error {
 			}
 		}
 
-		// Use category discussion comment if available (public comment), otherwise internal notes
-		if publicComment, exists := categoryCommentMap[category.ID]; exists {
-			justificationPlain = &publicComment
+		// Encrypt category discussion comment if available (public comment)
+		if publicComment, exists := categoryCommentMap[category.ID]; exists && publicComment != "" {
+			processID := fmt.Sprintf("assessment-%d", assessmentID)
+			plainData := securestore.PlainData{
+				Fields: map[string]interface{}{
+					"justification": publicComment,
+				},
+			}
+
+			record, err := s.secureStore.CreateRecord(
+				processID,
+				int64(assessment.UserID),
+				"CATEGORY_JUSTIFICATION",
+				&plainData,
+				"",
+			)
+			if err != nil {
+				return fmt.Errorf("failed to encrypt category justification: %w", err)
+			}
+			encryptedJustificationID = &record.ID
 		}
 
 		// Add to weighted calculation
@@ -310,12 +297,12 @@ func (s *DiscussionService) CreateDiscussionResult(assessmentID uint) error {
 
 		// Create category result
 		categoryResults = append(categoryResults, models.DiscussionCategoryResult{
-			CategoryID:          category.ID,
-			UserLevelID:         userLevelID,
-			ReviewerLevelID:     reviewerLevelID,
-			ReviewerLevelNumber: reviewerLevelNumber,
-			JustificationPlain:  justificationPlain,
-			IsOverride:          isOverride,
+			CategoryID:               category.ID,
+			UserLevelID:              userLevelID,
+			ReviewerLevelID:          reviewerLevelID,
+			ReviewerLevelNumber:      reviewerLevelNumber,
+			EncryptedJustificationID: encryptedJustificationID,
+			IsOverride:               isOverride,
 		})
 	}
 
@@ -333,8 +320,25 @@ func (s *DiscussionService) CreateDiscussionResult(assessmentID uint) error {
 		}
 	}
 
-	// Encrypt final comment
-	encryptedData, nonce, err := s.encryptDiscussionComment(assessmentID, finalCons.Comment)
+	// Encrypt final comment using secureStore
+	processID := fmt.Sprintf("assessment-%d", assessmentID)
+	plainData := &securestore.PlainData{
+		Fields: map[string]interface{}{
+			"comment": finalCons.Comment,
+		},
+		Metadata: map[string]string{
+			"assessment_id": fmt.Sprintf("%d", assessmentID),
+			"type":          "final_discussion_comment",
+		},
+	}
+
+	record, err := s.secureStore.CreateRecord(
+		processID,
+		int64(assessment.UserID),
+		"FINAL_DISCUSSION_COMMENT",
+		plainData,
+		"",
+	)
 	if err != nil {
 		return fmt.Errorf("failed to encrypt final comment: %w", err)
 	}
@@ -344,8 +348,7 @@ func (s *DiscussionService) CreateDiscussionResult(assessmentID uint) error {
 		AssessmentID:            assessmentID,
 		WeightedOverallLevelNum: averageLevel,
 		WeightedOverallLevelID:  overallLevelID,
-		FinalCommentEncrypted:   encryptedData,
-		FinalCommentNonce:       nonce,
+		EncryptedFinalCommentID: &record.ID,
 	}
 
 	if err := s.discussionRepo.Create(discussionResult); err != nil {
@@ -413,10 +416,23 @@ func (s *DiscussionService) GetDiscussionResult(assessmentID uint) (*models.Disc
 		return nil, fmt.Errorf("catalog not found")
 	}
 
-	// Decrypt final comment
-	result.FinalComment, err = s.decryptDiscussionComment(assessmentID, result.FinalCommentEncrypted, result.FinalCommentNonce)
-	if err != nil {
-		return nil, fmt.Errorf("failed to decrypt final comment: %w", err)
+	// Decrypt final comment from secure store
+	if result.EncryptedFinalCommentID != nil {
+		comment, err := s.decryptSecureStoreField(*result.EncryptedFinalCommentID, "comment")
+		if err != nil {
+			return nil, fmt.Errorf("failed to decrypt final comment: %w", err)
+		}
+		result.FinalComment = comment
+
+	}
+
+	// Decrypt discussion note from secure store
+	if result.EncryptedDiscussionNoteID != nil {
+		note, err := s.decryptSecureStoreField(*result.EncryptedDiscussionNoteID, "note")
+		if err != nil {
+			return nil, fmt.Errorf("failed to decrypt discussion note: %w", err)
+		}
+		result.DiscussionNote = note
 	}
 
 	// Set weighted overall level name
@@ -430,11 +446,20 @@ func (s *DiscussionService) GetDiscussionResult(assessmentID uint) (*models.Disc
 		return nil, fmt.Errorf("failed to get category results: %w", err)
 	}
 
+	// Decrypt justifications from secure store
+	for i := range categoryResults {
+		if categoryResults[i].EncryptedJustificationID != nil {
+			justification, err := s.decryptSecureStoreField(*categoryResults[i].EncryptedJustificationID, "justification")
+			if err != nil {
+				return nil, fmt.Errorf("failed to decrypt justification: %w", err)
+			}
+			categoryResults[i].Justification = justification
+		}
+	}
+
 	// Populate category and level names
 	s.populateLevelNames(categoryResults, catalog)
 
-	// Category results already have plain text justifications stored
-	// No need to decrypt - justifications are stored as plain text in discussion results
 	result.CategoryResults = categoryResults
 
 	// Get reviewers
@@ -489,5 +514,28 @@ func (s *DiscussionService) UpdateDiscussionNote(assessmentID uint, note string)
 		return fmt.Errorf("discussion result not found")
 	}
 
-	return s.discussionRepo.UpdateDiscussionNote(result.ID, note, nil)
+	// Encrypt note using secure store if note is not empty
+	var encryptedNoteID *int64
+	if note != "" {
+		processID := fmt.Sprintf("assessment-%d", assessmentID)
+		plainData := securestore.PlainData{
+			Fields: map[string]interface{}{
+				"note": note,
+			},
+		}
+
+		record, err := s.secureStore.CreateRecord(
+			processID,
+			int64(assessment.UserID),
+			"DISCUSSION_NOTE",
+			&plainData,
+			"",
+		)
+		if err != nil {
+			return fmt.Errorf("failed to encrypt discussion note: %w", err)
+		}
+		encryptedNoteID = &record.ID
+	}
+
+	return s.discussionRepo.UpdateDiscussionNote(result.ID, encryptedNoteID, nil)
 }

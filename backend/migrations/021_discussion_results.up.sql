@@ -7,12 +7,13 @@ CREATE TABLE IF NOT EXISTS discussion_results (
     weighted_overall_level_number DECIMAL(5,2) NOT NULL,
     weighted_overall_level_id INTEGER NOT NULL REFERENCES levels(id),
     
-    -- Encrypted final comment from reviewers
-    final_comment_encrypted BYTEA NOT NULL,
-    final_comment_nonce BYTEA NOT NULL,
+    -- Encrypted final comment from reviewers (stored in encrypted_records)
+    encrypted_final_comment_id BIGINT REFERENCES encrypted_records(id) ON DELETE SET NULL,
     
-    -- Discussion note and user approval
-    discussion_note TEXT,
+    -- Encrypted discussion note from user (stored in encrypted_records)
+    encrypted_discussion_note_id BIGINT REFERENCES encrypted_records(id) ON DELETE SET NULL,
+    
+    -- User approval
     user_approved_at TIMESTAMP,
     
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -32,10 +33,8 @@ CREATE TABLE IF NOT EXISTS discussion_category_results (
     reviewer_level_id INTEGER NOT NULL REFERENCES levels(id),
     reviewer_level_number DECIMAL(5,2) NOT NULL,
     
-    -- Justification (encrypted if from override, plain text if averaged summary)
-    justification_encrypted BYTEA,
-    justification_nonce BYTEA,
-    justification_plain TEXT,
+    -- Encrypted justification (stored in encrypted_records)
+    encrypted_justification_id BIGINT REFERENCES encrypted_records(id) ON DELETE SET NULL,
     
     -- Metadata
     is_override BOOLEAN NOT NULL DEFAULT FALSE,

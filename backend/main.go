@@ -740,6 +740,20 @@ func main() {
 			),
 		),
 	)
+	mux.Handle("POST /api/v1/review/consolidation/{id}/regenerate-proposals",
+		authMw.Authenticate(
+			rbacMw.RequireRole("reviewer")(
+				http.HandlerFunc(consolidationHandler.RegenerateConsolidationProposals),
+			),
+		),
+	)
+	mux.Handle("POST /api/v1/review/consolidation/{id}/generate-final-proposal",
+		authMw.Authenticate(
+			rbacMw.RequireRole("reviewer")(
+				http.HandlerFunc(consolidationHandler.GenerateFinalConsolidationProposal),
+			),
+		),
+	)
 
 	// Discussion endpoints
 	mux.Handle("GET /api/v1/discussion/{id}",

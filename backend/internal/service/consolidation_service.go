@@ -154,7 +154,7 @@ func (s *ConsolidationService) GetConsolidationData(assessmentID uint, currentUs
 	}
 
 	// Check if current user has completed a review for this assessment
-	hasCompleteReview, err := s.hasCompleteReview(assessmentID, currentUserID)
+	hasCompleteReview, err := s.HasCompleteReview(assessmentID, currentUserID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check review completion: %w", err)
 	}
@@ -382,8 +382,8 @@ func (s *ConsolidationService) checkEditingAllowed(assessmentID uint) error {
 	return nil
 }
 
-// hasCompleteReview checks if a user has completed their review for an assessment
-func (s *ConsolidationService) hasCompleteReview(assessmentID, userID uint) (bool, error) {
+// HasCompleteReview checks if a user has completed their review for an assessment
+func (s *ConsolidationService) HasCompleteReview(assessmentID, userID uint) (bool, error) {
 	// Get assessment to find catalog
 	assessment, err := s.getAssessment(assessmentID)
 	if err != nil {
@@ -533,7 +533,7 @@ func (s *ConsolidationService) ApproveOverride(assessmentID, categoryID, userID 
 	}
 
 	// Verify user has completed their review
-	hasComplete, err := s.hasCompleteReview(assessmentID, userID)
+	hasComplete, err := s.HasCompleteReview(assessmentID, userID)
 	if err != nil {
 		return fmt.Errorf("failed to check review completion: %w", err)
 	}
@@ -562,7 +562,7 @@ func (s *ConsolidationService) ApproveOverride(assessmentID, categoryID, userID 
 // ApproveAveragedResponse approves an averaged reviewer response (when no override exists)
 func (s *ConsolidationService) ApproveAveragedResponse(assessmentID, categoryID, userID uint) error {
 	// Verify user has completed their review
-	hasComplete, err := s.hasCompleteReview(assessmentID, userID)
+	hasComplete, err := s.HasCompleteReview(assessmentID, userID)
 	if err != nil {
 		return fmt.Errorf("failed to check review completion: %w", err)
 	}
@@ -586,7 +586,7 @@ func (s *ConsolidationService) ApproveAveragedResponse(assessmentID, categoryID,
 // DeleteOverride deletes a consolidation override (any reviewer can delete)
 func (s *ConsolidationService) DeleteOverride(assessmentID, categoryID, userID uint) error {
 	// Verify user has completed their review
-	hasComplete, err := s.hasCompleteReview(assessmentID, userID)
+	hasComplete, err := s.HasCompleteReview(assessmentID, userID)
 	if err != nil {
 		return fmt.Errorf("failed to check review completion: %w", err)
 	}
@@ -620,7 +620,7 @@ func (s *ConsolidationService) RevokeOverrideApproval(assessmentID, categoryID, 
 	}
 
 	// Verify user has completed their review
-	hasComplete, err := s.hasCompleteReview(assessmentID, userID)
+	hasComplete, err := s.HasCompleteReview(assessmentID, userID)
 	if err != nil {
 		return fmt.Errorf("failed to check review completion: %w", err)
 	}
@@ -649,7 +649,7 @@ func (s *ConsolidationService) RevokeAveragedApproval(assessmentID, categoryID, 
 	}
 
 	// Verify user has completed their review
-	hasComplete, err := s.hasCompleteReview(assessmentID, userID)
+	hasComplete, err := s.HasCompleteReview(assessmentID, userID)
 	if err != nil {
 		return fmt.Errorf("failed to check review completion: %w", err)
 	}
@@ -668,7 +668,7 @@ func (s *ConsolidationService) CreateOrUpdateFinalConsolidation(assessmentID uin
 		return err
 	}
 
-	processID := fmt.Sprintf("assessment_%d", assessmentID)
+	processID := fmt.Sprintf("assessment-%d", assessmentID)
 
 	// Ensure process key exists
 	if err := s.ensureProcessKey(processID); err != nil {
@@ -725,7 +725,7 @@ func (s *ConsolidationService) ApproveFinalConsolidation(assessmentID, userID ui
 	}
 
 	// Verify user has completed their review
-	hasComplete, err := s.hasCompleteReview(assessmentID, userID)
+	hasComplete, err := s.HasCompleteReview(assessmentID, userID)
 	if err != nil {
 		return fmt.Errorf("failed to check review completion: %w", err)
 	}
@@ -810,7 +810,7 @@ func (s *ConsolidationService) RevokeFinalApproval(assessmentID, userID uint) er
 	}
 
 	// Verify user has completed their review
-	hasComplete, err := s.hasCompleteReview(assessmentID, userID)
+	hasComplete, err := s.HasCompleteReview(assessmentID, userID)
 	if err != nil {
 		return fmt.Errorf("failed to check review completion: %w", err)
 	}
@@ -839,7 +839,7 @@ func (s *ConsolidationService) SaveCategoryDiscussionComment(assessmentID, categ
 	}
 
 	// Verify user has completed their review
-	hasComplete, err := s.hasCompleteReview(assessmentID, userID)
+	hasComplete, err := s.HasCompleteReview(assessmentID, userID)
 	if err != nil {
 		return fmt.Errorf("failed to check review completion: %w", err)
 	}
@@ -856,7 +856,7 @@ func (s *ConsolidationService) saveCategoryDiscussionCommentInternal(assessmentI
 	if err != nil {
 		return err
 	}
-	processID := fmt.Sprintf("assessment_%d", assessment.ID)
+	processID := fmt.Sprintf("assessment-%d", assessment.ID)
 
 	// Store the comment in secure store
 	plainData := &securestore.PlainData{
@@ -922,7 +922,7 @@ func (s *ConsolidationService) GenerateConsolidationProposals(assessmentID uint)
 		// Get reviewer responses for this category
 		responses, err := s.reviewerRepo.GetByAssessmentAndCategory(assessmentID, category.ID)
 		if err != nil {
-			slog.Error("Failed to get reviewer responses", "error", err)
+			slog.Error("Failed to get reviewer responses", "error", err, "category_id", category.ID)
 			continue
 		}
 
@@ -941,15 +941,25 @@ func (s *ConsolidationService) GenerateConsolidationProposals(assessmentID uint)
 			}
 		}
 
+		// If no creator found (no responses), use system user ID 1 or skip
+		if creatorID == 0 {
+			slog.Warn("No reviewer responses found for category, trying to find any reviewer", "category_id", category.ID, "assessment_id", assessmentID)
+			// Try to get any reviewer who reviewed this assessment
+			allResponses, err := s.reviewerRepo.GetAllByAssessment(assessmentID)
+			if err == nil && len(allResponses) > 0 {
+				creatorID = allResponses[0].ReviewerUserID
+			}
+		}
+
 		if len(comments) == 0 {
-			slog.Info("No reviewer comments found for category", "category_id", category.ID)
+			slog.Info("No reviewer comments found for category", "category_id", category.ID, "assessment_id", assessmentID)
 			comments = append(comments, "Alle Reviewer stimmen der Einschätzung des Mitarbeiters zu.") // Default comment
 		}
 
 		// Generate summary
 		summary, err := s.llmService.SummarizeComments(comments)
 		if err != nil {
-			slog.Error("Failed to summarize comments", "error", err)
+			slog.Error("Failed to summarize comments", "error", err, "category_id", category.ID)
 			continue
 		}
 
@@ -958,8 +968,12 @@ func (s *ConsolidationService) GenerateConsolidationProposals(assessmentID uint)
 			// Prepend "Vorschlag (KI): " to indicate it's AI generated
 			summary = "Vorschlag (KI): " + summary
 			if err := s.saveCategoryDiscussionCommentInternal(assessmentID, category.ID, creatorID, summary); err != nil {
-				slog.Error("Failed to save generated proposal", "error", err)
+				slog.Error("Failed to save generated proposal", "error", err, "category_id", category.ID)
+			} else {
+				slog.Info("Successfully saved consolidation proposal", "category_id", category.ID, "assessment_id", assessmentID)
 			}
+		} else {
+			slog.Error("No creator ID available, skipping proposal save", "category_id", category.ID, "assessment_id", assessmentID)
 		}
 	}
 
@@ -977,4 +991,46 @@ func (s *ConsolidationService) GetCategoryDiscussionComments(assessmentID uint) 
 	s.decryptCategoryDiscussionComments(comments)
 
 	return comments, nil
+}
+
+// GenerateFinalConsolidationProposal generates a final consolidation comment from category comments using LLM
+func (s *ConsolidationService) GenerateFinalConsolidationProposal(assessmentID uint, userID uint) error {
+	// Get all category discussion comments
+	categoryComments, err := s.GetCategoryDiscussionComments(assessmentID)
+	if err != nil {
+		return fmt.Errorf("failed to get category comments: %w", err)
+	}
+
+	if len(categoryComments) == 0 {
+		return fmt.Errorf("no category comments found to summarize")
+	}
+
+	// Extract comment texts
+	var comments []string
+	for _, comment := range categoryComments {
+		if comment.Comment != "" {
+			comments = append(comments, comment.Comment)
+		}
+	}
+
+	if len(comments) == 0 {
+		return fmt.Errorf("no category comment texts found to summarize")
+	}
+
+	// Generate summary using LLM
+	summary, err := s.llmService.SummarizeComments(comments)
+	if err != nil {
+		return fmt.Errorf("failed to generate summary: %w", err)
+	}
+
+	// Prepend "Vorschlag (KI): " to indicate it's AI generated
+	summary = "Vorschlag (KI): " + summary
+
+	// Save as final consolidation
+	if err := s.CreateOrUpdateFinalConsolidation(assessmentID, summary, userID); err != nil {
+		return fmt.Errorf("failed to save final consolidation: %w", err)
+	}
+
+	slog.Info("Successfully generated final consolidation proposal", "assessment_id", assessmentID, "user_id", userID)
+	return nil
 }

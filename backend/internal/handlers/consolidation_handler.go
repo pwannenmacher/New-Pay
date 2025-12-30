@@ -550,3 +550,93 @@ func (h *ConsolidationHandler) SaveCategoryDiscussionComment(w http.ResponseWrit
 
 	JSONResponse(w, map[string]string{"message": "Category discussion comment saved successfully"})
 }
+
+// RegenerateConsolidationProposals manually triggers regeneration of consolidation proposals
+// @Summary Regenerate consolidation proposals
+// @Description Manually trigger LLM to regenerate consolidation proposals for all categories
+// @Tags Consolidation
+// @Security BearerAuth
+// @Param id path int true "Assessment ID"
+// @Success 200 {object} map[string]string
+// @Failure 400 {object} map[string]string "Invalid assessment ID"
+// @Failure 403 {object} map[string]string "Permission denied"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Router /review/consolidation/{id}/regenerate-proposals [post]
+func (h *ConsolidationHandler) RegenerateConsolidationProposals(w http.ResponseWriter, r *http.Request) {
+	assessmentID, err := strconv.ParseUint(r.PathValue("id"), 10, 32)
+	if err != nil {
+		http.Error(w, "Invalid assessment ID", http.StatusBadRequest)
+		return
+	}
+
+	// Get current user
+	userID, ok := middleware.GetUserID(r)
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	// Check permission (must have completed review)
+	hasComplete, err := h.consolidationService.HasCompleteReview(uint(assessmentID), userID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if !hasComplete {
+		http.Error(w, "permission denied: only reviewers who completed their review can regenerate proposals", http.StatusForbidden)
+		return
+	}
+
+	// Regenerate proposals
+	if err := h.consolidationService.GenerateConsolidationProposals(uint(assessmentID)); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	JSONResponse(w, map[string]string{"message": "Consolidation proposals regenerated successfully"})
+}
+
+// GenerateFinalConsolidationProposal generates a final consolidation comment from category comments using LLM
+// @Summary Generate final consolidation proposal
+// @Description Manually trigger LLM to generate final consolidation comment from category comments
+// @Tags Consolidation
+// @Security BearerAuth
+// @Param id path int true "Assessment ID"
+// @Success 200 {object} map[string]string
+// @Failure 400 {object} map[string]string "Invalid assessment ID"
+// @Failure 403 {object} map[string]string "Permission denied"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Router /review/consolidation/{id}/generate-final-proposal [post]
+func (h *ConsolidationHandler) GenerateFinalConsolidationProposal(w http.ResponseWriter, r *http.Request) {
+	assessmentID, err := strconv.ParseUint(r.PathValue("id"), 10, 32)
+	if err != nil {
+		http.Error(w, "Invalid assessment ID", http.StatusBadRequest)
+		return
+	}
+
+	// Get current user
+	userID, ok := middleware.GetUserID(r)
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	// Check permission (must have completed review)
+	hasComplete, err := h.consolidationService.HasCompleteReview(uint(assessmentID), userID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if !hasComplete {
+		http.Error(w, "permission denied: only reviewers who completed their review can generate final proposal", http.StatusForbidden)
+		return
+	}
+
+	// Generate final proposal
+	if err := h.consolidationService.GenerateFinalConsolidationProposal(uint(assessmentID), userID); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	JSONResponse(w, map[string]string{"message": "Final consolidation proposal generated successfully"})
+}
