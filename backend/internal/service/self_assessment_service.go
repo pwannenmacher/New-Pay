@@ -110,7 +110,7 @@ func (s *SelfAssessmentService) CreateSelfAssessment(catalogID uint, userID uint
 
 	// Check if catalog is valid for current date
 	now := time.Now()
-	if now.Before(catalog.ValidFrom) || now.After(catalog.ValidUntil) {
+	if now.Before(catalog.ValidFrom) || !now.Before(catalog.ValidUntil.Add(24*time.Hour)) {
 		return nil, fmt.Errorf("catalog is not valid for current date")
 	}
 
