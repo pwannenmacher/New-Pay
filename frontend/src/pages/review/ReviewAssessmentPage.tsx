@@ -380,9 +380,76 @@ export function ReviewAssessmentPage() {
             {activeCategories.map((category) => (
               <Tabs.Panel key={category.id} value={category.id.toString()} pt="md">
                 {activeCategoryData?.id === category.id && (
-                  <Grid>
-                    {/* Left Column: User Assessment */}
-                    <Grid.Col span={6}>
+                  <Stack gap="md">
+                    {/* Path Level Descriptions Box */}
+                    {category.paths && category.paths.length > 0 && (
+                      <Paper p="md" withBorder bg={colorScheme === 'dark' ? 'dark.6' : 'blue.0'}>
+                        <Stack gap="md">
+                          <Title order={5}>Level-Beschreibungen der Entwicklungspfade</Title>
+                          {category.paths.map((path) => (
+                            <div key={path.id}>
+                              <Group gap="xs" mb="sm">
+                                <Badge size="lg" variant="filled">
+                                  {path.name}
+                                </Badge>
+                                {path.description && (
+                                  <Text size="sm" c="dimmed">
+                                    {path.description}
+                                  </Text>
+                                )}
+                              </Group>
+                              {path.descriptions && path.descriptions.length > 0 && (
+                                <div style={{ 
+                                  display: 'flex', 
+                                  gap: '12px', 
+                                  overflowX: 'auto',
+                                  paddingBottom: '8px'
+                                }}>
+                                  {catalog.levels
+                                    ?.sort((a, b) => a.level_number - b.level_number)
+                                    .map((level) => {
+                                      const description = path.descriptions?.find(
+                                        (d) => d.level_id === level.id
+                                      );
+                                      if (!description) return null;
+                                      
+                                      return (
+                                        <Paper 
+                                          key={level.id} 
+                                          p="md" 
+                                          withBorder 
+                                          bg={colorScheme === 'dark' ? 'dark.7' : 'white'}
+                                          style={{ 
+                                            minWidth: '250px',
+                                            maxWidth: '250px',
+                                            flexShrink: 0
+                                          }}
+                                        >
+                                          <Stack gap="xs">
+                                            <Badge size="sm" variant="dot">
+                                              Level {level.level_number}
+                                            </Badge>
+                                            <Text size="sm" fw={600}>
+                                              {level.name}
+                                            </Text>
+                                            <Text size="xs" c="dimmed" style={{ lineHeight: 1.5 }}>
+                                              {description.description}
+                                            </Text>
+                                          </Stack>
+                                        </Paper>
+                                      );
+                                    })}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </Stack>
+                      </Paper>
+                    )}
+                    
+                    <Grid>
+                      {/* Left Column: User Assessment */}
+                      <Grid.Col span={6}>
                       <Paper p="md" withBorder style={{ height: '100%' }}>
                         <Stack gap="md">
                           <Title order={4}>Selbsteinschätzung des Benutzers</Title>
@@ -588,6 +655,7 @@ export function ReviewAssessmentPage() {
                       </Paper>
                     </Grid.Col>
                   </Grid>
+                  </Stack>
                 )}
               </Tabs.Panel>
             ))}
