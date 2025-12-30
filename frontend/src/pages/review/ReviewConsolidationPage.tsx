@@ -703,7 +703,9 @@ export function ReviewConsolidationPage() {
                                     withBorder
                                     style={{
                                       opacity: override?.path_id ? 1 : 0.6,
-                                      backgroundColor: override?.level_id === level.id ? '#e7f5ff' : 'white'
+                                      backgroundColor: override?.level_id === level.id 
+                                        ? (colorScheme === 'dark' ? '#1c3a52' : '#e7f5ff')
+                                        : (colorScheme === 'dark' ? 'transparent' : 'white')
                                     }}
                                   >
                                     <Radio
