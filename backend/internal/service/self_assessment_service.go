@@ -209,7 +209,7 @@ func (s *SelfAssessmentService) GetActiveCatalogs() ([]models.CriteriaCatalog, e
 	now := time.Now()
 	var validCatalogs []models.CriteriaCatalog
 	for _, catalog := range catalogs {
-		if !now.Before(catalog.ValidFrom) && !now.After(catalog.ValidUntil) {
+		if !now.Before(catalog.ValidFrom) && now.Before(catalog.ValidUntil.Add(24*time.Hour)) {
 			validCatalogs = append(validCatalogs, catalog)
 		}
 	}
