@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"fmt"
 	"log/slog"
-	"math"
 	"time"
 
 	"new-pay/internal/email"
@@ -193,8 +192,8 @@ func (s *ConsolidationService) GetConsolidationData(assessmentID uint, currentUs
 	// Decrypt reviewer justifications
 	s.decryptJustifications(reviewerResponses)
 
-	// Calculate averaged responses per category
-	averagedResponses := s.calculateAveragedResponses(reviewerResponses, catalog)
+	// Calculate averaged responses per category (without justifications for security)
+	averagedResponses := calculateAveragedResponses(reviewerResponses, catalog, false)
 
 	// Load approvals for averaged responses
 	allAveragedApprovals, err := s.averagedApprovalRepo.GetApprovalsByAssessment(assessmentID)
@@ -408,64 +407,6 @@ func (s *ConsolidationService) hasCompleteReview(assessmentID, userID uint) (boo
 	reviewedCategories := len(responses)
 
 	return reviewedCategories >= totalCategories && totalCategories > 0, nil
-}
-
-// calculateAveragedResponses calculates averaged reviewer responses per category
-func (s *ConsolidationService) calculateAveragedResponses(reviewerResponses []models.ReviewerResponse, catalog *models.CatalogWithDetails) []models.AveragedReviewerResponse {
-	// Group by category
-	categoryMap := make(map[uint][]models.ReviewerResponse)
-	categoryInfo := make(map[uint]struct {
-		Name      string
-		SortOrder int
-	})
-
-	// Store category info from catalog
-	for _, cat := range catalog.Categories {
-		categoryInfo[cat.ID] = struct {
-			Name      string
-			SortOrder int
-		}{
-			Name:      cat.Name,
-			SortOrder: cat.SortOrder,
-		}
-	}
-
-	for _, resp := range reviewerResponses {
-		categoryMap[resp.CategoryID] = append(categoryMap[resp.CategoryID], resp)
-	}
-
-	var averaged []models.AveragedReviewerResponse
-	for categoryID, responses := range categoryMap {
-		if len(responses) == 0 {
-			continue
-		}
-
-		// Calculate average level number
-		var sum float64
-		for _, resp := range responses {
-			// Find level number from catalog
-			levelNumber := findLevelNumber(catalog, resp.LevelID)
-			sum += float64(levelNumber)
-		}
-
-		avgLevelNumber := sum / float64(len(responses))
-
-		// Find closest level name
-		avgLevelName := findClosestLevelName(catalog, avgLevelNumber)
-
-		info := categoryInfo[categoryID]
-		averaged = append(averaged, models.AveragedReviewerResponse{
-			CategoryID:         categoryID,
-			CategoryName:       info.Name,
-			CategorySortOrder:  info.SortOrder,
-			AverageLevelNumber: math.Round(avgLevelNumber*100) / 100, // Round to 2 decimals
-			AverageLevelName:   avgLevelName,
-			ReviewerCount:      len(responses),
-			// ReviewerJustifications intentionally omitted for security - reviewers should not see each other's comments
-		})
-	}
-
-	return averaged
 }
 
 // CreateOrUpdateOverride creates or updates a consolidation override with encryption

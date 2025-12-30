@@ -460,6 +460,7 @@ export function ReviewConsolidationPage() {
             <div>
               <Text size="sm" fw={600}>Gewichtete Gesamtbewertung</Text>
               <Text size="xs" c="dimmed">Basierend auf den gemittelten Reviewer-Bewertungen</Text>
+              <Text size="xs" c="dimmed" fs="italic">(Nur Reviewer mit vollständigen Bewertungen)</Text>
             </div>
             <Badge size="xl" color="blue">
               {overallAverage.name} ({overallAverage.number.toFixed(2)})
@@ -576,7 +577,10 @@ export function ReviewConsolidationPage() {
                                 {averagedResponse.average_level_name} ({averagedResponse.average_level_number.toFixed(2)})
                               </Badge>
                               <Text size="xs" c="dimmed" mt={4}>
-                                Basierend auf {averagedResponse.reviewer_count} Review(s)
+                                Basierend auf {averagedResponse.reviewer_count} vollständige(n) Review(s)
+                              </Text>
+                              <Text size="xs" c="dimmed" fs="italic">
+                                (Nur Reviewer, die alle Kategorien bewertet haben)
                               </Text>
                             </div>
 

@@ -186,8 +186,8 @@ func (s *DiscussionService) CreateDiscussionResult(assessmentID uint) error {
 		}
 	}
 
-	// Calculate averaged responses per category
-	averagedResponses := s.calculateAveragedResponses(allReviewerResponses, catalog)
+	// Calculate averaged responses per category (with justifications for discussion freezing)
+	averagedResponses := calculateAveragedResponses(allReviewerResponses, catalog, true)
 
 	// Get final consolidation
 	finalCons, err := s.finalConsRepo.GetByAssessment(assessmentID)
@@ -380,70 +380,6 @@ func (s *DiscussionService) CreateDiscussionResult(assessmentID uint) error {
 
 	slog.Info("Discussion result created successfully", "assessment_id", assessmentID, "discussion_result_id", discussionResult.ID)
 	return nil
-}
-
-// calculateAveragedResponses calculates averaged reviewer responses per category
-func (s *DiscussionService) calculateAveragedResponses(reviewerResponses []models.ReviewerResponse, catalog *models.CatalogWithDetails) []models.AveragedReviewerResponse {
-	// Group by category
-	categoryMap := make(map[uint][]models.ReviewerResponse)
-	categoryInfo := make(map[uint]struct {
-		Name      string
-		SortOrder int
-	})
-
-	// Store category info from catalog
-	for _, cat := range catalog.Categories {
-		categoryInfo[cat.ID] = struct {
-			Name      string
-			SortOrder int
-		}{
-			Name:      cat.Name,
-			SortOrder: cat.SortOrder,
-		}
-	}
-
-	for _, resp := range reviewerResponses {
-		categoryMap[resp.CategoryID] = append(categoryMap[resp.CategoryID], resp)
-	}
-
-	var averaged []models.AveragedReviewerResponse
-	for categoryID, responses := range categoryMap {
-		if len(responses) == 0 {
-			continue
-		}
-
-		// Calculate average level number
-		var sum float64
-		var justifications []string
-
-		for _, resp := range responses {
-			// Find level number from catalog
-			levelNumber := findLevelNumber(catalog, resp.LevelID)
-			sum += float64(levelNumber)
-
-			// Collect justifications if present
-			if resp.Justification != "" {
-				justifications = append(justifications, resp.Justification)
-			}
-		}
-
-		avgLevelNumber := sum / float64(len(responses))
-
-		avgLevelName := findClosestLevelName(catalog, avgLevelNumber)
-
-		info := categoryInfo[categoryID]
-		averaged = append(averaged, models.AveragedReviewerResponse{
-			CategoryID:             categoryID,
-			CategoryName:           info.Name,
-			CategorySortOrder:      info.SortOrder,
-			AverageLevelNumber:     math.Round(avgLevelNumber*100) / 100, // Round to 2 decimals
-			AverageLevelName:       avgLevelName,
-			ReviewerCount:          len(responses),
-			ReviewerJustifications: justifications, // Include all justifications for discussion freezing
-		})
-	}
-
-	return averaged
 }
 
 // GetDiscussionResult retrieves discussion result with all data

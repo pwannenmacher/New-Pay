@@ -261,6 +261,9 @@ export function ReviewDiscussionPage() {
                   <Text size="xs" c="dimmed" mt="xs">
                     (Durchschnitt: {data.weighted_overall_level_number.toFixed(2)})
                   </Text>
+                  <Text size="xs" c="dimmed" fs="italic">
+                    Nur vollständige Reviews
+                  </Text>
                 </div>
               </Stack>
             </Grid.Col>
