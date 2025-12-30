@@ -345,6 +345,12 @@ func (h *SelfAssessmentHandler) GetAllSelfAssessmentsAdmin(w http.ResponseWriter
 // @Failure 403 {object} map[string]string "Forbidden"
 // @Router /review/open-assessments [get]
 func (h *SelfAssessmentHandler) GetOpenAssessmentsForReview(w http.ResponseWriter, r *http.Request) {
+	userID, ok := middleware.GetUserID(r)
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
 	userRoles, ok := middleware.GetUserRoles(r)
 	if !ok {
 		userRoles = []string{}
@@ -352,10 +358,14 @@ func (h *SelfAssessmentHandler) GetOpenAssessmentsForReview(w http.ResponseWrite
 
 	// Check if user is reviewer or admin
 	isReviewer := false
+	isAdmin := false
 	for _, role := range userRoles {
-		if role == "reviewer" || role == "admin" {
+		if role == "reviewer" {
 			isReviewer = true
-			break
+		}
+		if role == "admin" {
+			isAdmin = true
+			isReviewer = true
 		}
 	}
 	if !isReviewer {
@@ -397,7 +407,7 @@ func (h *SelfAssessmentHandler) GetOpenAssessmentsForReview(w http.ResponseWrite
 		}
 	}
 
-	assessments, err := h.selfAssessmentService.GetOpenAssessmentsForReview(catalogID, username, status, fromDate, toDate, fromSubmittedDate, toSubmittedDate)
+	assessments, err := h.selfAssessmentService.GetOpenAssessmentsForReview(userID, isAdmin, catalogID, username, status, fromDate, toDate, fromSubmittedDate, toSubmittedDate)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

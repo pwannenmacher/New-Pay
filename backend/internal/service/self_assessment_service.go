@@ -228,10 +228,19 @@ func (s *SelfAssessmentService) GetAllSelfAssessmentsWithFiltersAndDetails(statu
 }
 
 // GetOpenAssessmentsForReview retrieves open assessments for reviewers with filters
-func (s *SelfAssessmentService) GetOpenAssessmentsForReview(catalogID *int, username string, status string, fromDate, toDate, fromSubmittedDate, toSubmittedDate *time.Time) ([]models.SelfAssessmentWithDetails, error) {
+// Filters out assessments in review_consolidation or later phases if reviewer has not completed their review
+func (s *SelfAssessmentService) GetOpenAssessmentsForReview(userID uint, isAdmin bool, catalogID *int, username string, status string, fromDate, toDate, fromSubmittedDate, toSubmittedDate *time.Time) ([]models.SelfAssessmentWithDetails, error) {
 	assessments, err := s.selfAssessmentRepo.GetOpenAssessmentsForReview(catalogID, username, status, fromDate, toDate, fromSubmittedDate, toSubmittedDate)
 	if err != nil {
 		return nil, err
+	}
+
+	// Filter assessments based on review completion (only for non-admin reviewers)
+	if !isAdmin {
+		assessments, err = s.filterAssessmentsByReviewCompletion(assessments, userID)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	// Add review statistics to each assessment
@@ -241,10 +250,19 @@ func (s *SelfAssessmentService) GetOpenAssessmentsForReview(catalogID *int, user
 }
 
 // GetCompletedAssessmentsForReview retrieves archived assessments for reviewers with filters
+// Filters out assessments in review_consolidation or later phases if reviewer has not completed their review
 func (s *SelfAssessmentService) GetCompletedAssessmentsForReview(userID uint, isAdmin bool, catalogID *int, username string, fromDate, toDate, fromSubmittedDate, toSubmittedDate *time.Time) ([]models.SelfAssessmentWithDetails, error) {
 	assessments, err := s.selfAssessmentRepo.GetCompletedAssessmentsForReview(userID, isAdmin, catalogID, username, fromDate, toDate, fromSubmittedDate, toSubmittedDate)
 	if err != nil {
 		return nil, err
+	}
+
+	// Filter assessments based on review completion (only for non-admin reviewers)
+	if !isAdmin {
+		assessments, err = s.filterAssessmentsByReviewCompletion(assessments, userID)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	// Add review statistics to each assessment
@@ -696,6 +714,70 @@ func (s *SelfAssessmentService) CalculateWeightedScore(userID uint, assessmentID
 		LevelNumber:     overallLevelNumber,
 		IsComplete:      hasAllResponses,
 	}, nil
+}
+
+// filterAssessmentsByReviewCompletion filters out assessments in review_consolidation or later phases
+// if the reviewer has not completed their review for that assessment
+func (s *SelfAssessmentService) filterAssessmentsByReviewCompletion(assessments []models.SelfAssessmentWithDetails, reviewerUserID uint) ([]models.SelfAssessmentWithDetails, error) {
+	var filtered []models.SelfAssessmentWithDetails
+
+	consolidationPhases := map[string]bool{
+		"review_consolidation": true,
+		"reviewed":             true,
+		"discussion":           true,
+		"archived":             true,
+	}
+
+	for _, assessment := range assessments {
+		// If assessment is in consolidation phase or later, check if reviewer completed their review
+		if consolidationPhases[assessment.Status] {
+			// Check if reviewer has completed all categories
+			hasComplete, err := s.hasCompleteReview(assessment.ID, reviewerUserID)
+			if err != nil {
+				return nil, err
+			}
+
+			// Only include if reviewer has complete review
+			if hasComplete {
+				filtered = append(filtered, assessment)
+			}
+		} else {
+			// For other statuses, include the assessment
+			filtered = append(filtered, assessment)
+		}
+	}
+
+	return filtered, nil
+}
+
+// hasCompleteReview checks if a reviewer has completed their review for an assessment
+func (s *SelfAssessmentService) hasCompleteReview(assessmentID, reviewerUserID uint) (bool, error) {
+	// Get assessment to find catalog
+	assessment, err := s.selfAssessmentRepo.GetByID(assessmentID)
+	if err != nil {
+		return false, err
+	}
+	if assessment == nil {
+		return false, fmt.Errorf("assessment not found")
+	}
+
+	// Get categories for this catalog
+	categories, err := s.catalogRepo.GetCategoriesByCatalogID(assessment.CatalogID)
+	if err != nil {
+		return false, err
+	}
+
+	totalCategories := len(categories)
+
+	// Get reviewer's responses
+	responses, err := s.reviewerRepo.GetByAssessmentAndReviewer(assessmentID, reviewerUserID)
+	if err != nil {
+		return false, err
+	}
+
+	reviewedCategories := len(responses)
+
+	return reviewedCategories >= totalCategories && totalCategories > 0, nil
 }
 
 // SubmitAssessment submits an assessment for review (changes status from draft to submitted)
