@@ -326,7 +326,7 @@ export default function SelfAssessmentsAdminPage() {
                     <Table.Td>{formatDate(assessment.updated_at)}</Table.Td>
                     <Table.Td>
                       <Group gap="xs">
-                        {assessment.status !== 'closed' && (
+                        {assessment.status !== 'closed' && assessment.status !== 'archived' && (
                           <Button
                             size="xs"
                             variant="light"

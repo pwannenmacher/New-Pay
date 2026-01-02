@@ -287,6 +287,11 @@ func (s *SelfAssessmentService) UpdateSelfAssessmentStatus(assessmentID uint, ne
 	isAdmin := contains(userRoles, "admin")
 	isReviewer := contains(userRoles, "reviewer")
 
+	// Archived assessments cannot be closed
+	if oldStatus == "archived" && newStatus == "closed" {
+		return fmt.Errorf("cannot close archived self-assessments")
+	}
+
 	// Check ownership for draft/submitted transitions
 	// Only owners can submit their assessments
 	if newStatus == "submitted" && !isOwner {
@@ -425,6 +430,10 @@ func (s *SelfAssessmentService) DeleteSelfAssessment(assessmentID uint, userID u
 	}
 
 	// Can only delete if closed and never submitted
+	// Archived assessments cannot be deleted
+	if assessment.Status == "archived" {
+		return fmt.Errorf("cannot delete archived self-assessments")
+	}
 	if assessment.Status != "closed" {
 		return fmt.Errorf("can only delete closed self-assessments")
 	}
