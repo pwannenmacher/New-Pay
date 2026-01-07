@@ -1,11 +1,41 @@
 # Production Deployment
 
-## Voraussetzungen
+## Quick Start with Interactive Setup
 
-- Docker Engine 20.10+
+**Recommended:** Use the interactive setup script that handles everything automatically:
+
+```bash
+cd docker/production
+./setup.sh
+```
+
+The script will guide you through:
+
+- ✅ Generating secure secrets and JWT keys
+- ✅ Configuring database credentials
+- ✅ Setting up SMTP for email
+- ✅ Configuring OAuth/SSO providers (optional)
+- ✅ Initializing HashiCorp Vault
+- ✅ Configuring LLM/AI features (optional)
+- ✅ Creating the production `.env` file
+
+After setup completes, start the stack:
+
+```bash
+docker compose up -d
+```
+
+---
+
+## Manual Setup (Alternative)
+
+If you prefer manual configuration:
+
+### Voraussetzungen
+
 - Docker Compose V2
 - 4GB RAM
-- 20GB Speicherplatz
+- 2GB Speicherplatz
 - Domain mit DNS-Eintrag
 
 ## Setup
@@ -19,6 +49,7 @@ nano .env
 ```
 
 Ändern:
+
 - `DB_PASSWORD`
 - `JWT_SECRET` (siehe unten)
 - `SMTP_*`
@@ -116,6 +147,7 @@ sudo ufw enable
 ```
 
 Checkliste:
+
 - Sichere Passwörter (DB, SMTP)
 - JWT Key sicher aufbewahren
 - Vault Keys an verschiedenen Orten
