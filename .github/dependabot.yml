@@ -54,6 +54,55 @@ updates:
     commit-message:
       prefix: "chore(docker)"
 
+  # Docker compose files in docker directories
+  - package-ecosystem: "docker"
+    directory: "/docker/development"
+    schedule:
+      interval: "daily"
+      time: "22:00"
+    labels:
+      - "dependencies"
+      - "docker"
+      - "development"
+    commit-message:
+      prefix: "chore(docker)"
+
+  - package-ecosystem: "docker"
+    directory: "/docker/production"
+    schedule:
+      interval: "daily"
+      time: "22:00"
+    labels:
+      - "dependencies"
+      - "docker"
+      - "production"
+    commit-message:
+      prefix: "chore(docker)"
+
+  - package-ecosystem: "docker"
+    directory: "/docker/vault"
+    schedule:
+      interval: "daily"
+      time: "22:00"
+    labels:
+      - "dependencies"
+      - "docker"
+      - "vault"
+    commit-message:
+      prefix: "chore(docker)"
+
+  - package-ecosystem: "docker"
+    directory: "/docker/llm"
+    schedule:
+      interval: "daily"
+      time: "22:00"
+    labels:
+      - "dependencies"
+      - "docker"
+      - "llm"
+    commit-message:
+      prefix: "chore(docker)"
+
   # GitHub Actions
   - package-ecosystem: "github-actions"
     directory: "/"
