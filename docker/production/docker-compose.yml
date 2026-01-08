@@ -89,7 +89,7 @@ services:
   vault:
     image: hashicorp/vault:1.21
     container_name: newpay-vault-prod
-    restart: always
+    restart: unless-stopped
     environment:
       VAULT_ADDR: http://0.0.0.0:8200
       VAULT_API_ADDR: http://0.0.0.0:8200
