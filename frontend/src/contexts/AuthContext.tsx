@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
 import type { User, LoginRequest, RegisterRequest } from '../types';
 import { authApi, tokenService } from '../services/api';
+import { useAppConfig } from './AppConfigContext';
 
 interface AuthContextType {
   user: User | null;
@@ -21,6 +22,7 @@ interface AuthProviderProps {
 export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const { refetch: refetchAppConfig } = useAppConfig();
 
   useEffect(() => {
     // Check if user is already logged in on mount
@@ -83,6 +85,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     } finally {
       tokenService.clearTokens();
       setUser(null);
+      // Refetch app config after logout to update registration availability
+      await refetchAppConfig();
     }
   };
 
