@@ -51,10 +51,12 @@ ask_question() {
     local response
     
     if [ -n "$default" ]; then
-        read -p "$(echo -e ${GREEN}?${NC}) $question [${YELLOW}$default${NC}]: " response
+        echo -ne "${GREEN}?${NC} $question [${YELLOW}$default${NC}]: " >&2
+        read response
         echo "${response:-$default}"
     else
-        read -p "$(echo -e ${GREEN}?${NC}) $question: " response
+        echo -ne "${GREEN}?${NC} $question: " >&2
+        read response
         echo "$response"
     fi
 }
@@ -63,8 +65,9 @@ ask_password() {
     local question="$1"
     local response
     
-    read -s -p "$(echo -e ${GREEN}?${NC}) $question: " response
-    echo ""
+    echo -ne "${GREEN}?${NC} $question: " >&2
+    read -s response
+    echo "" >&2
     echo "$response"
 }
 
@@ -74,10 +77,12 @@ ask_yes_no() {
     local response
     
     if [ "$default" = "y" ]; then
-        read -p "$(echo -e ${GREEN}?${NC}) $question [${YELLOW}Y/n${NC}]: " response
+        echo -ne "${GREEN}?${NC} $question [${YELLOW}Y/n${NC}]: " >&2
+        read response
         response=${response:-y}
     else
-        read -p "$(echo -e ${GREEN}?${NC}) $question [${YELLOW}y/N${NC}]: " response
+        echo -ne "${GREEN}?${NC} $question [${YELLOW}y/N${NC}]: " >&2
+        read response
         response=${response:-n}
     fi
     
@@ -275,11 +280,10 @@ EOF
     # LLM Configuration
     print_header "LLM Configuration (Optional)"
     
-    if ask_yes_no "Enable LLM/AI features (requires Ollama)?" "n"; then
+    if ask_yes_no "Enable LLM/AI features (requires Ollama, approximately 4.5 GB Model data will be downloaded if llama3 is selected)?" "n"; then
         LLM_ENABLED="true"
         LLM_MODEL=$(ask_question "LLM model name" "llama3")
-        print_info "Note: The Ollama service will be started automatically."
-        print_info "After setup, pull the model: docker exec newpay-ollama-prod ollama pull $LLM_MODEL"
+        print_info "Note: The LLM model will be downloaded after Vault initialization."
     else
         LLM_ENABLED="false"
         LLM_MODEL="llama3"
@@ -438,29 +442,59 @@ LLM_MODEL=${LLM_MODEL}
 # -----------------------------------------------------------------------------
 # Frontend Configuration
 # -----------------------------------------------------------------------------
-VITE_API_URL=${PROTOCOL}://${DOMAIN}
+VITE_API_BASE_URL=/api/v1
 EOF
 
     print_success ".env file created"
     
+    # Pull Images
+    print_header "Pulling Docker Images"
+    docker compose pull
+    print_success "Docker images pulled successfully"
+
+    # Build Images
+    print_header "Building Docker Images"
+    docker compose build frontend api
+
     # Vault Initialization
     print_header "HashiCorp Vault Initialization"
     
     print_info "Starting Vault service for initialization..."
     docker compose up -d vault
-    
+
     print_info "Waiting for Vault to be ready..."
-    sleep 10
+    sleep 15
+
+    print_info "Fixing Vault Volume permissions..."
+    docker compose exec -T vault chown -R vault:vault /vault/data /vault/logs /vault/file
     
-    if docker compose exec -T vault vault status 2>/dev/null | grep -q "Sealed.*true"; then
+    # Check if Vault is already initialized
+    if docker compose exec -T vault vault status 2>/dev/null | grep -q "Initialized.*false"; then
         print_info "Initializing Vault..."
         
         # Initialize Vault and capture output
         VAULT_INIT_OUTPUT=$(docker compose exec -T vault vault operator init -key-shares=1 -key-threshold=1 -format=json)
         
-        UNSEAL_KEY=$(echo "$VAULT_INIT_OUTPUT" | grep -o '"unseal_keys_b64":\["[^"]*"' | cut -d'"' -f4)
-        ROOT_TOKEN=$(echo "$VAULT_INIT_OUTPUT" | grep -o '"root_token":"[^"]*"' | cut -d'"' -f4)
+        # Parse JSON output using Python (more reliable than grep)
+        if command -v python3 >/dev/null 2>&1; then
+            UNSEAL_KEY=$(echo "$VAULT_INIT_OUTPUT" | python3 -c "import sys, json; print(json.load(sys.stdin)['unseal_keys_b64'][0])")
+            ROOT_TOKEN=$(echo "$VAULT_INIT_OUTPUT" | python3 -c "import sys, json; print(json.load(sys.stdin)['root_token'])")
+        else
+            # Fallback to sed/awk parsing
+            UNSEAL_KEY=$(echo "$VAULT_INIT_OUTPUT" | sed -n 's/.*"unseal_keys_b64":\["\([^"]*\)".*/\1/p')
+            ROOT_TOKEN=$(echo "$VAULT_INIT_OUTPUT" | sed -n 's/.*"root_token":"\([^"]*\)".*/\1/p')
+        fi
         
+        if [ -z "$UNSEAL_KEY" ] || [ -z "$ROOT_TOKEN" ]; then
+            print_error "Failed to parse Vault initialization output"
+            echo "Raw output:" >&2
+            echo "$VAULT_INIT_OUTPUT" >&2
+            exit 1
+        fi
+        
+        print_success "Vault initialized"
+        print_info "Unsealing Vault..."
+
         # Unseal Vault
         docker compose exec -T vault vault operator unseal "$UNSEAL_KEY" > /dev/null
         
@@ -495,6 +529,115 @@ EOF
         print_warning "Vault credentials saved to: vault-credentials.txt"
         print_warning "IMPORTANT: Store these credentials securely and delete the file!"
         
+        # Create auto-unseal script
+        print_info "Creating auto-unseal script..."
+        cat > auto-unseal.sh << 'EOFSCRIPT'
+#!/bin/bash
+# ============================================================================
+# Vault Auto-Unseal Script for NewPay Production
+# ============================================================================
+# WARNUNG: Dieses Skript enthält sensible Vault-Credentials!
+# - Nur in sicherer Umgebung verwenden
+# - Berechtigungen: chmod 600 auto-unseal.sh
+# - Niemals in Git committen
+# ============================================================================
+
+set -e
+
+# Vault Configuration
+VAULT_ADDR="${VAULT_ADDR:-http://localhost:8200}"
+CONTAINER_NAME="${VAULT_CONTAINER:-newpay-vault-prod}"
+
+# Vault Credentials (auto-generated by setup.sh)
+EOFSCRIPT
+        echo "UNSEAL_KEY=\"${UNSEAL_KEY}\"" >> auto-unseal.sh
+        echo "ROOT_TOKEN=\"${ROOT_TOKEN}\"" >> auto-unseal.sh
+        cat >> auto-unseal.sh << 'EOFSCRIPT'
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+print_info() {
+    echo -e "${BLUE}ℹ${NC} $1"
+}
+
+print_success() {
+    echo -e "${GREEN}✓${NC} $1"
+}
+
+print_error() {
+    echo -e "${RED}✗${NC} $1"
+}
+
+print_warning() {
+    echo -e "${YELLOW}⚠${NC} $1"
+}
+
+print_info "Starting Vault auto-unseal process..."
+
+# Check if container is running
+if ! docker ps | grep -q "$CONTAINER_NAME"; then
+    print_error "Vault container is not running: $CONTAINER_NAME"
+    print_info "Start it with: docker compose up -d vault"
+    exit 1
+else
+    print_info "Vault container is running: $CONTAINER_NAME"
+fi
+
+STATUS=$(docker compose exec -T vault vault status -format=json 2>&1) || true
+
+SEALED=$(echo "$STATUS" | jq -r '.sealed // true' 2>/dev/null)
+
+print_info "Vault Sealed: $SEALED"
+
+INITIALIZED=$(echo "$STATUS" | jq -r '.initialized // false' 2>/dev/null)
+
+print_info "Vault Initialized: $INITIALIZED"
+
+# Check if Vault is initialized
+if [ "$INITIALIZED" = "False" ] || [ "$INITIALIZED" = "false" ]; then
+    print_error "Vault is not initialized"
+    print_info "Initialize it with: docker compose exec -it vault vault operator init"
+    exit 1
+fi
+
+# Check if already unsealed
+if [ "$SEALED" = "False" ] || [ "$SEALED" = "false" ]; then
+    print_success "Vault is already unsealed"
+    exit 0
+fi
+
+# Unseal Vault
+print_info "Unsealing Vault..."
+if docker compose exec -T vault vault operator unseal "$UNSEAL_KEY" > /dev/null 2>&1; then
+    print_success "Vault unsealed successfully"
+else
+    print_error "Failed to unseal Vault"
+    exit 1
+fi
+
+# Verify unsealed status
+sleep 1
+STATUS=$(docker compose exec -T vault vault status -format=json 2>/dev/null || echo '{}')
+SEALED=$(echo "$STATUS" | python3 -c "import sys, json; print(json.load(sys.stdin).get('sealed', True))" 2>/dev/null || echo "true")
+
+if [ "$SEALED" = "False" ] || [ "$SEALED" = "false" ]; then
+    print_success "Vault is now operational"
+else
+    print_error "Vault unsealing verification failed"
+    exit 1
+fi
+EOFSCRIPT
+        
+        chmod 600 auto-unseal.sh
+        chmod +x auto-unseal.sh
+        print_success "Auto-unseal script created: auto-unseal.sh"
+        print_warning "IMPORTANT: This script contains sensitive credentials!"
+        
         # Enable transit engine
         print_info "Enabling Vault transit engine for encryption..."
         docker compose exec -T vault sh -c "export VAULT_TOKEN=${ROOT_TOKEN} && vault secrets enable transit" > /dev/null 2>&1 || true
@@ -503,6 +646,25 @@ EOF
     else
         print_warning "Vault appears to be already initialized"
         print_info "Please set VAULT_TOKEN manually in .env file"
+    fi
+    
+    # Download LLM model if enabled
+    if [ "$LLM_ENABLED" = "true" ]; then
+        print_header "LLM Model Download"
+        
+        print_info "Starting Ollama service..."
+        docker compose up -d ollama
+        
+        print_info "Waiting for Ollama to be ready..."
+        sleep 10
+        
+        print_info "Downloading LLM model: ${LLM_MODEL} (this may take several minutes)..."
+        if docker compose exec -T ollama ollama pull "${LLM_MODEL}"; then
+            print_success "LLM model ${LLM_MODEL} downloaded successfully"
+        else
+            print_warning "Failed to download LLM model. You can pull it manually later with:"
+            print_warning "docker compose exec ollama ollama pull ${LLM_MODEL}"
+        fi
     fi
     
     # Stop Vault
@@ -527,17 +689,13 @@ EOF
     echo "  1. Review the .env file and make any necessary adjustments"
     echo "  2. Securely store Vault credentials from vault-credentials.txt"
     echo "  3. Delete vault-credentials.txt after storing credentials"
-    if [ "$LLM_ENABLED" = "true" ]; then
-        echo "  4. Start the stack: docker compose up -d"
-        echo "  5. Pull the LLM model: docker exec newpay-ollama-prod ollama pull ${LLM_MODEL}"
-    else
-        echo "  4. Start the stack: docker compose up -d"
-    fi
-    echo "  $([ "$LLM_ENABLED" = "true" ] && echo "6" || echo "5"). Access the application at: ${PROTOCOL}://${DOMAIN}"
+    echo "  4. Start the stack: docker compose up -d"
+    echo "  5. Access the application at: ${PROTOCOL}://${DOMAIN}"
     echo ""
     print_warning "Security reminders:"
-    echo "  • Never commit .env or vault-credentials.txt to version control"
+    echo "  • Never commit .env, vault-credentials.txt, or auto-unseal.sh to version control"
     echo "  • Regularly backup your Vault unseal key and root token"
+    echo "  • auto-unseal.sh contains sensitive credentials - protect it (chmod 600 set)"
     echo "  • Set up Vault auto-unseal for production (see vault-config.hcl)"
     echo "  • Consider using a proper SSL/TLS certificate for ${DOMAIN}"
     echo ""
