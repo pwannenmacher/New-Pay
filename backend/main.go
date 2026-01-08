@@ -180,7 +180,7 @@ func main() {
 	userHandler := handlers.NewUserHandler(userRepo, roleRepo, auditMw, authSvc)
 	auditHandler := handlers.NewAuditHandler(auditRepo)
 	sessionHandler := handlers.NewSessionHandler(sessionRepo, authSvc, auditMw, db.DB)
-	configHandler := handlers.NewConfigHandler(cfg)
+	configHandler := handlers.NewConfigHandler(cfg, authSvc)
 	catalogHandler := handlers.NewCatalogHandler(catalogService, auditMw)
 	selfAssessmentHandler := handlers.NewSelfAssessmentHandler(selfAssessmentService, discussionService, discussionConfirmationRepo, selfAssessmentRepo, consolidationService)
 	reviewerHandler := handlers.NewReviewerHandler(reviewerService, selfAssessmentRepo, discussionService)

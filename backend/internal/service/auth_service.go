@@ -657,7 +657,7 @@ func timePtr(t time.Time) *time.Time {
 }
 
 // assignInitialRole assigns the appropriate role to a user based on whether they're the first user.
-// the first user gets admin role, subsequent users get user role
+// the first user gets all three roles (admin, reviewer, user), subsequent users get user role only
 func (s *AuthService) assignInitialRole(userID uint, email string) {
 	// Check if this is the first user in the system
 	userCount, err := s.userRepo.CountAll()
@@ -666,23 +666,31 @@ func (s *AuthService) assignInitialRole(userID uint, email string) {
 		return
 	}
 
-	// Assign role: first user gets admin, others get user role
-	var roleName string
+	// Assign roles: first user gets all three roles, others get user role only
 	if userCount == 1 {
-		roleName = "admin"
-		slog.Info("Assigning admin role to first user", "email", email)
+		slog.Info("Assigning all roles (admin, reviewer, user) to first user", "email", email)
+		// Assign all three roles to the first user
+		roleNames := []string{"admin", "reviewer", "user"}
+		for _, roleName := range roleNames {
+			role, err := s.roleRepo.GetByName(roleName)
+			if err != nil {
+				slog.Error("Failed to find role", "role", roleName, "error", err)
+				continue
+			}
+			if err := s.userRepo.AssignRole(userID, role.ID); err != nil {
+				slog.Error("Failed to assign role to user", "role", roleName, "user_id", userID, "error", err)
+			}
+		}
 	} else {
-		roleName = "user"
-	}
-
-	role, err := s.roleRepo.GetByName(roleName)
-	if err != nil {
-		slog.Error("Failed to find role", "role", roleName, "error", err)
-		return
-	}
-
-	if err := s.userRepo.AssignRole(userID, role.ID); err != nil {
-		slog.Error("Failed to assign role to user", "role", roleName, "user_id", userID, "error", err)
+		// Assign only user role to subsequent users
+		role, err := s.roleRepo.GetByName("user")
+		if err != nil {
+			slog.Error("Failed to find role", "role", "user", "error", err)
+			return
+		}
+		if err := s.userRepo.AssignRole(userID, role.ID); err != nil {
+			slog.Error("Failed to assign role to user", "role", "user", "user_id", userID, "error", err)
+		}
 	}
 }
 

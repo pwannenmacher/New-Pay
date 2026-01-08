@@ -8,13 +8,20 @@ import (
 
 // ConfigHandler handles configuration requests
 type ConfigHandler struct {
-	config *config.Config
+	config      *config.Config
+	authService AuthServiceInterface
+}
+
+// AuthServiceInterface defines the methods needed from AuthService
+type AuthServiceInterface interface {
+	CountAllUsers() (int, error)
 }
 
 // NewConfigHandler creates a new config handler
-func NewConfigHandler(cfg *config.Config) *ConfigHandler {
+func NewConfigHandler(cfg *config.Config, authService AuthServiceInterface) *ConfigHandler {
 	return &ConfigHandler{
-		config: cfg,
+		config:      cfg,
+		authService: authService,
 	}
 }
 
@@ -68,8 +75,19 @@ func (h *ConfigHandler) GetAppConfig(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Check if registration should be enabled
+	// Registration is always enabled if no users exist (for first user)
+	enableRegistration := h.config.App.EnableRegistration
+	if !enableRegistration {
+		// Check if database is empty - if yes, allow registration for first user
+		userCount, err := h.authService.CountAllUsers()
+		if err == nil && userCount == 0 {
+			enableRegistration = true
+		}
+	}
+
 	appConfig := map[string]interface{}{
-		"enable_registration":       h.config.App.EnableRegistration,
+		"enable_registration":       enableRegistration,
 		"enable_oauth_registration": h.config.App.EnableOAuthRegistration,
 	}
 
