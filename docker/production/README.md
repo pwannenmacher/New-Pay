@@ -54,7 +54,7 @@ nano .env
 - `JWT_SECRET` (siehe unten)
 - `SMTP_*`
 - `VAULT_TOKEN` (nach Vault-Init)
-- `VITE_API_URL`
+- `VITE_API_BASE_URL`
 
 ### 2. JWT Key
 
