@@ -808,7 +808,7 @@ func (h *AuthHandler) OAuthCallback(w http.ResponseWriter, r *http.Request) {
 					"provider", providerConfig.Name,
 					"user_count", userCount,
 				)
-				_ = h.auditMw.LogAction(nil, "user.oauth.registration.disabled", "users", fmt.Sprintf("OAuth registration blocked for %s via %s (registration disabled)", email, providerConfig.Name), getIP(r), r.UserAgent())
+				_ = h.auditMw.LogActionWithEmail(nil, &email, "user.oauth.registration.disabled", "users", fmt.Sprintf("OAuth registration blocked for %s via %s (registration disabled)", email, providerConfig.Name), getIP(r), r.UserAgent())
 				redirectURL := fmt.Sprintf("%s/login?error=registration_disabled", frontendBaseURL)
 				http.Redirect(w, r, redirectURL, http.StatusTemporaryRedirect)
 				return
@@ -826,7 +826,7 @@ func (h *AuthHandler) OAuthCallback(w http.ResponseWriter, r *http.Request) {
 			"provider", providerConfig.Name,
 			"error", err,
 		)
-		_ = h.auditMw.LogAction(nil, AuditActionOAuthError, "users", fmt.Sprintf("OAuth user creation failed for %s via %s: %v", email, providerConfig.Name, err), getIP(r), r.UserAgent())
+		_ = h.auditMw.LogActionWithEmail(nil, &email, AuditActionOAuthError, "users", fmt.Sprintf("OAuth user creation failed for %s via %s: %v", email, providerConfig.Name, err), getIP(r), r.UserAgent())
 		redirectURL := fmt.Sprintf("%s/login?error=user_creation_failed", frontendBaseURL)
 		http.Redirect(w, r, redirectURL, http.StatusTemporaryRedirect)
 		return

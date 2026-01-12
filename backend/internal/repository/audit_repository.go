@@ -20,9 +20,12 @@ func NewAuditRepository(db *sql.DB) *AuditRepository {
 
 // Create creates a new audit log entry
 func (r *AuditRepository) Create(log *models.AuditLog) error {
-	// If user_id is provided, fetch the email
+	// Use provided userEmail if available, otherwise fetch from database
 	var userEmail *string
-	if log.UserID != nil {
+	if log.UserEmail != nil {
+		userEmail = log.UserEmail
+	} else if log.UserID != nil {
+		// If user_id is provided but email is not, fetch the email
 		var email string
 		err := r.db.QueryRow("SELECT email FROM users WHERE id = $1", *log.UserID).Scan(&email)
 		if err == nil {

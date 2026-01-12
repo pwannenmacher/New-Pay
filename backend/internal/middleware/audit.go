@@ -51,8 +51,14 @@ func (m *AuditMiddleware) Log(action, resource string, details string) func(http
 
 // LogAction logs a specific action
 func (m *AuditMiddleware) LogAction(userID *uint, action, resource, details, ipAddress, userAgent string) error {
+	return m.LogActionWithEmail(userID, nil, action, resource, details, ipAddress, userAgent)
+}
+
+// LogActionWithEmail logs a specific action with an optional email address
+func (m *AuditMiddleware) LogActionWithEmail(userID *uint, userEmail *string, action, resource, details, ipAddress, userAgent string) error {
 	log := &models.AuditLog{
 		UserID:    userID,
+		UserEmail: userEmail,
 		Action:    action,
 		Resource:  resource,
 		Details:   details,
