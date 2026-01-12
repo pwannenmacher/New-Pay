@@ -115,7 +115,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       clearInterval(sessionCheckTimerRef.current);
     }
 
-    sessionCheckTimerRef.current = setInterval(() => {
+    sessionCheckTimerRef.current = setInterval(async () => {
       const token = tokenService.getAccessToken();
       
       if (!token) {
@@ -126,8 +126,21 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         return;
       }
 
+      // Check token expiration locally first (fast check)
       if (isTokenExpired(token)) {
         console.log('Token expired, redirecting to login');
+        clearInterval(sessionCheckTimerRef.current!);
+        tokenService.clearTokens();
+        setUser(null);
+        window.location.href = '/login';
+        return;
+      }
+
+      // Validate session on server (checks if session was revoked)
+      try {
+        await authApi.validateSession();
+      } catch (error) {
+        console.log('Session validation failed, redirecting to login');
         clearInterval(sessionCheckTimerRef.current!);
         tokenService.clearTokens();
         setUser(null);

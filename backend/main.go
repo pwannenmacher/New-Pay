@@ -209,6 +209,7 @@ func main() {
 	mux.HandleFunc("/api/v1/config/app", configHandler.GetAppConfig)
 
 	// Protected routes
+	mux.Handle("/api/v1/auth/validate", authMw.Authenticate(http.HandlerFunc(authHandler.ValidateSession)))
 	mux.Handle("/api/v1/users/profile", authMw.Authenticate(http.HandlerFunc(userHandler.GetProfile)))
 	mux.Handle("/api/v1/users/profile/update", authMw.Authenticate(http.HandlerFunc(userHandler.UpdateProfile)))
 	mux.Handle("/api/v1/users/password/change", authMw.Authenticate(http.HandlerFunc(userHandler.ChangePassword)))

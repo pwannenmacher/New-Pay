@@ -232,6 +232,8 @@ export const authApi = {
     apiClient.post<{ message: string }>('/auth/password-reset/confirm', data),
 
   refreshToken: (data: RefreshTokenRequest) => apiClient.post<AuthResponse>('/auth/refresh', data),
+
+  validateSession: () => apiClient.get<{ valid: boolean }>('/auth/validate'),
 };
 
 // Session API

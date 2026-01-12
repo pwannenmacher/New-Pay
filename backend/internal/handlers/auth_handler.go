@@ -506,6 +506,22 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// ValidateSession validates if the current session is still active
+// @Summary Validate session
+// @Description Lightweight endpoint to check if the current session is valid
+// @Tags Authentication
+// @Security BearerAuth
+// @Success 200 {object} map[string]bool "Session is valid"
+// @Failure 401 {object} map[string]string "Unauthorized - session invalid"
+// @Router /auth/validate [get]
+func (h *AuthHandler) ValidateSession(w http.ResponseWriter, r *http.Request) {
+	// If we reach here, the auth middleware has already validated the token
+	// and checked the session exists in the database
+	respondWithJSON(w, http.StatusOK, map[string]bool{
+		"valid": true,
+	})
+}
+
 // Helper functions
 
 func respondWithJSON(w http.ResponseWriter, code int, payload interface{}) {
