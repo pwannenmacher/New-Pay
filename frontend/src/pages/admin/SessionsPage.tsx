@@ -175,7 +175,9 @@ export const SessionsPage = () => {
                 <Table.Tr key={session.session_id}>
                   <Table.Td>{session.user_name}</Table.Td>
                   <Table.Td>{session.user_email}</Table.Td>
-                  <Table.Td>{session.ip_address}</Table.Td>
+                  <Table.Td>
+                    <Text size="sm">{session.ip_address}</Text>
+                  </Table.Td>
                   <Table.Td>{getBrowserInfo(session.user_agent)}</Table.Td>
                   <Table.Td>{formatDate(session.last_activity_at)}</Table.Td>
                   <Table.Td>{formatDate(session.created_at)}</Table.Td>

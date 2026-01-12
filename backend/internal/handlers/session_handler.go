@@ -64,7 +64,7 @@ func (h *SessionHandler) GetMySessions(w http.ResponseWriter, r *http.Request) {
 				"session_id":       session.SessionID,
 				"created_at":       session.CreatedAt,
 				"last_activity_at": session.LastActivityAt,
-				"ip_address":       session.IPAddress,
+				"ip_address":       getClientIP(session.IPAddress), // Only client IP for user profile
 				"user_agent":       session.UserAgent,
 				"expires_at":       session.ExpiresAt,
 			}
@@ -252,7 +252,7 @@ func (h *SessionHandler) GetAllSessions(w http.ResponseWriter, r *http.Request) 
 			"user_name":        firstName + " " + lastName,
 			"created_at":       createdAt,
 			"last_activity_at": lastActivityAt,
-			"ip_address":       ipAddress,
+			"ip_address":       formatIPForAdmin(ipAddress), // Format with proxy info for admin
 			"user_agent":       userAgent,
 			"expires_at":       expiresAt,
 		})

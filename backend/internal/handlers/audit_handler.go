@@ -86,6 +86,13 @@ func (h *AuditHandler) ListAuditLogs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Format IP addresses for admin view
+	for i := range logs {
+		if logs[i].IPAddress != "" {
+			logs[i].IPAddress = formatIPForAdmin(logs[i].IPAddress)
+		}
+	}
+
 	// Calculate total pages
 	totalPages := (totalCount + limit - 1) / limit
 

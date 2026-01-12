@@ -1,8 +1,11 @@
 package handlers
 
-import "net/http"
+import (
+	"net/http"
+	"strings"
+)
 
-// getIP extracts the IP address from the request, checking X-Forwarded-For and X-Real-IP headers
+// getIP extracts the raw IP address(es) from request headers for database storage
 func getIP(r *http.Request) string {
 	forwarded := r.Header.Get("X-Forwarded-For")
 	if forwarded != "" {
@@ -13,6 +16,38 @@ func getIP(r *http.Request) string {
 		return realIP
 	}
 	return r.RemoteAddr
+}
+
+// formatIPForAdmin formats IP address with proxy information for admin views
+// Input: "192.168.1.1, 10.0.0.1" -> Output: "192.168.1.1 (proxied by 10.0.0.1)"
+func formatIPForAdmin(ipAddress string) string {
+	if ipAddress == "" {
+		return ""
+	}
+
+	ips := strings.Split(ipAddress, ",")
+	if len(ips) <= 1 {
+		return strings.TrimSpace(ipAddress)
+	}
+
+	clientIP := strings.TrimSpace(ips[0])
+	proxyIPs := make([]string, 0, len(ips)-1)
+	for i := 1; i < len(ips); i++ {
+		proxyIPs = append(proxyIPs, strings.TrimSpace(ips[i]))
+	}
+
+	return clientIP + " (proxied by " + strings.Join(proxyIPs, ", ") + ")"
+}
+
+// getClientIP extracts only the client IP (first IP) for user-facing views
+// Input: "192.168.1.1, 10.0.0.1" -> Output: "192.168.1.1"
+func getClientIP(ipAddress string) string {
+	if ipAddress == "" {
+		return ""
+	}
+
+	ips := strings.Split(ipAddress, ",")
+	return strings.TrimSpace(ips[0])
 }
 
 // isSecureConnection checks if the request is over HTTPS, considering reverse proxy headers

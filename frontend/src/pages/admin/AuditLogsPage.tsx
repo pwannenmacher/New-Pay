@@ -189,18 +189,19 @@ export const AuditLogsPage = () => {
               </Table.Th>
               <Table.Th>Details</Table.Th>
               <Table.Th>IP Address</Table.Th>
+              <Table.Th>User Agent</Table.Th>
             </Table.Tr>
           </Table.Thead>
           <Table.Tbody>
             {isLoading ? (
               <Table.Tr>
-                <Table.Td colSpan={6} style={{ textAlign: 'center' }}>
+                <Table.Td colSpan={7} style={{ textAlign: 'center' }}>
                   Loading...
                 </Table.Td>
               </Table.Tr>
             ) : logs.length === 0 ? (
               <Table.Tr>
-                <Table.Td colSpan={6} style={{ textAlign: 'center' }}>
+                <Table.Td colSpan={7} style={{ textAlign: 'center' }}>
                   No audit logs found
                 </Table.Td>
               </Table.Tr>
@@ -250,7 +251,12 @@ export const AuditLogsPage = () => {
                   </Table.Td>
                   <Table.Td>
                     <Text size="sm" c="dimmed">
-                      {log.ip_address}
+                      {log.ip_address || 'N/A'}
+                    </Text>
+                  </Table.Td>
+                  <Table.Td>
+                    <Text size="sm" c="dimmed" lineClamp={1} style={{ maxWidth: '200px' }}>
+                      {log.user_agent || 'N/A'}
                     </Text>
                   </Table.Td>
                 </Table.Tr>
