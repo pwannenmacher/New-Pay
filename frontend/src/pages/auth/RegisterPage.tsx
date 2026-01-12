@@ -74,7 +74,8 @@ export const RegisterPage = () => {
   };
 
   const handleOAuthLogin = (provider: string) => {
-    const redirectUrl = `http://localhost:8080/api/v1/auth/oauth/login?provider=${encodeURIComponent(provider)}`;
+    const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || window.location.origin + '/api/v1';
+    const redirectUrl = `${apiBaseUrl}/auth/oauth/login?provider=${encodeURIComponent(provider)}`;
     window.location.href = redirectUrl;
   };
 
