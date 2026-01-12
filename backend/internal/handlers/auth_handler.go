@@ -521,18 +521,6 @@ func respondWithError(w http.ResponseWriter, code int, message string) {
 	respondWithJSON(w, code, map[string]string{"error": message})
 }
 
-func getIP(r *http.Request) string {
-	forwarded := r.Header.Get("X-Forwarded-For")
-	if forwarded != "" {
-		return forwarded
-	}
-	realIP := r.Header.Get("X-Real-IP")
-	if realIP != "" {
-		return realIP
-	}
-	return r.RemoteAddr
-}
-
 // OAuthLogin initiates the OAuth login flow
 // @Summary Initiate OAuth login
 // @Description Redirects to the OAuth provider for authentication

@@ -95,7 +95,7 @@ func (s *SelfAssessmentService) addReviewStatsToAssessments(assessments []models
 }
 
 // CreateSelfAssessment creates a new self-assessment in draft status
-func (s *SelfAssessmentService) CreateSelfAssessment(catalogID uint, userID uint) (*models.SelfAssessment, error) {
+func (s *SelfAssessmentService) CreateSelfAssessment(catalogID uint, userID uint, ipAddress, userAgent string) (*models.SelfAssessment, error) {
 	// Verify catalog exists and is in active phase
 	catalog, err := s.catalogRepo.GetCatalogByID(catalogID)
 	if err != nil {
@@ -145,8 +145,9 @@ func (s *SelfAssessmentService) CreateSelfAssessment(catalogID uint, userID uint
 	}
 
 	// Audit log
-	s.auditSvc.Log(userID, "create", "self_assessment",
-		fmt.Sprintf("Created self-assessment (ID: %d) for catalog %d", assessment.ID, catalogID))
+	s.auditSvc.LogWithContext(userID, "create", "self_assessment",
+		fmt.Sprintf("Created self-assessment (ID: %d) for catalog %d", assessment.ID, catalogID),
+		ipAddress, userAgent)
 
 	return assessment, nil
 }
@@ -272,7 +273,7 @@ func (s *SelfAssessmentService) GetCompletedAssessmentsForReview(userID uint, is
 }
 
 // UpdateSelfAssessmentStatus transitions a self-assessment to a new status
-func (s *SelfAssessmentService) UpdateSelfAssessmentStatus(assessmentID uint, newStatus string, userID uint, userRoles []string) error {
+func (s *SelfAssessmentService) UpdateSelfAssessmentStatus(assessmentID uint, newStatus string, userID uint, userRoles []string, ipAddress, userAgent string) error {
 	// Get existing assessment
 	assessment, err := s.selfAssessmentRepo.GetByID(assessmentID)
 	if err != nil {
@@ -364,8 +365,9 @@ func (s *SelfAssessmentService) UpdateSelfAssessmentStatus(assessmentID uint, ne
 	}
 
 	// Audit log
-	s.auditSvc.Log(userID, "update_status", "self_assessment",
-		fmt.Sprintf("Self-assessment %d status changed: %s -> %s", assessmentID, oldStatus, newStatus))
+	s.auditSvc.LogWithContext(userID, "update_status", "self_assessment",
+		fmt.Sprintf("Self-assessment %d status changed: %s -> %s", assessmentID, oldStatus, newStatus),
+		ipAddress, userAgent)
 
 	return nil
 }
@@ -414,7 +416,7 @@ func (s *SelfAssessmentService) validateStatusTransition(fromStatus, toStatus st
 }
 
 // DeleteSelfAssessment deletes a self-assessment (admin only, only if closed without submission)
-func (s *SelfAssessmentService) DeleteSelfAssessment(assessmentID uint, userID uint, userRoles []string) error {
+func (s *SelfAssessmentService) DeleteSelfAssessment(assessmentID uint, userID uint, userRoles []string, ipAddress, userAgent string) error {
 	isAdmin := contains(userRoles, "admin")
 	if !isAdmin {
 		return fmt.Errorf("permission denied: only admins can delete self-assessments")
@@ -447,14 +449,15 @@ func (s *SelfAssessmentService) DeleteSelfAssessment(assessmentID uint, userID u
 	}
 
 	// Audit log
-	s.auditSvc.Log(userID, "delete", "self_assessment",
-		fmt.Sprintf("Deleted self-assessment %d (catalog: %d, user: %d)", assessmentID, assessment.CatalogID, assessment.UserID))
+	s.auditSvc.LogWithContext(userID, "delete", "self_assessment",
+		fmt.Sprintf("Deleted self-assessment %d (catalog: %d, user: %d)", assessmentID, assessment.CatalogID, assessment.UserID),
+		ipAddress, userAgent)
 
 	return nil
 }
 
 // SaveResponse saves or updates an assessment response
-func (s *SelfAssessmentService) SaveResponse(userID, assessmentID uint, response *models.AssessmentResponse) (*models.AssessmentResponse, error) {
+func (s *SelfAssessmentService) SaveResponse(userID, assessmentID uint, response *models.AssessmentResponse, ipAddress, userAgent string) (*models.AssessmentResponse, error) {
 	// Get assessment and verify ownership and status
 	assessment, err := s.selfAssessmentRepo.GetByID(assessmentID)
 	if err != nil {
@@ -524,8 +527,9 @@ func (s *SelfAssessmentService) SaveResponse(userID, assessmentID uint, response
 		}
 
 		// Audit log
-		s.auditSvc.Log(userID, "update", "assessment_response",
-			fmt.Sprintf("Updated response for assessment %d, category %d", assessmentID, response.CategoryID))
+		s.auditSvc.LogWithContext(userID, "update", "assessment_response",
+			fmt.Sprintf("Updated response for assessment %d, category %d", assessmentID, response.CategoryID),
+			ipAddress, userAgent)
 	} else {
 		// Create new response using encrypted service
 		if err := s.encryptedResponseSvc.CreateResponse(response, userID); err != nil {
@@ -533,15 +537,16 @@ func (s *SelfAssessmentService) SaveResponse(userID, assessmentID uint, response
 		}
 
 		// Audit log
-		s.auditSvc.Log(userID, "create", "assessment_response",
-			fmt.Sprintf("Created response for assessment %d, category %d", assessmentID, response.CategoryID))
+		s.auditSvc.LogWithContext(userID, "create", "assessment_response",
+			fmt.Sprintf("Created response for assessment %d, category %d", assessmentID, response.CategoryID),
+			ipAddress, userAgent)
 	}
 
 	return response, nil
 }
 
 // DeleteResponse deletes an assessment response
-func (s *SelfAssessmentService) DeleteResponse(userID, assessmentID, categoryID uint) error {
+func (s *SelfAssessmentService) DeleteResponse(userID, assessmentID, categoryID uint, ipAddress, userAgent string) error {
 	// Get assessment and verify ownership and status
 	assessment, err := s.getAssessmentAndCheckOwnership(assessmentID, userID)
 	if err != nil {
@@ -566,8 +571,9 @@ func (s *SelfAssessmentService) DeleteResponse(userID, assessmentID, categoryID 
 	}
 
 	// Audit log
-	s.auditSvc.Log(userID, "delete", "assessment_response",
-		fmt.Sprintf("Deleted response for assessment %d, category %d", assessmentID, categoryID))
+	s.auditSvc.LogWithContext(userID, "delete", "assessment_response",
+		fmt.Sprintf("Deleted response for assessment %d, category %d", assessmentID, categoryID),
+		ipAddress, userAgent)
 
 	return nil
 }
@@ -790,7 +796,7 @@ func (s *SelfAssessmentService) hasCompleteReview(assessmentID, reviewerUserID u
 }
 
 // SubmitAssessment submits an assessment for review (changes status from draft to submitted)
-func (s *SelfAssessmentService) SubmitAssessment(userID, assessmentID uint) error {
+func (s *SelfAssessmentService) SubmitAssessment(userID, assessmentID uint, ipAddress, userAgent string) error {
 	// Get assessment and verify ownership and status
 	assessment, err := s.getAssessmentAndCheckOwnership(assessmentID, userID)
 	if err != nil {
@@ -820,8 +826,9 @@ func (s *SelfAssessmentService) SubmitAssessment(userID, assessmentID uint) erro
 	}
 
 	// Audit log
-	s.auditSvc.Log(userID, "submit", "self_assessment",
-		fmt.Sprintf("Submitted self-assessment %d for review", assessmentID))
+	s.auditSvc.LogWithContext(userID, "submit", "self_assessment",
+		fmt.Sprintf("Submitted self-assessment %d for review", assessmentID),
+		ipAddress, userAgent)
 
 	return nil
 }

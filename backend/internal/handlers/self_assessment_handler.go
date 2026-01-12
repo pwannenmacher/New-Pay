@@ -104,7 +104,7 @@ func (h *SelfAssessmentHandler) CreateSelfAssessment(w http.ResponseWriter, r *h
 		return
 	}
 
-	assessment, err := h.selfAssessmentService.CreateSelfAssessment(uint(catalogID), userID)
+	assessment, err := h.selfAssessmentService.CreateSelfAssessment(uint(catalogID), userID, getIP(r), r.UserAgent())
 	if err != nil {
 		slog.Error("Failed to create self-assessment", "error", err, "catalog_id", catalogID, "user_id", userID)
 		if strings.Contains(err.Error(), "already exists") {
@@ -236,7 +236,7 @@ func (h *SelfAssessmentHandler) UpdateStatus(w http.ResponseWriter, r *http.Requ
 		userRoles = []string{}
 	}
 
-	if err := h.selfAssessmentService.UpdateSelfAssessmentStatus(uint(id), req.Status, userID, userRoles); err != nil {
+	if err := h.selfAssessmentService.UpdateSelfAssessmentStatus(uint(id), req.Status, userID, userRoles, getIP(r), r.UserAgent()); err != nil {
 		if strings.Contains(err.Error(), ErrMsgPermissionDenied) {
 			http.Error(w, err.Error(), http.StatusForbidden)
 		} else {
@@ -520,7 +520,7 @@ func (h *SelfAssessmentHandler) DeleteSelfAssessment(w http.ResponseWriter, r *h
 		userRoles = []string{}
 	}
 
-	if err := h.selfAssessmentService.DeleteSelfAssessment(uint(id), userID, userRoles); err != nil {
+	if err := h.selfAssessmentService.DeleteSelfAssessment(uint(id), userID, userRoles, getIP(r), r.UserAgent()); err != nil {
 		if strings.Contains(err.Error(), ErrMsgPermissionDenied) {
 			http.Error(w, err.Error(), http.StatusForbidden)
 		} else {
@@ -566,7 +566,7 @@ func (h *SelfAssessmentHandler) SaveResponse(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	savedResponse, err := h.selfAssessmentService.SaveResponse(userID, uint(assessmentID), &response)
+	savedResponse, err := h.selfAssessmentService.SaveResponse(userID, uint(assessmentID), &response, getIP(r), r.UserAgent())
 	if err != nil {
 		slog.Error("Failed to save response", "error", err, "assessment_id", assessmentID, "user_id", userID)
 		if strings.Contains(err.Error(), ErrMsgPermissionDenied) {
@@ -615,7 +615,7 @@ func (h *SelfAssessmentHandler) DeleteResponse(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	if err := h.selfAssessmentService.DeleteResponse(userID, uint(assessmentID), uint(categoryID)); err != nil {
+	if err := h.selfAssessmentService.DeleteResponse(userID, uint(assessmentID), uint(categoryID), getIP(r), r.UserAgent()); err != nil {
 		if strings.Contains(err.Error(), ErrMsgPermissionDenied) {
 			http.Error(w, err.Error(), http.StatusForbidden)
 		} else if strings.Contains(err.Error(), ErrMsgNotFound) {
@@ -781,7 +781,7 @@ func (h *SelfAssessmentHandler) SubmitAssessment(w http.ResponseWriter, r *http.
 		return
 	}
 
-	if err := h.selfAssessmentService.SubmitAssessment(userID, uint(assessmentID)); err != nil {
+	if err := h.selfAssessmentService.SubmitAssessment(userID, uint(assessmentID), getIP(r), r.UserAgent()); err != nil {
 		slog.Error("Failed to submit assessment", "error", err, "assessment_id", assessmentID, "user_id", userID)
 		if strings.Contains(err.Error(), ErrMsgPermissionDenied) {
 			http.Error(w, err.Error(), http.StatusForbidden)
@@ -874,7 +874,7 @@ func (h *SelfAssessmentHandler) ArchiveAssessment(w http.ResponseWriter, r *http
 	userID, _ := middleware.GetUserID(r)
 
 	// Update status to archived
-	if err := h.selfAssessmentService.UpdateSelfAssessmentStatus(uint(assessmentID), "archived", userID, userRoles); err != nil {
+	if err := h.selfAssessmentService.UpdateSelfAssessmentStatus(uint(assessmentID), "archived", userID, userRoles, getIP(r), r.UserAgent()); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
