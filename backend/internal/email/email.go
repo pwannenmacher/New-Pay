@@ -2,6 +2,7 @@ package email
 
 import (
 	"bytes"
+	"crypto/tls"
 	"fmt"
 	"html/template"
 	"io"
@@ -182,7 +183,11 @@ func (s *Service) sendEmail(to, subject, body string) error {
 	}()
 
 	// Start TLS if supported (STARTTLS for port 587)
-	if err := client.StartTLS(nil); err != nil {
+	// Create TLS config with proper ServerName
+	tlsConfig := &tls.Config{
+		ServerName: s.config.SMTPHost,
+	}
+	if err := client.StartTLS(tlsConfig); err != nil {
 		slog.Warn("STARTTLS not supported or failed, continuing without TLS", "error", err)
 	}
 
