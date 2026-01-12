@@ -564,7 +564,17 @@ func (h *AuthHandler) OAuthLogin(w http.ResponseWriter, r *http.Request) {
 	// Generate state for CSRF protection
 	state := generateRandomState()
 
-	// Store state and provider in session/cookie
+	// Get the frontend URL from Referer header or Origin header
+	frontendURL := r.Header.Get("Referer")
+	if frontendURL == "" {
+		frontendURL = r.Header.Get("Origin")
+	}
+	// If still empty, use the configured frontend callback URL as fallback
+	if frontendURL == "" {
+		frontendURL = h.getBaseLoginURL()
+	}
+
+	// Store state, provider, and frontend URL in cookies
 	http.SetCookie(w, &http.Cookie{
 		Name:     "oauth_state",
 		Value:    state,
@@ -578,6 +588,16 @@ func (h *AuthHandler) OAuthLogin(w http.ResponseWriter, r *http.Request) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     "oauth_provider",
 		Value:    providerName,
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   false,
+		SameSite: http.SameSiteLaxMode,
+		MaxAge:   300, // 5 minutes
+	})
+
+	http.SetCookie(w, &http.Cookie{
+		Name:     "oauth_frontend_url",
+		Value:    frontendURL,
 		Path:     "/",
 		HttpOnly: true,
 		Secure:   false,
@@ -600,11 +620,21 @@ func (h *AuthHandler) OAuthLogin(w http.ResponseWriter, r *http.Request) {
 // @Success 302 {string} string "Redirect to frontend"
 // @Router /auth/oauth/callback [get]
 func (h *AuthHandler) OAuthCallback(w http.ResponseWriter, r *http.Request) {
+	// Get frontend URL from cookie early (needed for all error redirects)
+	frontendURLCookie, _ := r.Cookie("oauth_frontend_url")
+	frontendBaseURL := h.getBaseLoginURL() // fallback to config
+	if frontendURLCookie != nil && frontendURLCookie.Value != "" {
+		// Parse the frontend URL to extract base URL
+		if parsedURL, err := url.Parse(frontendURLCookie.Value); err == nil {
+			frontendBaseURL = fmt.Sprintf("%s://%s", parsedURL.Scheme, parsedURL.Host)
+		}
+	}
+
 	// Get provider from cookie
 	providerCookie, err := r.Cookie("oauth_provider")
 	if err != nil {
 		slog.Error("OAuth callback failed: provider cookie not found", "error", err)
-		redirectURL := fmt.Sprintf("%s/login?error=invalid_provider", h.getBaseLoginURL())
+		redirectURL := fmt.Sprintf("%s/login?error=invalid_provider", frontendBaseURL)
 		http.Redirect(w, r, redirectURL, http.StatusTemporaryRedirect)
 		return
 	}
@@ -622,7 +652,7 @@ func (h *AuthHandler) OAuthCallback(w http.ResponseWriter, r *http.Request) {
 		slog.Error("OAuth callback failed: provider not found or not enabled",
 			"provider", providerCookie.Value,
 		)
-		redirectURL := fmt.Sprintf("%s/login?error=invalid_provider", h.getBaseLoginURL())
+		redirectURL := fmt.Sprintf("%s/login?error=invalid_provider", frontendBaseURL)
 		http.Redirect(w, r, redirectURL, http.StatusTemporaryRedirect)
 		return
 	}
@@ -631,7 +661,7 @@ func (h *AuthHandler) OAuthCallback(w http.ResponseWriter, r *http.Request) {
 	stateCookie, err := r.Cookie("oauth_state")
 	if err != nil {
 		slog.Error("OAuth callback failed: state cookie not found", "error", err)
-		redirectURL := fmt.Sprintf("%s/login?error=invalid_state", h.getBaseLoginURL())
+		redirectURL := fmt.Sprintf("%s/login?error=invalid_state", frontendBaseURL)
 		http.Redirect(w, r, redirectURL, http.StatusTemporaryRedirect)
 		return
 	}
@@ -639,7 +669,7 @@ func (h *AuthHandler) OAuthCallback(w http.ResponseWriter, r *http.Request) {
 	state := r.URL.Query().Get("state")
 	if state == "" || state != stateCookie.Value {
 		slog.Error("OAuth callback failed: state mismatch")
-		redirectURL := fmt.Sprintf("%s/login?error=invalid_state", h.getBaseLoginURL())
+		redirectURL := fmt.Sprintf("%s/login?error=invalid_state", frontendBaseURL)
 		http.Redirect(w, r, redirectURL, http.StatusTemporaryRedirect)
 		return
 	}
@@ -658,7 +688,7 @@ func (h *AuthHandler) OAuthCallback(w http.ResponseWriter, r *http.Request) {
 		MaxAge: -1,
 	})
 	http.SetCookie(w, &http.Cookie{
-		Name:   "oauth_state",
+		Name:   "oauth_frontend_url",
 		Value:  "",
 		Path:   "/",
 		MaxAge: -1,
@@ -667,7 +697,7 @@ func (h *AuthHandler) OAuthCallback(w http.ResponseWriter, r *http.Request) {
 	code := r.URL.Query().Get("code")
 	if code == "" {
 		slog.Error("OAuth callback failed: authorization code not provided")
-		redirectURL := fmt.Sprintf("%s/login?error=no_code", h.getBaseLoginURL())
+		redirectURL := fmt.Sprintf("%s/login?error=no_code", frontendBaseURL)
 		http.Redirect(w, r, redirectURL, http.StatusTemporaryRedirect)
 		return
 	}
@@ -676,7 +706,7 @@ func (h *AuthHandler) OAuthCallback(w http.ResponseWriter, r *http.Request) {
 	token, err := h.exchangeCodeForToken(code, providerConfig)
 	if err != nil {
 		slog.Error("OAuth callback failed: code exchange failed", "error", err)
-		redirectURL := fmt.Sprintf("%s/login?error=token_exchange_failed", h.getBaseLoginURL())
+		redirectURL := fmt.Sprintf("%s/login?error=token_exchange_failed", frontendBaseURL)
 		http.Redirect(w, r, redirectURL, http.StatusTemporaryRedirect)
 		return
 	}
@@ -685,7 +715,7 @@ func (h *AuthHandler) OAuthCallback(w http.ResponseWriter, r *http.Request) {
 	userInfo, err := h.getUserInfo(token, providerConfig)
 	if err != nil {
 		slog.Error("OAuth callback failed: failed to get user info", "error", err)
-		redirectURL := fmt.Sprintf("%s/login?error=userinfo_failed", h.getBaseLoginURL())
+		redirectURL := fmt.Sprintf("%s/login?error=userinfo_failed", frontendBaseURL)
 		http.Redirect(w, r, redirectURL, http.StatusTemporaryRedirect)
 		return
 	}
@@ -694,7 +724,7 @@ func (h *AuthHandler) OAuthCallback(w http.ResponseWriter, r *http.Request) {
 	email, ok := userInfo["email"].(string)
 	if !ok || email == "" {
 		slog.Error("OAuth callback failed: email not found in user info")
-		redirectURL := fmt.Sprintf("%s/login?error=no_email", h.getBaseLoginURL())
+		redirectURL := fmt.Sprintf("%s/login?error=no_email", frontendBaseURL)
 		http.Redirect(w, r, redirectURL, http.StatusTemporaryRedirect)
 		return
 	}
@@ -755,7 +785,7 @@ func (h *AuthHandler) OAuthCallback(w http.ResponseWriter, r *http.Request) {
 		userExists, err := h.authService.UserExistsByEmail(email)
 		if err != nil {
 			slog.Error("OAuth callback failed: failed to check if user exists", "error", err)
-			redirectURL := fmt.Sprintf("%s/login?error=server_error", h.getBaseLoginURL())
+			redirectURL := fmt.Sprintf("%s/login?error=server_error", frontendBaseURL)
 			http.Redirect(w, r, redirectURL, http.StatusTemporaryRedirect)
 			return
 		}
@@ -766,7 +796,7 @@ func (h *AuthHandler) OAuthCallback(w http.ResponseWriter, r *http.Request) {
 			userCount, err := h.authService.CountAllUsers()
 			if err != nil {
 				slog.Error("OAuth callback failed: failed to count users", "error", err)
-				redirectURL := fmt.Sprintf("%s/login?error=server_error", h.getBaseLoginURL())
+				redirectURL := fmt.Sprintf("%s/login?error=server_error", frontendBaseURL)
 				http.Redirect(w, r, redirectURL, http.StatusTemporaryRedirect)
 				return
 			}
@@ -779,7 +809,7 @@ func (h *AuthHandler) OAuthCallback(w http.ResponseWriter, r *http.Request) {
 					"user_count", userCount,
 				)
 				_ = h.auditMw.LogAction(nil, "user.oauth.registration.disabled", "users", fmt.Sprintf("OAuth registration blocked for %s via %s (registration disabled)", email, providerConfig.Name), getIP(r), r.UserAgent())
-				redirectURL := fmt.Sprintf("%s/login?error=registration_disabled", h.getBaseLoginURL())
+				redirectURL := fmt.Sprintf("%s/login?error=registration_disabled", frontendBaseURL)
 				http.Redirect(w, r, redirectURL, http.StatusTemporaryRedirect)
 				return
 			}
@@ -797,7 +827,7 @@ func (h *AuthHandler) OAuthCallback(w http.ResponseWriter, r *http.Request) {
 			"error", err,
 		)
 		_ = h.auditMw.LogAction(nil, AuditActionOAuthError, "users", fmt.Sprintf("OAuth user creation failed for %s via %s: %v", email, providerConfig.Name, err), getIP(r), r.UserAgent())
-		redirectURL := fmt.Sprintf("%s/login?error=user_creation_failed", h.getBaseLoginURL())
+		redirectURL := fmt.Sprintf("%s/login?error=user_creation_failed", frontendBaseURL)
 		http.Redirect(w, r, redirectURL, http.StatusTemporaryRedirect)
 		return
 	}
@@ -891,7 +921,8 @@ func (h *AuthHandler) OAuthCallback(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		slog.Error("OAuth callback failed: token generation failed", "error", err, "user_id", user.ID)
 		_ = h.auditMw.LogAction(&user.ID, AuditActionOAuthError, "users", "Token generation failed: "+err.Error(), getIP(r), r.UserAgent())
-		http.Redirect(w, r, "http://localhost:5173/login?error=token_generation_failed", http.StatusTemporaryRedirect)
+		redirectURL := fmt.Sprintf("%s/login?error=token_generation_failed", frontendBaseURL)
+		http.Redirect(w, r, redirectURL, http.StatusTemporaryRedirect)
 		return
 	}
 
@@ -900,14 +931,16 @@ func (h *AuthHandler) OAuthCallback(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		slog.Error("OAuth callback failed: session ID generation failed", "error", err, "user_id", user.ID)
 		_ = h.auditMw.LogAction(&user.ID, AuditActionOAuthError, "users", "Session ID generation failed: "+err.Error(), getIP(r), r.UserAgent())
-		http.Redirect(w, r, "http://localhost:5173/login?error=session_failed", http.StatusTemporaryRedirect)
+		redirectURL := fmt.Sprintf("%s/login?error=session_failed", frontendBaseURL)
+		http.Redirect(w, r, redirectURL, http.StatusTemporaryRedirect)
 		return
 	}
 
 	// Create sessions
 	if err := h.authService.CreateSession(user.ID, sessionID, refreshJTI, "refresh", getIP(r), r.UserAgent(), time.Now().Add(7*24*time.Hour)); err != nil {
 		slog.Error("OAuth callback failed: refresh session creation failed", "error", err, "user_id", user.ID)
-		http.Redirect(w, r, "http://localhost:5173/login?error=session_failed", http.StatusTemporaryRedirect)
+		redirectURL := fmt.Sprintf("%s/login?error=session_failed", frontendBaseURL)
+		http.Redirect(w, r, redirectURL, http.StatusTemporaryRedirect)
 		return
 	}
 
@@ -1022,12 +1055,12 @@ func (h *AuthHandler) getBaseLoginURL() string {
 	// Parse the URL to extract scheme and host
 	parsedURL, err := url.Parse(callbackURL)
 	if err != nil {
-		// Fallback to a default if parsing fails
-		slog.Warn("Failed to parse frontend callback URL, using default",
+		// Fallback to empty string if parsing fails - should not happen in production
+		slog.Warn("Failed to parse frontend callback URL",
 			"url", callbackURL,
 			"error", err,
 		)
-		return "http://localhost:3001"
+		return ""
 	}
 
 	return fmt.Sprintf("%s://%s", parsedURL.Scheme, parsedURL.Host)
