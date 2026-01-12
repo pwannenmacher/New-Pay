@@ -155,7 +155,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		Path:     AuthAPIBasePath,
 		MaxAge:   7 * 24 * 60 * 60, // 7 days
 		HttpOnly: true,
-		Secure:   r.TLS != nil, // Only send over HTTPS in production
+		Secure:   isSecureConnection(r), // Only send over HTTPS in production
 		SameSite: http.SameSiteStrictMode,
 	})
 
@@ -246,7 +246,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		Path:     AuthAPIBasePath,
 		MaxAge:   7 * 24 * 60 * 60, // 7 days
 		HttpOnly: true,
-		Secure:   r.TLS != nil, // Only send over HTTPS in production
+		Secure:   isSecureConnection(r), // Only send over HTTPS in production
 		SameSite: http.SameSiteStrictMode,
 	})
 
@@ -431,7 +431,7 @@ func (h *AuthHandler) RefreshToken(w http.ResponseWriter, r *http.Request) {
 		Path:     AuthAPIBasePath,
 		MaxAge:   7 * 24 * 60 * 60, // 7 days
 		HttpOnly: true,
-		Secure:   r.TLS != nil,
+		Secure:   isSecureConnection(r),
 		SameSite: http.SameSiteStrictMode,
 	})
 
@@ -497,7 +497,7 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 		Path:     AuthAPIBasePath,
 		MaxAge:   -1,
 		HttpOnly: true,
-		Secure:   r.TLS != nil,
+		Secure:   isSecureConnection(r),
 		SameSite: http.SameSiteStrictMode,
 	})
 
@@ -568,7 +568,7 @@ func (h *AuthHandler) OAuthLogin(w http.ResponseWriter, r *http.Request) {
 		Value:    state,
 		Path:     "/",
 		HttpOnly: true,
-		Secure:   false, // Set to true in production with HTTPS
+		Secure:   isSecureConnection(r),
 		SameSite: http.SameSiteLaxMode,
 		MaxAge:   300, // 5 minutes
 	})
@@ -578,7 +578,7 @@ func (h *AuthHandler) OAuthLogin(w http.ResponseWriter, r *http.Request) {
 		Value:    providerName,
 		Path:     "/",
 		HttpOnly: true,
-		Secure:   false,
+		Secure:   isSecureConnection(r),
 		SameSite: http.SameSiteLaxMode,
 		MaxAge:   300, // 5 minutes
 	})
@@ -588,7 +588,7 @@ func (h *AuthHandler) OAuthLogin(w http.ResponseWriter, r *http.Request) {
 		Value:    frontendURL,
 		Path:     "/",
 		HttpOnly: true,
-		Secure:   false,
+		Secure:   isSecureConnection(r),
 		SameSite: http.SameSiteLaxMode,
 		MaxAge:   300, // 5 minutes
 	})
@@ -941,7 +941,7 @@ func (h *AuthHandler) OAuthCallback(w http.ResponseWriter, r *http.Request) {
 		Path:     AuthAPIBasePath,
 		MaxAge:   7 * 24 * 60 * 60, // 7 days
 		HttpOnly: true,
-		Secure:   r.TLS != nil,
+		Secure:   isSecureConnection(r),
 		SameSite: http.SameSiteStrictMode,
 	})
 

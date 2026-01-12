@@ -32,7 +32,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       if (token) {
         try {
           // Fetch current user profile
-          const response = await fetch('http://localhost:8080/api/v1/users/profile', {
+          const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || '/api/v1';
+          const response = await fetch(`${apiBaseUrl}/users/profile`, {
             headers: {
               Authorization: `Bearer ${token}`,
             },
