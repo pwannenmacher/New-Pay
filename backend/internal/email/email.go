@@ -150,8 +150,11 @@ func (s *Service) sendEmail(to, subject, body string) error {
 		"port", s.config.SMTPPort,
 	)
 
-	// Establish connection
-	conn, err := net.Dial("tcp", addr)
+	// Establish connection with timeout
+	dialer := net.Dialer{
+		Timeout: 10 * time.Second,
+	}
+	conn, err := dialer.Dial("tcp", addr)
 	if err != nil {
 		slog.Error("Failed to connect to SMTP server",
 			"address", addr,
@@ -159,32 +162,41 @@ func (s *Service) sendEmail(to, subject, body string) error {
 		)
 		return fmt.Errorf("failed to connect to SMTP server: %w", err)
 	}
-	defer func(conn net.Conn) {
-		err := conn.Close()
-		if err != nil {
-			slog.Error("Failed to close SMTP connection", "error", err)
-		}
-	}(conn)
 
 	// Create SMTP client
 	client, err := smtp.NewClient(conn, s.config.SMTPHost)
 	if err != nil {
+		conn.Close()
 		slog.Error("Failed to create SMTP client", "error", err)
 		return fmt.Errorf("failed to create SMTP client: %w", err)
 	}
-	defer func(client *smtp.Client) {
-		err := client.Close()
-		if err != nil {
-			slog.Error("Failed to close SMTP client", "error", err)
+
+	// Important: Close client before connection
+	defer func() {
+		if err := client.Quit(); err != nil {
+			slog.Debug("Failed to send QUIT command", "error", err)
 		}
-	}(client)
+		if err := conn.Close(); err != nil {
+			slog.Debug("Failed to close SMTP connection", "error", err)
+		}
+	}()
+
+	// Start TLS if supported (STARTTLS for port 587)
+	if err := client.StartTLS(nil); err != nil {
+		slog.Warn("STARTTLS not supported or failed, continuing without TLS", "error", err)
+	}
 
 	// Authenticate only if credentials are provided and not empty
-	// For development (e.g., Mailpit), no authentication is needed
 	if s.config.SMTPUsername != "" && s.config.SMTPPassword != "" {
 		auth := smtp.PlainAuth("", s.config.SMTPUsername, s.config.SMTPPassword, s.config.SMTPHost)
-		// Try to authenticate, but don't fail if it's not supported (e.g., Mailpit)
-		_ = client.Auth(auth)
+		if err := client.Auth(auth); err != nil {
+			slog.Error("SMTP authentication failed",
+				"username", s.config.SMTPUsername,
+				"host", s.config.SMTPHost,
+				"error", err,
+			)
+			return fmt.Errorf("SMTP authentication failed: %w", err)
+		}
 	}
 
 	// Set sender
