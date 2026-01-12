@@ -36,20 +36,21 @@ export const LoginPage = () => {
     const error = searchParams.get('error');
     if (error) {
       const errorMessages: Record<string, string> = {
-        'registration_disabled': 'Neu-Registrierungen über OAuth sind nicht zulässig. Bitte wenden Sie sich an einen Administrator, um ein Konto zu erhalten.',
-        'invalid_provider': 'Ungültiger OAuth-Provider.',
-        'invalid_state': 'Ungültiger OAuth-Status. Bitte versuchen Sie es erneut.',
-        'no_code': 'Kein Autorisierungscode erhalten.',
-        'token_exchange_failed': 'Token-Austausch fehlgeschlagen.',
-        'userinfo_failed': 'Benutzerinformationen konnten nicht abgerufen werden.',
-        'no_email': 'Keine E-Mail-Adresse vom OAuth-Provider erhalten.',
-        'user_creation_failed': 'Benutzer konnte nicht erstellt werden.',
-        'no_token': 'Kein Zugangstoken erhalten.',
-        'profile_fetch_failed': 'Benutzerprofil konnte nicht abgerufen werden.',
+        registration_disabled:
+          'Neu-Registrierungen über OAuth sind nicht zulässig. Bitte wenden Sie sich an einen Administrator, um ein Konto zu erhalten.',
+        invalid_provider: 'Ungültiger OAuth-Provider.',
+        invalid_state: 'Ungültiger OAuth-Status. Bitte versuchen Sie es erneut.',
+        no_code: 'Kein Autorisierungscode erhalten.',
+        token_exchange_failed: 'Token-Austausch fehlgeschlagen.',
+        userinfo_failed: 'Benutzerinformationen konnten nicht abgerufen werden.',
+        no_email: 'Keine E-Mail-Adresse vom OAuth-Provider erhalten.',
+        user_creation_failed: 'Benutzer konnte nicht erstellt werden.',
+        no_token: 'Kein Zugangstoken erhalten.',
+        profile_fetch_failed: 'Benutzerprofil konnte nicht abgerufen werden.',
       };
 
       setOauthError(errorMessages[error] || 'Ein unbekannter Fehler ist aufgetreten.');
-      
+
       // Clear the error from URL
       searchParams.delete('error');
       navigate({ search: searchParams.toString() }, { replace: true });
@@ -105,7 +106,12 @@ export const LoginPage = () => {
       </Text>
 
       {oauthError && (
-        <Alert icon={<IconAlertCircle size={16} />} title="OAuth-Anmeldung fehlgeschlagen" color="red" mt={20}>
+        <Alert
+          icon={<IconAlertCircle size={16} />}
+          title="OAuth-Anmeldung fehlgeschlagen"
+          color="red"
+          mt={20}
+        >
           {oauthError}
         </Alert>
       )}

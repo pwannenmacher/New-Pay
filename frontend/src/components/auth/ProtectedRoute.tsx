@@ -9,7 +9,11 @@ interface ProtectedRouteProps {
   requireRole?: string;
 }
 
-export const ProtectedRoute = ({ children, requireAdmin = false, requireRole }: ProtectedRouteProps) => {
+export const ProtectedRoute = ({
+  children,
+  requireAdmin = false,
+  requireRole,
+}: ProtectedRouteProps) => {
   const { isAuthenticated, isLoading, user } = useAuth();
 
   if (isLoading) {

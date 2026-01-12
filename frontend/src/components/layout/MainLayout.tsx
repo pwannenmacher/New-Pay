@@ -175,7 +175,6 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
                     Kriterienkataloge
                   </Button>
                 )}
-
               </>
             )}
 

@@ -101,8 +101,7 @@ export const selfAssessmentService = {
       if (filters?.to_date) params.append('to_date', filters.to_date);
       if (filters?.from_submitted_date)
         params.append('from_submitted_date', filters.from_submitted_date);
-      if (filters?.to_submitted_date)
-        params.append('to_submitted_date', filters.to_submitted_date);
+      if (filters?.to_submitted_date) params.append('to_submitted_date', filters.to_submitted_date);
 
       const queryString = params.toString();
       const url = `/review/open-assessments${queryString ? `?${queryString}` : ''}`;
@@ -129,8 +128,7 @@ export const selfAssessmentService = {
       if (filters?.to_date) params.append('to_date', filters.to_date);
       if (filters?.from_submitted_date)
         params.append('from_submitted_date', filters.from_submitted_date);
-      if (filters?.to_submitted_date)
-        params.append('to_submitted_date', filters.to_submitted_date);
+      if (filters?.to_submitted_date) params.append('to_submitted_date', filters.to_submitted_date);
 
       const queryString = params.toString();
       const url = `/review/completed-assessments${queryString ? `?${queryString}` : ''}`;

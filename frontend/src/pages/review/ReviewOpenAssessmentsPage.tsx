@@ -93,11 +93,11 @@ export function ReviewOpenAssessmentsPage() {
       const data = await selfAssessmentService.getOpenAssessmentsForReview(filters);
       const assessmentsList = Array.isArray(data) ? data : [];
       setAssessments(assessmentsList);
-      
+
       // Load confirmations for discussion status assessments
-      const discussionAssessments = assessmentsList.filter(a => a.status === 'discussion');
+      const discussionAssessments = assessmentsList.filter((a) => a.status === 'discussion');
       const confirmationsData: Record<number, any[]> = {};
-      
+
       await Promise.all(
         discussionAssessments.map(async (assessment) => {
           try {
@@ -109,9 +109,9 @@ export function ReviewOpenAssessmentsPage() {
           }
         })
       );
-      
+
       setConfirmations(confirmationsData);
-      
+
       // Store all assessments for catalog dropdown
       if (!allAssessments.length) {
         setAllAssessments(assessmentsList);
@@ -211,7 +211,10 @@ export function ReviewOpenAssessmentsPage() {
     new Map(
       allAssessments
         .filter((a) => a.catalog_id && a.catalog_name)
-        .map((a) => [a.catalog_id, { value: String(a.catalog_id), label: a.catalog_name || `Katalog ${a.catalog_id}` }])
+        .map((a) => [
+          a.catalog_id,
+          { value: String(a.catalog_id), label: a.catalog_name || `Katalog ${a.catalog_id}` },
+        ])
     ).values()
   );
 
@@ -243,10 +246,7 @@ export function ReviewOpenAssessmentsPage() {
                 placeholder="Alle Kataloge"
                 value={catalogId}
                 onChange={(value) => setCatalogId(value || '')}
-                data={[
-                  { value: '', label: 'Alle' },
-                  ...catalogOptions,
-                ]}
+                data={[{ value: '', label: 'Alle' }, ...catalogOptions]}
                 clearable
                 searchable
                 style={{ minWidth: 200 }}
@@ -425,7 +425,9 @@ export function ReviewOpenAssessmentsPage() {
                             </Button>
                             {(() => {
                               const confs = confirmations[assessment.id] || [];
-                              const hasReviewer = confs.some((c: any) => c.user_type === 'reviewer');
+                              const hasReviewer = confs.some(
+                                (c: any) => c.user_type === 'reviewer'
+                              );
                               const hasOwner = confs.some((c: any) => c.user_type === 'owner');
                               return hasReviewer && hasOwner ? (
                                 <Button
@@ -451,16 +453,19 @@ export function ReviewOpenAssessmentsPage() {
                             {user?.id === assessment.user_id ? 'Eigene Einschätzung' : 'Prüfen'}
                           </Button>
                         )}
-                        {assessment.status === 'in_review' && (assessment.reviews_completed || 0) >= 3 && (
-                          <Button
-                            size="xs"
-                            variant="filled"
-                            color="cyan"
-                            onClick={() => handleStatusChange(assessment.id, 'review_consolidation')}
-                          >
-                            Konsolidierung starten
-                          </Button>
-                        )}
+                        {assessment.status === 'in_review' &&
+                          (assessment.reviews_completed || 0) >= 3 && (
+                            <Button
+                              size="xs"
+                              variant="filled"
+                              color="cyan"
+                              onClick={() =>
+                                handleStatusChange(assessment.id, 'review_consolidation')
+                              }
+                            >
+                              Konsolidierung starten
+                            </Button>
+                          )}
                       </Group>
                     </Table.Td>
                   </Table.Tr>

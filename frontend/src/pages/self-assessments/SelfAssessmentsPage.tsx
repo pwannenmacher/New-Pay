@@ -52,7 +52,6 @@ export default function SelfAssessmentsPage() {
 
   useEffect(() => {
     loadData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadData = async () => {
@@ -230,7 +229,11 @@ export default function SelfAssessmentsPage() {
                     <Table.Td>
                       {discussionResults[assessment.id] ? (
                         <Badge size="sm" variant="light" color="teal">
-                          {discussionResults[assessment.id].weighted_overall_level_name} ({discussionResults[assessment.id].weighted_overall_level_number.toFixed(2)})
+                          {discussionResults[assessment.id].weighted_overall_level_name} (
+                          {discussionResults[assessment.id].weighted_overall_level_number.toFixed(
+                            2
+                          )}
+                          )
                         </Badge>
                       ) : (
                         <Text size="sm" c="dimmed">
@@ -250,7 +253,8 @@ export default function SelfAssessmentsPage() {
                         >
                           Details
                         </Button>
-                        {(assessment.status === 'discussion' || assessment.status === 'archived') && (
+                        {(assessment.status === 'discussion' ||
+                          assessment.status === 'archived') && (
                           <Button
                             size="xs"
                             variant="light"

@@ -14,8 +14,7 @@ const catalogService = {
   /**
    * Get catalog with full details (categories, paths, levels, descriptions)
    */
-  getCatalog: (catalogId: number) =>
-    apiClient.get<CatalogWithDetails>(`/catalogs/${catalogId}`),
+  getCatalog: (catalogId: number) => apiClient.get<CatalogWithDetails>(`/catalogs/${catalogId}`),
 };
 
 export default catalogService;

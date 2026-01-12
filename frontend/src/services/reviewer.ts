@@ -50,15 +50,20 @@ const reviewerService = {
    * Delete a reviewer response for a category
    */
   deleteResponse: (assessmentId: number, categoryId: number) =>
-    apiClient.delete<{ message: string }>(`/review/assessment/${assessmentId}/responses/${categoryId}`),
+    apiClient.delete<{ message: string }>(
+      `/review/assessment/${assessmentId}/responses/${categoryId}`
+    ),
 
   /**
    * Complete the review (mark all categories as reviewed)
    */
   completeReview: (assessmentId: number, newStatus: string) =>
-    apiClient.post<{ message: string; assessment: any }>(`/review/assessment/${assessmentId}/complete`, {
-      new_status: newStatus,
-    }),
+    apiClient.post<{ message: string; assessment: any }>(
+      `/review/assessment/${assessmentId}/complete`,
+      {
+        new_status: newStatus,
+      }
+    ),
 
   /**
    * Get completion status (how many reviewers have completed their review)

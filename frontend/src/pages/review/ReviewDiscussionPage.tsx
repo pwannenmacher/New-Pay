@@ -172,22 +172,34 @@ export function ReviewDiscussionPage() {
               <Button
                 variant="subtle"
                 leftSection={<IconArrowLeft size={16} />}
-                onClick={() => navigate(assessmentStatus === 'archived' ? '/review/completed-assessments' : '/review/open-assessments')}
+                onClick={() =>
+                  navigate(
+                    assessmentStatus === 'archived'
+                      ? '/review/completed-assessments'
+                      : '/review/open-assessments'
+                  )
+                }
               >
                 Zurück
               </Button>
             </Group>
             <Title order={2}>Ergebnisbesprechung</Title>
-            {user?.roles?.some(role => role.name === 'admin') && (
+            {user?.roles?.some((role) => role.name === 'admin') && (
               <Text size="sm" c="dimmed">
                 Assessment ID: {assessmentId}
               </Text>
             )}
           </div>
-          <Badge 
-            color={assessmentStatus === 'archived' ? 'gray' : 'violet'} 
-            size="lg" 
-            leftSection={assessmentStatus === 'archived' ? <IconArchive size={16} /> : <IconMessageCircle size={16} />}
+          <Badge
+            color={assessmentStatus === 'archived' ? 'gray' : 'violet'}
+            size="lg"
+            leftSection={
+              assessmentStatus === 'archived' ? (
+                <IconArchive size={16} />
+              ) : (
+                <IconMessageCircle size={16} />
+              )
+            }
           >
             {assessmentStatus === 'archived' ? 'Archiviert' : 'Besprechung'}
           </Badge>
@@ -195,13 +207,16 @@ export function ReviewDiscussionPage() {
 
         {/* Info Alert */}
         <Alert icon={<IconInfoCircle size={16} />} color="blue">
-          Auf dieser Seite werden die Selbsteinschätzung der/des Benutzer:in mit der konsolidierten 
-          Bewertung des Reviewer-Gremiums verglichen. Sie können hier Kommentare zur Diskussion hinzufügen.
+          Auf dieser Seite werden die Selbsteinschätzung der/des Benutzer:in mit der konsolidierten
+          Bewertung des Reviewer-Gremiums verglichen. Sie können hier Kommentare zur Diskussion
+          hinzufügen.
         </Alert>
 
         {/* Comparison Table */}
         <Paper withBorder p="md">
-          <Title order={3} mb="md">Vergleich der Bewertungen</Title>
+          <Title order={3} mb="md">
+            Vergleich der Bewertungen
+          </Title>
           <Table striped highlightOnHover>
             <Table.Thead>
               <Table.Tr>
@@ -223,7 +238,9 @@ export function ReviewDiscussionPage() {
                         {categoryResult.user_level_name}
                       </Badge>
                     ) : (
-                      <Text size="sm" c="dimmed">Keine Angabe</Text>
+                      <Text size="sm" c="dimmed">
+                        Keine Angabe
+                      </Text>
                     )}
                   </Table.Td>
                   <Table.Td>
@@ -237,7 +254,9 @@ export function ReviewDiscussionPage() {
                         {categoryResult.justification}
                       </Text>
                     ) : (
-                      <Text size="sm" c="dimmed">Keine Begründung</Text>
+                      <Text size="sm" c="dimmed">
+                        Keine Begründung
+                      </Text>
                     )}
                   </Table.Td>
                 </Table.Tr>
@@ -248,12 +267,16 @@ export function ReviewDiscussionPage() {
 
         {/* Final Consolidation Result */}
         <Card withBorder shadow="sm" p="md">
-          <Title order={4} mb="md">Gesamtbewertung</Title>
-          
+          <Title order={4} mb="md">
+            Gesamtbewertung
+          </Title>
+
           <Grid>
             <Grid.Col span={4}>
               <Stack gap="xs">
-                <Text size="sm" fw={500} c="dimmed">Gewichtetes Gesamtergebnis</Text>
+                <Text size="sm" fw={500} c="dimmed">
+                  Gewichtetes Gesamtergebnis
+                </Text>
                 <div>
                   <Badge size="xl" color="green" variant="filled">
                     {data.weighted_overall_level_name}
@@ -267,21 +290,25 @@ export function ReviewDiscussionPage() {
                 </div>
               </Stack>
             </Grid.Col>
-            
+
             <Grid.Col span={8}>
               <Stack gap="xs">
-                <Text size="sm" fw={500} c="dimmed">Abschlusskommentar des Reviewer-Gremiums</Text>
+                <Text size="sm" fw={500} c="dimmed">
+                  Abschlusskommentar des Reviewer-Gremiums
+                </Text>
                 <Text size="sm" style={{ whiteSpace: 'pre-wrap' }}>
                   {data.final_comment || 'Kein Kommentar verfügbar'}
                 </Text>
               </Stack>
             </Grid.Col>
           </Grid>
-          
+
           <Divider my="md" />
-          
+
           <Group gap="xs">
-            <Text size="sm" fw={500}>Reviewer:</Text>
+            <Text size="sm" fw={500}>
+              Reviewer:
+            </Text>
             {data.reviewers?.map((reviewer) => (
               <Badge key={reviewer.id} color="blue">
                 {reviewer.reviewer_name}
@@ -292,7 +319,9 @@ export function ReviewDiscussionPage() {
 
         {/* Discussion Comments Section */}
         <Paper withBorder p="md">
-          <Title order={4} mb="md">Notizen zur Besprechung</Title>
+          <Title order={4} mb="md">
+            Notizen zur Besprechung
+          </Title>
           {assessmentStatus === 'archived' ? (
             <Alert color="gray" icon={<IconInfoCircle size={16} />}>
               Dieses Assessment ist archiviert. Notizen können nicht mehr bearbeitet werden.
@@ -311,7 +340,7 @@ export function ReviewDiscussionPage() {
                 minRows={8}
                 disabled={saving}
               />
-              
+
               <Button
                 onClick={handleSaveComment}
                 loading={saving}
@@ -329,10 +358,10 @@ export function ReviewDiscussionPage() {
             <Title order={4} mb="md">
               Besprechungsbestätigung
             </Title>
-            
+
             <Alert icon={<IconInfoCircle size={16} />} color="blue" mb="md">
-              Bestätigen Sie hier, dass die Besprechung mit dem Mitarbeiter stattgefunden hat. 
-              Nach Ihrer Bestätigung kann der Mitarbeiter ebenfalls bestätigen.
+              Bestätigen Sie hier, dass die Besprechung mit dem Mitarbeiter stattgefunden hat. Nach
+              Ihrer Bestätigung kann der Mitarbeiter ebenfalls bestätigen.
             </Alert>
 
             <Stack gap="md">
@@ -351,7 +380,7 @@ export function ReviewDiscussionPage() {
                           {confirmation.user_type === 'reviewer' ? 'Reviewer' : 'Mitarbeiter'}
                         </Badge>
                         <Text size="sm">
-                          {confirmation.user_name || 'Unbekannt'} - {' '}
+                          {confirmation.user_name || 'Unbekannt'} -{' '}
                           {new Date(confirmation.confirmed_at).toLocaleString('de-DE')}
                         </Text>
                       </Group>

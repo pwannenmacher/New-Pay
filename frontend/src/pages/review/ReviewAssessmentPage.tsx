@@ -58,7 +58,9 @@ export function ReviewAssessmentPage() {
   const [assessment, setAssessment] = useState<SelfAssessment | null>(null);
   const [catalog, setCatalog] = useState<CatalogWithDetails | null>(null);
   const [userResponses, setUserResponses] = useState<AssessmentResponseWithDetails[]>([]);
-  const [reviewerResponses, setReviewerResponses] = useState<Map<number, ReviewerResponse>>(new Map());
+  const [reviewerResponses, setReviewerResponses] = useState<Map<number, ReviewerResponse>>(
+    new Map()
+  );
   const [selectedPaths, setSelectedPaths] = useState<Map<number, number>>(new Map());
   const [loading, setLoading] = useState(true);
   const [savingCategory, setSavingCategory] = useState<number | null>(null);
@@ -84,12 +86,18 @@ export function ReviewAssessmentPage() {
       ]);
 
       setAssessment(assessmentData);
-      
+
       // Redirect to consolidation page if status is reviewed or beyond
-      if (assessmentData.status === 'reviewed' || assessmentData.status === 'discussion' || assessmentData.status === 'archived' || assessmentData.status === 'closed') {
+      if (
+        assessmentData.status === 'reviewed' ||
+        assessmentData.status === 'discussion' ||
+        assessmentData.status === 'archived' ||
+        assessmentData.status === 'closed'
+      ) {
         notifications.show({
           title: 'Hinweis',
-          message: 'Diese Bewertung kann nicht mehr bearbeitet werden. Sie wird zur Konsolidierungsseite umgeleitet.',
+          message:
+            'Diese Bewertung kann nicht mehr bearbeitet werden. Sie wird zur Konsolidierungsseite umgeleitet.',
           color: 'blue',
         });
         navigate(`/review/consolidation/${assessmentId}`);
@@ -106,7 +114,7 @@ export function ReviewAssessmentPage() {
       // Load existing reviewer responses from backend
       const loadedReviewerResponses = new Map<number, ReviewerResponse>();
       const initialSelectedPaths = new Map();
-      
+
       // Handle null or undefined reviewerResponsesData
       if (reviewerResponsesData && Array.isArray(reviewerResponsesData)) {
         reviewerResponsesData.forEach((response) => {
@@ -114,16 +122,16 @@ export function ReviewAssessmentPage() {
           initialSelectedPaths.set(response.category_id, response.path_id);
         });
       }
-      
+
       // For categories without reviewer response, use user's path as initial selection
       responsesData.forEach((response) => {
         if (!initialSelectedPaths.has(response.category_id)) {
           initialSelectedPaths.set(response.category_id, response.path_id);
         }
       });
-      
+
       setReviewerResponses(loadedReviewerResponses);
-      setSelectedPaths(initialSelectedPaths)
+      setSelectedPaths(initialSelectedPaths);
     } catch (error: any) {
       console.error('Error loading data:', error);
       notifications.show({
@@ -158,7 +166,9 @@ export function ReviewAssessmentPage() {
       level_id: 0,
       justification: '',
     };
-    setReviewerResponses(new Map(reviewerResponses.set(categoryId, { ...current, path_id: pathId, level_id: 0 })));
+    setReviewerResponses(
+      new Map(reviewerResponses.set(categoryId, { ...current, path_id: pathId, level_id: 0 }))
+    );
   };
 
   const handleReviewerLevelChange = (categoryId: number, levelId: number) => {
@@ -171,7 +181,9 @@ export function ReviewAssessmentPage() {
       level_id: levelId,
       justification: '',
     };
-    setReviewerResponses(new Map(reviewerResponses.set(categoryId, { ...current, level_id: levelId })));
+    setReviewerResponses(
+      new Map(reviewerResponses.set(categoryId, { ...current, level_id: levelId }))
+    );
   };
 
   const handleReviewerJustificationChange = (categoryId: number, justification: string) => {
@@ -198,18 +210,21 @@ export function ReviewAssessmentPage() {
   const isJustificationRequired = (categoryId: number): boolean => {
     const userResponse = getUserResponseForCategory(categoryId);
     const reviewerResponse = getReviewerResponseForCategory(categoryId);
-    
+
     if (!userResponse || !reviewerResponse) return false;
-    
+
     // Begründung erforderlich wenn Level ODER Pfad abweicht
-    return userResponse.level_id !== reviewerResponse.level_id || userResponse.path_id !== reviewerResponse.path_id;
+    return (
+      userResponse.level_id !== reviewerResponse.level_id ||
+      userResponse.path_id !== reviewerResponse.path_id
+    );
   };
 
   const isJustificationValid = (categoryId: number): boolean => {
     const reviewerResponse = getReviewerResponseForCategory(categoryId);
-    
+
     if (!isJustificationRequired(categoryId)) return true;
-    
+
     return (reviewerResponse?.justification?.length || 0) >= 50;
   };
 
@@ -227,7 +242,8 @@ export function ReviewAssessmentPage() {
     if (!isJustificationValid(categoryId)) {
       notifications.show({
         title: 'Fehler',
-        message: 'Begründung muss mindestens 50 Zeichen haben, wenn Level oder Pfad vom User abweicht',
+        message:
+          'Begründung muss mindestens 50 Zeichen haben, wenn Level oder Pfad vom User abweicht',
         color: 'red',
       });
       return;
@@ -268,9 +284,7 @@ export function ReviewAssessmentPage() {
   };
 
   const getPathNameById = (pathId: number): string => {
-    const category = catalog?.categories?.find((c) =>
-      c.paths?.some((p) => p.id === pathId)
-    );
+    const category = catalog?.categories?.find((c) => c.paths?.some((p) => p.id === pathId));
     const path = category?.paths?.find((p) => p.id === pathId);
     return path?.name || 'Unbekannt';
   };
@@ -399,12 +413,14 @@ export function ReviewAssessmentPage() {
                                 )}
                               </Group>
                               {path.descriptions && path.descriptions.length > 0 && (
-                                <div style={{ 
-                                  display: 'flex', 
-                                  gap: '12px', 
-                                  overflowX: 'auto',
-                                  paddingBottom: '8px'
-                                }}>
+                                <div
+                                  style={{
+                                    display: 'flex',
+                                    gap: '12px',
+                                    overflowX: 'auto',
+                                    paddingBottom: '8px',
+                                  }}
+                                >
                                   {catalog.levels
                                     ?.sort((a, b) => a.level_number - b.level_number)
                                     .map((level) => {
@@ -412,17 +428,17 @@ export function ReviewAssessmentPage() {
                                         (d) => d.level_id === level.id
                                       );
                                       if (!description) return null;
-                                      
+
                                       return (
-                                        <Paper 
-                                          key={level.id} 
-                                          p="md" 
-                                          withBorder 
+                                        <Paper
+                                          key={level.id}
+                                          p="md"
+                                          withBorder
                                           bg={colorScheme === 'dark' ? 'dark.7' : 'white'}
-                                          style={{ 
+                                          style={{
                                             minWidth: '250px',
                                             maxWidth: '250px',
-                                            flexShrink: 0
+                                            flexShrink: 0,
                                           }}
                                         >
                                           <Stack gap="xs">
@@ -446,215 +462,240 @@ export function ReviewAssessmentPage() {
                         </Stack>
                       </Paper>
                     )}
-                    
+
                     <Grid>
                       {/* Left Column: User Assessment */}
                       <Grid.Col span={6}>
-                      <Paper p="md" withBorder style={{ height: '100%' }}>
-                        <Stack gap="md">
-                          <Title order={4}>Selbsteinschätzung des Benutzers</Title>
-                          
-                          {(() => {
-                            const userResponse = getUserResponseForCategory(category.id);
-                            
-                            if (!userResponse) {
+                        <Paper p="md" withBorder style={{ height: '100%' }}>
+                          <Stack gap="md">
+                            <Title order={4}>Selbsteinschätzung des Benutzers</Title>
+
+                            {(() => {
+                              const userResponse = getUserResponseForCategory(category.id);
+
+                              if (!userResponse) {
+                                return (
+                                  <Alert icon={<IconAlertCircle size={16} />} color="yellow">
+                                    Keine Antwort vorhanden
+                                  </Alert>
+                                );
+                              }
+
                               return (
-                                <Alert icon={<IconAlertCircle size={16} />} color="yellow">
-                                  Keine Antwort vorhanden
-                                </Alert>
-                              );
-                            }
-
-                            return (
-                              <Stack gap="md">
-                                <div>
-                                  <Text size="sm" fw={600} c="dimmed" mb="xs">
-                                    Entwicklungspfad
-                                  </Text>
-                                  <Badge size="lg" variant="light">
-                                    {getPathNameById(userResponse.path_id)}
-                                  </Badge>
-                                </div>
-
-                                <div>
-                                  <Text size="sm" fw={600} c="dimmed" mb="xs">
-                                    Gewähltes Level
-                                  </Text>
-                                  <Badge size="lg" color="blue">
-                                    {getLevelNameById(userResponse.level_id)}
-                                  </Badge>
-                                </div>
-
-                                <div>
-                                  <Text size="sm" fw={600} c="dimmed" mb="xs">
-                                    Begründung
-                                  </Text>
-                                  <Paper p="sm" withBorder bg={colorScheme === 'dark' ? 'dark.6' : 'gray.0'}>
-                                    <Text size="sm">
-                                      {userResponse.justification || 'Keine Begründung angegeben'}
+                                <Stack gap="md">
+                                  <div>
+                                    <Text size="sm" fw={600} c="dimmed" mb="xs">
+                                      Entwicklungspfad
                                     </Text>
-                                  </Paper>
-                                </div>
-                              </Stack>
-                            );
-                          })()}
-                        </Stack>
-                      </Paper>
-                    </Grid.Col>
+                                    <Badge size="lg" variant="light">
+                                      {getPathNameById(userResponse.path_id)}
+                                    </Badge>
+                                  </div>
 
-                    {/* Right Column: Reviewer Assessment */}
-                    <Grid.Col span={6}>
-                      <Paper p="md" withBorder style={{ height: '100%' }}>
-                        <Stack gap="md">
-                          <Title order={4}>Ihre Bewertung als Reviewer</Title>
-                          
-                          {(() => {
-                            const userResponse = getUserResponseForCategory(category.id);
-                            const reviewerResponse = getReviewerResponseForCategory(category.id);
-                            
-                            if (!userResponse) {
-                              return (
-                                <Alert icon={<IconAlertCircle size={16} />} color="yellow">
-                                  Keine Benutzereingabe vorhanden
-                                </Alert>
+                                  <div>
+                                    <Text size="sm" fw={600} c="dimmed" mb="xs">
+                                      Gewähltes Level
+                                    </Text>
+                                    <Badge size="lg" color="blue">
+                                      {getLevelNameById(userResponse.level_id)}
+                                    </Badge>
+                                  </div>
+
+                                  <div>
+                                    <Text size="sm" fw={600} c="dimmed" mb="xs">
+                                      Begründung
+                                    </Text>
+                                    <Paper
+                                      p="sm"
+                                      withBorder
+                                      bg={colorScheme === 'dark' ? 'dark.6' : 'gray.0'}
+                                    >
+                                      <Text size="sm">
+                                        {userResponse.justification || 'Keine Begründung angegeben'}
+                                      </Text>
+                                    </Paper>
+                                  </div>
+                                </Stack>
                               );
-                            }
+                            })()}
+                          </Stack>
+                        </Paper>
+                      </Grid.Col>
 
-                            const requiresJustification = isJustificationRequired(category.id);
-                            const justificationValid = isJustificationValid(category.id);
+                      {/* Right Column: Reviewer Assessment */}
+                      <Grid.Col span={6}>
+                        <Paper p="md" withBorder style={{ height: '100%' }}>
+                          <Stack gap="md">
+                            <Title order={4}>Ihre Bewertung als Reviewer</Title>
 
-                            const selectedPathId = selectedPaths.get(category.id) || userResponse.path_id;
-                            const availablePaths = category.paths || [];
+                            {(() => {
+                              const userResponse = getUserResponseForCategory(category.id);
+                              const reviewerResponse = getReviewerResponseForCategory(category.id);
 
-                            return (
-                              <Stack gap="md">
-                                <div>
-                                  <Text size="sm" fw={600} mb="xs">
-                                    Entwicklungspfad
-                                  </Text>
-                                  {availablePaths.length > 1 ? (
+                              if (!userResponse) {
+                                return (
+                                  <Alert icon={<IconAlertCircle size={16} />} color="yellow">
+                                    Keine Benutzereingabe vorhanden
+                                  </Alert>
+                                );
+                              }
+
+                              const requiresJustification = isJustificationRequired(category.id);
+                              const justificationValid = isJustificationValid(category.id);
+
+                              const selectedPathId =
+                                selectedPaths.get(category.id) || userResponse.path_id;
+                              const availablePaths = category.paths || [];
+
+                              return (
+                                <Stack gap="md">
+                                  <div>
+                                    <Text size="sm" fw={600} mb="xs">
+                                      Entwicklungspfad
+                                    </Text>
+                                    {availablePaths.length > 1 ? (
+                                      <Radio.Group
+                                        value={selectedPathId.toString()}
+                                        onChange={(value) =>
+                                          handleReviewerPathChange(category.id, parseInt(value))
+                                        }
+                                      >
+                                        <Stack gap="xs">
+                                          {availablePaths.map((path) => (
+                                            <Radio
+                                              key={path.id}
+                                              value={path.id.toString()}
+                                              label={
+                                                <Group gap="xs">
+                                                  <Text fw={600}>{path.name}</Text>
+                                                  {path.id === userResponse.path_id && (
+                                                    <Badge size="xs" color="blue">
+                                                      Benutzer-Wahl
+                                                    </Badge>
+                                                  )}
+                                                </Group>
+                                              }
+                                            />
+                                          ))}
+                                        </Stack>
+                                      </Radio.Group>
+                                    ) : (
+                                      <Badge size="lg" variant="light">
+                                        {getPathNameById(selectedPathId)}
+                                      </Badge>
+                                    )}
+                                  </div>
+
+                                  <div>
+                                    <Text size="sm" fw={600} mb="xs">
+                                      Level-Bewertung
+                                    </Text>
                                     <Radio.Group
-                                      value={selectedPathId.toString()}
-                                      onChange={(value) => handleReviewerPathChange(category.id, parseInt(value))}
+                                      value={reviewerResponse?.level_id?.toString() || ''}
+                                      onChange={(value) =>
+                                        handleReviewerLevelChange(category.id, parseInt(value))
+                                      }
                                     >
                                       <Stack gap="xs">
-                                        {availablePaths.map((path) => (
+                                        {catalog.levels?.map((level) => (
                                           <Radio
-                                            key={path.id}
-                                            value={path.id.toString()}
+                                            key={level.id}
+                                            value={level.id.toString()}
                                             label={
-                                              <Group gap="xs">
-                                                <Text fw={600}>{path.name}</Text>
-                                                {path.id === userResponse.path_id && (
-                                                  <Badge size="xs" color="blue">Benutzer-Wahl</Badge>
+                                              <div>
+                                                <Text fw={600}>
+                                                  Level {level.level_number}: {level.name}
+                                                </Text>
+                                                {level.description && (
+                                                  <Text size="xs" c="dimmed">
+                                                    {level.description}
+                                                  </Text>
                                                 )}
-                                              </Group>
+                                              </div>
                                             }
                                           />
                                         ))}
                                       </Stack>
                                     </Radio.Group>
-                                  ) : (
-                                    <Badge size="lg" variant="light">
-                                      {getPathNameById(selectedPathId)}
-                                    </Badge>
-                                  )}
-                                </div>
+                                  </div>
 
-                                <div>
-                                  <Text size="sm" fw={600} mb="xs">
-                                    Level-Bewertung
-                                  </Text>
-                                  <Radio.Group
-                                    value={reviewerResponse?.level_id?.toString() || ''}
-                                    onChange={(value) => handleReviewerLevelChange(category.id, parseInt(value))}
-                                  >
-                                    <Stack gap="xs">
-                                      {catalog.levels?.map((level) => (
-                                        <Radio
-                                          key={level.id}
-                                          value={level.id.toString()}
-                                          label={
-                                            <div>
-                                              <Text fw={600}>
-                                                Level {level.level_number}: {level.name}
-                                              </Text>
-                                              {level.description && (
-                                                <Text size="xs" c="dimmed">
-                                                  {level.description}
-                                                </Text>
-                                              )}
-                                            </div>
-                                          }
-                                        />
-                                      ))}
-                                    </Stack>
-                                  </Radio.Group>
-                                </div>
-
-                                <div>
-                                  <Group justify="space-between" mb="xs">
-                                    <Text size="sm" fw={600}>
-                                      Begründung
+                                  <div>
+                                    <Group justify="space-between" mb="xs">
+                                      <Text size="sm" fw={600}>
+                                        Begründung
+                                        {requiresJustification && (
+                                          <Text component="span" c="red" ml={4}>
+                                            *
+                                          </Text>
+                                        )}
+                                      </Text>
                                       {requiresJustification && (
-                                        <Text component="span" c="red" ml={4}>
-                                          *
+                                        <Text size="xs" c={justificationValid ? 'green' : 'red'}>
+                                          {reviewerResponse?.justification?.length || 0} / 50
+                                          Zeichen
                                         </Text>
                                       )}
-                                    </Text>
+                                    </Group>
+                                    <Textarea
+                                      placeholder={
+                                        requiresJustification
+                                          ? 'Begründung erforderlich (mindestens 50 Zeichen), da Sie vom Benutzer-Level abweichen'
+                                          : 'Optional: Begründung für Ihre Bewertung'
+                                      }
+                                      value={reviewerResponse?.justification || ''}
+                                      onChange={(e) =>
+                                        handleReviewerJustificationChange(
+                                          category.id,
+                                          e.target.value
+                                        )
+                                      }
+                                      minRows={4}
+                                      error={
+                                        requiresJustification && !justificationValid
+                                          ? 'Mindestens 50 Zeichen erforderlich'
+                                          : undefined
+                                      }
+                                    />
                                     {requiresJustification && (
-                                      <Text size="xs" c={justificationValid ? 'green' : 'red'}>
-                                        {reviewerResponse?.justification?.length || 0} / 50 Zeichen
+                                      <Text size="xs" c="dimmed" mt="xs">
+                                        Sie haben ein anderes Level als der Benutzer gewählt. Bitte
+                                        begründen Sie Ihre Abweichung ausführlich.
                                       </Text>
                                     )}
-                                  </Group>
-                                  <Textarea
-                                    placeholder={
-                                      requiresJustification
-                                        ? 'Begründung erforderlich (mindestens 50 Zeichen), da Sie vom Benutzer-Level abweichen'
-                                        : 'Optional: Begründung für Ihre Bewertung'
+                                  </div>
+
+                                  {/* Save button for this category */}
+                                  <Button
+                                    onClick={() => handleSaveCategory(category.id)}
+                                    loading={savingCategory === category.id}
+                                    disabled={
+                                      !reviewerResponse?.level_id ||
+                                      (requiresJustification && !justificationValid)
                                     }
-                                    value={reviewerResponse?.justification || ''}
-                                    onChange={(e) =>
-                                      handleReviewerJustificationChange(category.id, e.target.value)
-                                    }
-                                    minRows={4}
-                                    error={
-                                      requiresJustification && !justificationValid
-                                        ? 'Mindestens 50 Zeichen erforderlich'
-                                        : undefined
-                                    }
-                                  />
-                                  {requiresJustification && (
-                                    <Text size="xs" c="dimmed" mt="xs">
-                                      Sie haben ein anderes Level als der Benutzer gewählt. Bitte begründen Sie
-                                      Ihre Abweichung ausführlich.
+                                    fullWidth
+                                  >
+                                    {reviewerResponse?.id
+                                      ? 'Änderungen speichern'
+                                      : 'Kategorie speichern'}
+                                  </Button>
+
+                                  {reviewerResponse?.id && (
+                                    <Text size="xs" c="dimmed" ta="center">
+                                      Zuletzt gespeichert:{' '}
+                                      {new Date(
+                                        reviewerResponse.updated_at ||
+                                          reviewerResponse.created_at ||
+                                          ''
+                                      ).toLocaleString('de-DE')}
                                     </Text>
                                   )}
-                                </div>
-
-                                {/* Save button for this category */}
-                                <Button
-                                  onClick={() => handleSaveCategory(category.id)}
-                                  loading={savingCategory === category.id}
-                                  disabled={!reviewerResponse?.level_id || (requiresJustification && !justificationValid)}
-                                  fullWidth
-                                >
-                                  {reviewerResponse?.id ? 'Änderungen speichern' : 'Kategorie speichern'}
-                                </Button>
-                                
-                                {reviewerResponse?.id && (
-                                  <Text size="xs" c="dimmed" ta="center">
-                                    Zuletzt gespeichert: {new Date(reviewerResponse.updated_at || reviewerResponse.created_at || '').toLocaleString('de-DE')}
-                                  </Text>
-                                )}
-                              </Stack>
-                            );
-                          })()}
-                        </Stack>
-                      </Paper>
-                    </Grid.Col>
-                  </Grid>
+                                </Stack>
+                              );
+                            })()}
+                          </Stack>
+                        </Paper>
+                      </Grid.Col>
+                    </Grid>
                   </Stack>
                 )}
               </Tabs.Panel>

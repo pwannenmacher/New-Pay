@@ -22,7 +22,10 @@ import {
 } from '@mantine/core';
 import { IconArrowLeft, IconAlertCircle, IconCheck, IconSparkles } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
-import consolidationService, { type ConsolidationData, type ConsolidationOverride } from '../../services/consolidation';
+import consolidationService, {
+  type ConsolidationData,
+  type ConsolidationOverride,
+} from '../../services/consolidation';
 import { useAuth } from '../../contexts/AuthContext';
 
 export function ReviewConsolidationPage() {
@@ -33,17 +36,21 @@ export function ReviewConsolidationPage() {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<ConsolidationData | null>(null);
   const [activeCategory, setActiveCategory] = useState<string>('0');
-  const [overrideData, setOverrideData] = useState<{ [key: number]: Partial<ConsolidationOverride> }>({});
+  const [overrideData, setOverrideData] = useState<{
+    [key: number]: Partial<ConsolidationOverride>;
+  }>({});
   const [categoryComments, setCategoryComments] = useState<{ [key: number]: string }>({});
   const [finalComment, setFinalComment] = useState<string>('');
 
   // Check if review is in read-only mode (status is 'reviewed' or 'discussion')
-  const isReadOnly = data?.assessment?.status === 'reviewed' || data?.assessment?.status === 'discussion';
-  
+  const isReadOnly =
+    data?.assessment?.status === 'reviewed' || data?.assessment?.status === 'discussion';
+
   // Check if within 1 hour of reviewed_at for revocation
-  const canRevokeApprovals = data?.assessment?.status === 'reviewed' && data?.assessment?.reviewed_at
-    ? new Date().getTime() - new Date(data.assessment.reviewed_at).getTime() < 60 * 60 * 1000
-    : false;
+  const canRevokeApprovals =
+    data?.assessment?.status === 'reviewed' && data?.assessment?.reviewed_at
+      ? new Date().getTime() - new Date(data.assessment.reviewed_at).getTime() < 60 * 60 * 1000
+      : false;
 
   useEffect(() => {
     loadData();
@@ -53,22 +60,22 @@ export function ReviewConsolidationPage() {
     try {
       setLoading(true);
       const consolidationData = await consolidationService.getConsolidationData(parseInt(id!));
-      
+
       if (!consolidationData) {
         throw new Error('Keine Daten vom Server erhalten');
       }
-      
+
       setData(consolidationData);
-      
+
       // Initialize final comment if exists
       if (consolidationData.final_consolidation?.comment) {
         setFinalComment(consolidationData.final_consolidation.comment);
       }
-      
+
       // Initialize override data with existing overrides
       const overrides: { [key: number]: Partial<ConsolidationOverride> } = {};
       if (consolidationData.overrides) {
-        consolidationData.overrides.forEach(override => {
+        consolidationData.overrides.forEach((override) => {
           overrides[override.category_id] = override;
         });
       }
@@ -77,7 +84,7 @@ export function ReviewConsolidationPage() {
       // Initialize category comments
       const comments: { [key: number]: string } = {};
       if (consolidationData.category_discussion_comments) {
-        consolidationData.category_discussion_comments.forEach(comment => {
+        consolidationData.category_discussion_comments.forEach((comment) => {
           comments[comment.category_id] = comment.comment;
         });
       }
@@ -86,7 +93,10 @@ export function ReviewConsolidationPage() {
       console.error('Error loading consolidation data:', error);
       notifications.show({
         title: 'Fehler',
-        message: error.response?.data?.error || error.message || 'Fehler beim Laden der Konsolidierungsdaten',
+        message:
+          error.response?.data?.error ||
+          error.message ||
+          'Fehler beim Laden der Konsolidierungsdaten',
         color: 'red',
       });
     } finally {
@@ -181,7 +191,7 @@ export function ReviewConsolidationPage() {
       });
 
       // Reset override data for this category
-      setOverrideData(prev => {
+      setOverrideData((prev) => {
         const newData = { ...prev };
         delete newData[categoryId];
         return newData;
@@ -355,7 +365,8 @@ export function ReviewConsolidationPage() {
       setLoading(false);
       notifications.show({
         title: 'Fehler',
-        message: error.response?.data?.error || 'Fehler beim Generieren der Kategorie-Zusammenfassungen',
+        message:
+          error.response?.data?.error || 'Fehler beim Generieren der Kategorie-Zusammenfassungen',
         color: 'red',
       });
     }
@@ -386,14 +397,19 @@ export function ReviewConsolidationPage() {
     }
   };
 
-  const hasOverrideChanged = (categoryId: number, existingOverride: ConsolidationOverride | undefined): boolean => {
+  const hasOverrideChanged = (
+    categoryId: number,
+    existingOverride: ConsolidationOverride | undefined
+  ): boolean => {
     if (!existingOverride) return true;
     const current = overrideData[categoryId];
     if (!current) return false;
-    
-    return current.path_id !== existingOverride.path_id ||
-           current.level_id !== existingOverride.level_id ||
-           current.justification !== existingOverride.justification;
+
+    return (
+      current.path_id !== existingOverride.path_id ||
+      current.level_id !== existingOverride.level_id ||
+      current.justification !== existingOverride.justification
+    );
   };
 
   const isCurrentUserAuthor = (override: ConsolidationOverride | undefined): boolean => {
@@ -403,13 +419,13 @@ export function ReviewConsolidationPage() {
 
   const isCategoryApproved = (categoryId: number): boolean => {
     // Check if override exists and is approved (1+ approval)
-    const override = data?.overrides?.find(o => o.category_id === categoryId);
+    const override = data?.overrides?.find((o) => o.category_id === categoryId);
     if (override && override.is_approved) {
       return true;
     }
 
     // Check if averaged response has 2+ approvals
-    const averaged = data?.averaged_responses?.find(a => a.category_id === categoryId);
+    const averaged = data?.averaged_responses?.find((a) => a.category_id === categoryId);
     if (averaged && averaged.is_approved) {
       return true;
     }
@@ -443,10 +459,10 @@ export function ReviewConsolidationPage() {
     let totalWeightedScore = 0;
     let totalWeight = 0;
 
-    sortedCategories.forEach(category => {
-      const averaged = data.averaged_responses.find(r => r.category_id === category.id);
-      const override = data.overrides.find(o => o.category_id === category.id);
-      
+    sortedCategories.forEach((category) => {
+      const averaged = data.averaged_responses.find((r) => r.category_id === category.id);
+      const override = data.overrides.find((o) => o.category_id === category.id);
+
       // Use override if it exists (TODO: check if approved when approval system is implemented)
       if (override) {
         // Find the level number for the override
@@ -463,17 +479,17 @@ export function ReviewConsolidationPage() {
     });
 
     if (totalWeight === 0) return { number: 0, name: '-' };
-    
+
     const overallAverage = totalWeightedScore / totalWeight;
-    
+
     // Find closest level name
     const closestLevel = data.catalog.levels
       .map((l: any) => ({ ...l, diff: Math.abs(l.level_number - overallAverage) }))
       .sort((a: any, b: any) => a.diff - b.diff)[0];
-    
+
     return {
       number: Math.round(overallAverage * 100) / 100,
-      name: closestLevel?.name || '-'
+      name: closestLevel?.name || '-',
     };
   };
 
@@ -508,9 +524,15 @@ export function ReviewConsolidationPage() {
         <Alert color="blue">
           <Group justify="space-between" align="center">
             <div>
-              <Text size="sm" fw={600}>Gewichtete Gesamtbewertung</Text>
-              <Text size="xs" c="dimmed">Basierend auf den gemittelten Reviewer-Bewertungen</Text>
-              <Text size="xs" c="dimmed" fs="italic">(Nur Reviewer mit vollständigen Bewertungen)</Text>
+              <Text size="sm" fw={600}>
+                Gewichtete Gesamtbewertung
+              </Text>
+              <Text size="xs" c="dimmed">
+                Basierend auf den gemittelten Reviewer-Bewertungen
+              </Text>
+              <Text size="xs" c="dimmed" fs="italic">
+                (Nur Reviewer mit vollständigen Bewertungen)
+              </Text>
             </div>
             <Badge size="xl" color="blue">
               {overallAverage.name} ({overallAverage.number.toFixed(2)})
@@ -521,23 +543,21 @@ export function ReviewConsolidationPage() {
         <Tabs value={activeCategory} onChange={(value) => setActiveCategory(value || '0')}>
           <Tabs.List>
             {sortedCategories.map((category, index) => (
-              <Tabs.Tab 
-                key={category.id} 
+              <Tabs.Tab
+                key={category.id}
                 value={index.toString()}
                 rightSection={
-                  isCategoryApproved(category.id) ? (
-                    <IconCheck size={16} color="green" />
-                  ) : null
+                  isCategoryApproved(category.id) ? <IconCheck size={16} color="green" /> : null
                 }
               >
                 {category.name}
               </Tabs.Tab>
             ))}
-            
+
             {/* Abschluss tab - only show if all categories are approved */}
             {data.all_categories_approved && (
-              <Tabs.Tab 
-                value="final" 
+              <Tabs.Tab
+                value="final"
                 rightSection={
                   data.final_consolidation?.is_fully_approved ? (
                     <IconCheck size={16} color="green" />
@@ -550,11 +570,15 @@ export function ReviewConsolidationPage() {
           </Tabs.List>
 
           {sortedCategories.map((category, index) => {
-            const userResponse = data.user_responses.find(r => r.category_id === category.id);
-            const averagedResponse = data.averaged_responses.find(r => r.category_id === category.id);
-            const currentUserReview = data.current_user_responses?.find(r => r.category_id === category.id);
+            const userResponse = data.user_responses.find((r) => r.category_id === category.id);
+            const averagedResponse = data.averaged_responses.find(
+              (r) => r.category_id === category.id
+            );
+            const currentUserReview = data.current_user_responses?.find(
+              (r) => r.category_id === category.id
+            );
             const override = overrideData[category.id];
-            const existingOverride = data.overrides?.find(o => o.category_id === category.id);
+            const existingOverride = data.overrides?.find((o) => o.category_id === category.id);
             const categoryPaths = category.paths || [];
 
             return (
@@ -563,21 +587,37 @@ export function ReviewConsolidationPage() {
                   <Grid.Col span={{ base: 12, md: 6 }}>
                     <Stack gap="md">
                       <Paper p="md" withBorder>
-                        <Title order={4} mb="md">Benutzer-Einschätzung</Title>
+                        <Title order={4} mb="md">
+                          Benutzer-Einschätzung
+                        </Title>
                         {userResponse ? (
                           <Stack gap="sm">
                             <div>
-                              <Text size="sm" fw={600} c="dimmed">Pfad</Text>
+                              <Text size="sm" fw={600} c="dimmed">
+                                Pfad
+                              </Text>
                               <Text>{userResponse.path_name}</Text>
                             </div>
                             <div>
-                              <Text size="sm" fw={600} c="dimmed">Stufe</Text>
-                              <Badge>{userResponse.level_name} (Stufe {userResponse.level_number})</Badge>
+                              <Text size="sm" fw={600} c="dimmed">
+                                Stufe
+                              </Text>
+                              <Badge>
+                                {userResponse.level_name} (Stufe {userResponse.level_number})
+                              </Badge>
                             </div>
                             <div>
-                              <Text size="sm" fw={600} c="dimmed">Begründung</Text>
-                              <Paper p="sm" withBorder bg={colorScheme === 'dark' ? 'dark.6' : 'gray.0'}>
-                                <Text size="sm">{userResponse.justification || 'Keine Begründung'}</Text>
+                              <Text size="sm" fw={600} c="dimmed">
+                                Begründung
+                              </Text>
+                              <Paper
+                                p="sm"
+                                withBorder
+                                bg={colorScheme === 'dark' ? 'dark.6' : 'gray.0'}
+                              >
+                                <Text size="sm">
+                                  {userResponse.justification || 'Keine Begründung'}
+                                </Text>
                               </Paper>
                             </div>
                           </Stack>
@@ -594,17 +634,45 @@ export function ReviewConsolidationPage() {
                         {currentUserReview ? (
                           <Stack gap="sm">
                             <div>
-                              <Text size="sm" fw={600} c="dimmed">Pfad</Text>
-                              <Text>{categoryPaths.find((p: any) => p.id === currentUserReview.path_id)?.name || '-'}</Text>
+                              <Text size="sm" fw={600} c="dimmed">
+                                Pfad
+                              </Text>
+                              <Text>
+                                {categoryPaths.find((p: any) => p.id === currentUserReview.path_id)
+                                  ?.name || '-'}
+                              </Text>
                             </div>
                             <div>
-                              <Text size="sm" fw={600} c="dimmed">Stufe</Text>
-                              <Badge>{data.catalog.levels.find((l: any) => l.id === currentUserReview.level_id)?.name} (Stufe {data.catalog.levels.find((l: any) => l.id === currentUserReview.level_id)?.level_number})</Badge>
+                              <Text size="sm" fw={600} c="dimmed">
+                                Stufe
+                              </Text>
+                              <Badge>
+                                {
+                                  data.catalog.levels.find(
+                                    (l: any) => l.id === currentUserReview.level_id
+                                  )?.name
+                                }{' '}
+                                (Stufe{' '}
+                                {
+                                  data.catalog.levels.find(
+                                    (l: any) => l.id === currentUserReview.level_id
+                                  )?.level_number
+                                }
+                                )
+                              </Badge>
                             </div>
                             <div>
-                              <Text size="sm" fw={600} c="dimmed">Begründung</Text>
-                              <Paper p="sm" withBorder bg={colorScheme === 'dark' ? 'dark.6' : 'white'}>
-                                <Text size="sm">{currentUserReview.justification || 'Keine Begründung'}</Text>
+                              <Text size="sm" fw={600} c="dimmed">
+                                Begründung
+                              </Text>
+                              <Paper
+                                p="sm"
+                                withBorder
+                                bg={colorScheme === 'dark' ? 'dark.6' : 'white'}
+                              >
+                                <Text size="sm">
+                                  {currentUserReview.justification || 'Keine Begründung'}
+                                </Text>
                               </Paper>
                             </div>
                           </Stack>
@@ -618,16 +686,22 @@ export function ReviewConsolidationPage() {
                   <Grid.Col span={{ base: 12, md: 6 }}>
                     <Stack gap="md">
                       <Paper p="md" withBorder>
-                        <Title order={4} mb="md">Gemittelte Reviewer-Bewertung</Title>
+                        <Title order={4} mb="md">
+                          Gemittelte Reviewer-Bewertung
+                        </Title>
                         {averagedResponse ? (
                           <Stack gap="sm">
                             <div>
-                              <Text size="sm" fw={600} c="dimmed">Durchschnittliche Stufe</Text>
+                              <Text size="sm" fw={600} c="dimmed">
+                                Durchschnittliche Stufe
+                              </Text>
                               <Badge size="lg" color="blue">
-                                {averagedResponse.average_level_name} ({averagedResponse.average_level_number.toFixed(2)})
+                                {averagedResponse.average_level_name} (
+                                {averagedResponse.average_level_number.toFixed(2)})
                               </Badge>
                               <Text size="xs" c="dimmed" mt={4}>
-                                Basierend auf {averagedResponse.reviewer_count} vollständige(n) Review(s)
+                                Basierend auf {averagedResponse.reviewer_count} vollständige(n)
+                                Review(s)
                               </Text>
                               <Text size="xs" c="dimmed" fs="italic">
                                 (Nur Reviewer, die alle Kategorien bewertet haben)
@@ -635,52 +709,58 @@ export function ReviewConsolidationPage() {
                             </div>
 
                             {/* Show approval badges if averaged response has approvals */}
-                            {!existingOverride && averagedResponse.approvals && averagedResponse.approvals.length > 0 && (
-                              <div>
-                                <Group gap="xs" mb="xs">
-                                  <Text size="sm" fw={500}>Bestätigungen ({averagedResponse.approval_count}/2):</Text>
-                                </Group>
-                                <Group gap="xs">
-                                  {averagedResponse.approvals.map((approval) => (
-                                    <Tooltip key={approval.id} label={`Bestätigt am ${new Date(approval.approved_at).toLocaleDateString()}`}>
-                                      <Badge 
-                                        leftSection={<IconCheck size={12} />}
-                                        color="green"
-                                        variant="light"
+                            {!existingOverride &&
+                              averagedResponse.approvals &&
+                              averagedResponse.approvals.length > 0 && (
+                                <div>
+                                  <Group gap="xs" mb="xs">
+                                    <Text size="sm" fw={500}>
+                                      Bestätigungen ({averagedResponse.approval_count}/2):
+                                    </Text>
+                                  </Group>
+                                  <Group gap="xs">
+                                    {averagedResponse.approvals.map((approval) => (
+                                      <Tooltip
+                                        key={approval.id}
+                                        label={`Bestätigt am ${new Date(approval.approved_at).toLocaleDateString()}`}
                                       >
-                                        {approval.approved_by_name}
-                                      </Badge>
-                                    </Tooltip>
-                                  ))}
-                                </Group>
-                              </div>
-                            )}
+                                        <Badge
+                                          leftSection={<IconCheck size={12} />}
+                                          color="green"
+                                          variant="light"
+                                        >
+                                          {approval.approved_by_name}
+                                        </Badge>
+                                      </Tooltip>
+                                    ))}
+                                  </Group>
+                                </div>
+                              )}
 
                             {/* Show approve/revoke button for averaged response (only if no override exists) */}
-                            {!existingOverride && (
-                              averagedResponse?.approvals?.some(a => a.approved_by_user_id === user?.id) ? (
-                                canRevokeApprovals && (
-                                  <Button 
-                                    onClick={() => handleRevokeAveragedApproval(category.id)}
-                                    color="orange"
-                                    variant="light"
-                                  >
-                                    Bestätigung zurücknehmen
-                                  </Button>
-                                )
-                              ) : (
-                                !isReadOnly && (
-                                  <Button 
-                                    onClick={() => handleApproveAveraged(category.id)}
-                                    color="green"
-                                    leftSection={<IconCheck size={16} />}
-                                    variant="light"
-                                  >
-                                    Gemittelte Bewertung bestätigen
-                                  </Button>
-                                )
+                            {!existingOverride &&
+                              (averagedResponse?.approvals?.some(
+                                (a) => a.approved_by_user_id === user?.id
                               )
-                            )}
+                                ? canRevokeApprovals && (
+                                    <Button
+                                      onClick={() => handleRevokeAveragedApproval(category.id)}
+                                      color="orange"
+                                      variant="light"
+                                    >
+                                      Bestätigung zurücknehmen
+                                    </Button>
+                                  )
+                                : !isReadOnly && (
+                                    <Button
+                                      onClick={() => handleApproveAveraged(category.id)}
+                                      color="green"
+                                      leftSection={<IconCheck size={16} />}
+                                      variant="light"
+                                    >
+                                      Gemittelte Bewertung bestätigen
+                                    </Button>
+                                  ))}
                           </Stack>
                         ) : (
                           <Text c="dimmed">Keine Reviewer-Bewertungen vorhanden</Text>
@@ -691,11 +771,13 @@ export function ReviewConsolidationPage() {
                         <Group justify="space-between" mb="md">
                           <Title order={5}>Manuelle Anpassung</Title>
                           {existingOverride && (
-                            <Badge 
-                              color={isCurrentUserAuthor(existingOverride) ? "blue" : "gray"}
+                            <Badge
+                              color={isCurrentUserAuthor(existingOverride) ? 'blue' : 'gray'}
                               variant="light"
                             >
-                              {isCurrentUserAuthor(existingOverride) ? "Ihre Anpassung" : "Anpassung vorhanden"}
+                              {isCurrentUserAuthor(existingOverride)
+                                ? 'Ihre Anpassung'
+                                : 'Anpassung vorhanden'}
                             </Badge>
                           )}
                         </Group>
@@ -704,20 +786,20 @@ export function ReviewConsolidationPage() {
                             label="Pfad"
                             description="Wählen Sie den Entwicklungspfad"
                             placeholder="Pfad auswählen"
-                            data={categoryPaths.map((p: any) => ({ 
-                              value: p.id.toString(), 
-                              label: p.name 
+                            data={categoryPaths.map((p: any) => ({
+                              value: p.id.toString(),
+                              label: p.name,
                             }))}
                             value={override?.path_id?.toString() || ''}
                             onChange={(value) => {
                               const pathId = parseInt(value || '0');
-                              setOverrideData(prev => ({
+                              setOverrideData((prev) => ({
                                 ...prev,
-                                [category.id]: { 
-                                  ...prev[category.id], 
+                                [category.id]: {
+                                  ...prev[category.id],
                                   path_id: pathId,
-                                  level_id: undefined // Reset level when path changes
-                                }
+                                  level_id: undefined, // Reset level when path changes
+                                },
                               }));
                             }}
                             disabled={isReadOnly}
@@ -728,34 +810,39 @@ export function ReviewConsolidationPage() {
                             description="Wählen Sie die Reifegradstufe"
                             value={override?.level_id?.toString() || ''}
                             onChange={(value) => {
-                              setOverrideData(prev => ({
+                              setOverrideData((prev) => ({
                                 ...prev,
-                                [category.id]: { 
-                                  ...prev[category.id], 
-                                  level_id: parseInt(value)
-                                }
+                                [category.id]: {
+                                  ...prev[category.id],
+                                  level_id: parseInt(value),
+                                },
                               }));
                             }}
                             disabled={isReadOnly}
                           >
                             <Stack gap="sm" mt="xs">
                               {data.catalog.levels.map((level: any) => {
-                                const pathLevelDesc = override?.path_id 
+                                const pathLevelDesc = override?.path_id
                                   ? categoryPaths
                                       .find((p: any) => p.id === override.path_id)
                                       ?.descriptions?.find((d: any) => d.level_id === level.id)
                                   : null;
 
                                 return (
-                                  <Paper 
-                                    key={level.id} 
-                                    p="sm" 
+                                  <Paper
+                                    key={level.id}
+                                    p="sm"
                                     withBorder
                                     style={{
                                       opacity: override?.path_id ? 1 : 0.6,
-                                      backgroundColor: override?.level_id === level.id 
-                                        ? (colorScheme === 'dark' ? '#1c3a52' : '#e7f5ff')
-                                        : (colorScheme === 'dark' ? 'transparent' : 'white')
+                                      backgroundColor:
+                                        override?.level_id === level.id
+                                          ? colorScheme === 'dark'
+                                            ? '#1c3a52'
+                                            : '#e7f5ff'
+                                          : colorScheme === 'dark'
+                                            ? 'transparent'
+                                            : 'white',
                                     }}
                                   >
                                     <Radio
@@ -764,12 +851,23 @@ export function ReviewConsolidationPage() {
                                         <div>
                                           <Group gap="xs" mb="xs">
                                             <Text fw={600}>{level.name}</Text>
-                                            <Badge size="sm" variant="light">Stufe {level.level_number}</Badge>
+                                            <Badge size="sm" variant="light">
+                                              Stufe {level.level_number}
+                                            </Badge>
                                           </Group>
-                                          <Text size="xs" c="dimmed">{level.description}</Text>
+                                          <Text size="xs" c="dimmed">
+                                            {level.description}
+                                          </Text>
                                           {pathLevelDesc && (
-                                            <Paper p="xs" withBorder bg={colorScheme === 'dark' ? 'dark.5' : 'blue.0'} mt="xs">
-                                              <Text size="xs" fw={600} c="blue">Pfad-spezifische Beschreibung:</Text>
+                                            <Paper
+                                              p="xs"
+                                              withBorder
+                                              bg={colorScheme === 'dark' ? 'dark.5' : 'blue.0'}
+                                              mt="xs"
+                                            >
+                                              <Text size="xs" fw={600} c="blue">
+                                                Pfad-spezifische Beschreibung:
+                                              </Text>
                                               <Text size="xs">{pathLevelDesc.description}</Text>
                                             </Paper>
                                           )}
@@ -791,74 +889,85 @@ export function ReviewConsolidationPage() {
                             value={override?.justification || ''}
                             onChange={(e) => {
                               const value = e.target.value;
-                              setOverrideData(prev => ({
+                              setOverrideData((prev) => ({
                                 ...prev,
-                                [category.id]: { ...prev[category.id], justification: value }
+                                [category.id]: { ...prev[category.id], justification: value },
                               }));
                             }}
                             disabled={isReadOnly}
                           />
-                          
+
                           {/* Show approval badges if override exists and has approvals */}
-                          {existingOverride && existingOverride.approvals && existingOverride.approvals.length > 0 && (
-                            <Group gap="xs">
-                              <Text size="sm" fw={500}>Bestätigungen:</Text>
-                              {existingOverride.approvals.map((approval) => (
-                                <Tooltip key={approval.id} label={`Bestätigt am ${new Date(approval.approved_at).toLocaleDateString()}`}>
-                                  <Badge 
-                                    leftSection={<IconCheck size={12} />}
-                                    color="green"
-                                    variant="light"
+                          {existingOverride &&
+                            existingOverride.approvals &&
+                            existingOverride.approvals.length > 0 && (
+                              <Group gap="xs">
+                                <Text size="sm" fw={500}>
+                                  Bestätigungen:
+                                </Text>
+                                {existingOverride.approvals.map((approval) => (
+                                  <Tooltip
+                                    key={approval.id}
+                                    label={`Bestätigt am ${new Date(approval.approved_at).toLocaleDateString()}`}
                                   >
-                                    {approval.approved_by_name}
-                                  </Badge>
-                                </Tooltip>
-                              ))}
-                            </Group>
-                          )}
-                          
+                                    <Badge
+                                      leftSection={<IconCheck size={12} />}
+                                      color="green"
+                                      variant="light"
+                                    >
+                                      {approval.approved_by_name}
+                                    </Badge>
+                                  </Tooltip>
+                                ))}
+                              </Group>
+                            )}
+
                           {/* Conditional buttons */}
                           <Group>
-                            {existingOverride && !isCurrentUserAuthor(existingOverride) && !hasOverrideChanged(category.id, existingOverride) ? (
-                              // User can approve or revoke their approval
-                              existingOverride.approvals?.some(a => a.approved_by_user_id === user?.id) ? (
-                                canRevokeApprovals && (
-                                  <Button 
-                                    onClick={() => handleRevokeOverrideApproval(category.id)}
-                                    color="orange"
-                                    variant="light"
+                            {existingOverride &&
+                            !isCurrentUserAuthor(existingOverride) &&
+                            !hasOverrideChanged(category.id, existingOverride)
+                              ? // User can approve or revoke their approval
+                                existingOverride.approvals?.some(
+                                  (a) => a.approved_by_user_id === user?.id
+                                )
+                                ? canRevokeApprovals && (
+                                    <Button
+                                      onClick={() => handleRevokeOverrideApproval(category.id)}
+                                      color="orange"
+                                      variant="light"
+                                      flex={1}
+                                    >
+                                      Bestätigung zurücknehmen
+                                    </Button>
+                                  )
+                                : !isReadOnly && (
+                                    <Button
+                                      onClick={() => handleApproveOverride(category.id)}
+                                      color="green"
+                                      leftSection={<IconCheck size={16} />}
+                                      flex={1}
+                                    >
+                                      Anpassung bestätigen
+                                    </Button>
+                                  )
+                              : !isReadOnly && (
+                                  <Button
+                                    onClick={() => handleSaveOverride(category.id)}
+                                    disabled={
+                                      !override?.path_id ||
+                                      !override?.level_id ||
+                                      !override?.justification
+                                    }
                                     flex={1}
                                   >
-                                    Bestätigung zurücknehmen
+                                    Anpassung speichern
                                   </Button>
-                                )
-                              ) : (
-                                !isReadOnly && (
-                                  <Button 
-                                    onClick={() => handleApproveOverride(category.id)}
-                                    color="green"
-                                    leftSection={<IconCheck size={16} />}
-                                    flex={1}
-                                  >
-                                    Anpassung bestätigen
-                                  </Button>
-                                )
-                              )
-                            ) : (
-                              !isReadOnly && (
-                                <Button 
-                                  onClick={() => handleSaveOverride(category.id)}
-                                  disabled={!override?.path_id || !override?.level_id || !override?.justification}
-                                  flex={1}
-                                >
-                                  Anpassung speichern
-                                </Button>
-                              )
-                            )}
-                            
+                                )}
+
                             {/* Show delete button if override exists */}
                             {existingOverride && !isReadOnly && (
-                              <Button 
+                              <Button
                                 onClick={() => handleDeleteOverride(category.id)}
                                 color="red"
                                 variant="light"
@@ -882,8 +991,9 @@ export function ReviewConsolidationPage() {
               <Stack gap="lg">
                 <Alert color="blue" title="Abschluss der Konsolidierung">
                   <Text size="sm">
-                    Alle Kategorien wurden genehmigt. Bitte verfassen Sie einen abschließenden Kommentar zur Gesamtbewertung. 
-                    Nach Zustimmung aller Reviewer wird die Bewertung als abgeschlossen markiert.
+                    Alle Kategorien wurden genehmigt. Bitte verfassen Sie einen abschließenden
+                    Kommentar zur Gesamtbewertung. Nach Zustimmung aller Reviewer wird die Bewertung
+                    als abgeschlossen markiert.
                   </Text>
                 </Alert>
 
@@ -891,7 +1001,9 @@ export function ReviewConsolidationPage() {
                 <Paper withBorder p="md">
                   <Stack gap="lg">
                     <Group justify="space-between">
-                      <Title order={4}>Kategorie-Ergebnisse und Kommentare für Besprechungs-Ansicht</Title>
+                      <Title order={4}>
+                        Kategorie-Ergebnisse und Kommentare für Besprechungs-Ansicht
+                      </Title>
                       {!isReadOnly && (
                         <Button
                           leftSection={<IconSparkles size={16} />}
@@ -904,37 +1016,50 @@ export function ReviewConsolidationPage() {
                         </Button>
                       )}
                     </Group>
-                    {sortedCategories.map(category => {
-                      const override = data.overrides?.find(o => o.category_id === category.id);
-                      const averaged = data.averaged_responses.find(r => r.category_id === category.id);
-                      
+                    {sortedCategories.map((category) => {
+                      const override = data.overrides?.find((o) => o.category_id === category.id);
+                      const averaged = data.averaged_responses.find(
+                        (r) => r.category_id === category.id
+                      );
+
                       let resultLevel = null;
                       let isOverride = false;
-                      
+
                       if (override && override.is_approved) {
                         // Find the level for the override from catalog levels
-                        const level = data.catalog.levels?.find((l: any) => l.id === override.level_id);
+                        const level = data.catalog.levels?.find(
+                          (l: any) => l.id === override.level_id
+                        );
                         if (level) {
                           resultLevel = {
                             level_number: level.level_number,
-                            name: level.name
+                            name: level.name,
                           };
                         }
                         isOverride = true;
                       } else if (averaged && averaged.is_approved) {
                         resultLevel = {
                           level_number: averaged.average_level_number,
-                          name: averaged.average_level_name
+                          name: averaged.average_level_name,
                         };
                       }
 
                       return (
-                        <Paper key={category.id} withBorder p="md" bg={colorScheme === 'dark' ? 'dark.6' : 'gray.0'}>
+                        <Paper
+                          key={category.id}
+                          withBorder
+                          p="md"
+                          bg={colorScheme === 'dark' ? 'dark.6' : 'gray.0'}
+                        >
                           <Stack gap="md">
                             <Group justify="space-between">
                               <div>
-                                <Text size="md" fw={600}>{category.name}</Text>
-                                <Text size="xs" c="dimmed">Gewicht: {category.weight}</Text>
+                                <Text size="md" fw={600}>
+                                  {category.name}
+                                </Text>
+                                <Text size="xs" c="dimmed">
+                                  Gewicht: {category.weight}
+                                </Text>
                               </div>
                               {resultLevel && (
                                 <Badge size="lg" color={isOverride ? 'blue' : 'green'}>
@@ -942,11 +1067,14 @@ export function ReviewConsolidationPage() {
                                 </Badge>
                               )}
                             </Group>
-                            
+
                             <div>
-                              <Text size="sm" fw={600} mb="xs">Kommentar für Besprechungs-Ansicht</Text>
+                              <Text size="sm" fw={600} mb="xs">
+                                Kommentar für Besprechungs-Ansicht
+                              </Text>
                               <Text size="xs" c="dimmed" mb="sm">
-                                Dieser Kommentar wird dem Mitarbeiter in der Besprechungs-Ansicht angezeigt.
+                                Dieser Kommentar wird dem Mitarbeiter in der Besprechungs-Ansicht
+                                angezeigt.
                               </Text>
                               <Textarea
                                 placeholder="Erklären Sie die Bewertung für diese Kategorie..."
@@ -954,15 +1082,15 @@ export function ReviewConsolidationPage() {
                                 value={categoryComments[category.id] || ''}
                                 onChange={(e) => {
                                   const value = e.target.value;
-                                  setCategoryComments(prev => ({
+                                  setCategoryComments((prev) => ({
                                     ...prev,
-                                    [category.id]: value
+                                    [category.id]: value,
                                   }));
                                 }}
                                 disabled={isReadOnly}
                               />
                               {!isReadOnly && (
-                                <Button 
+                                <Button
                                   onClick={() => handleSaveCategoryComment(category.id)}
                                   disabled={!categoryComments[category.id]?.trim()}
                                   mt="sm"
@@ -983,8 +1111,12 @@ export function ReviewConsolidationPage() {
                 <Paper withBorder p="md" bg={colorScheme === 'dark' ? 'dark.5' : 'blue.0'}>
                   <Group justify="space-between">
                     <div>
-                      <Text size="lg" fw={700}>Gesamtbewertung</Text>
-                      <Text size="sm" c="dimmed">Gewichteter Durchschnitt aller Kategorien</Text>
+                      <Text size="lg" fw={700}>
+                        Gesamtbewertung
+                      </Text>
+                      <Text size="sm" c="dimmed">
+                        Gewichteter Durchschnitt aller Kategorien
+                      </Text>
                     </div>
                     <Badge size="xl" color="blue">
                       {overallAverage.name} ({overallAverage.number.toFixed(2)})
@@ -1022,23 +1154,31 @@ export function ReviewConsolidationPage() {
                       required
                       disabled={isReadOnly}
                     />
-                    
+
                     {/* Approvals */}
                     {data.final_consolidation && (
                       <div>
                         <Text size="sm" fw={600} mb="xs">
-                          Bestätigungen ({data.final_consolidation.approval_count || 0} von {data.final_consolidation.required_approvals || 0})
+                          Bestätigungen ({data.final_consolidation.approval_count || 0} von{' '}
+                          {data.final_consolidation.required_approvals || 0})
                         </Text>
-                        {data.final_consolidation.approvals && data.final_consolidation.approvals.length > 0 ? (
+                        {data.final_consolidation.approvals &&
+                        data.final_consolidation.approvals.length > 0 ? (
                           <Group gap="xs">
-                            {data.final_consolidation.approvals.map(approval => (
-                              <Badge key={approval.id} color="green" leftSection={<IconCheck size={12} />}>
+                            {data.final_consolidation.approvals.map((approval) => (
+                              <Badge
+                                key={approval.id}
+                                color="green"
+                                leftSection={<IconCheck size={12} />}
+                              >
                                 {approval.approved_by_name}
                               </Badge>
                             ))}
                           </Group>
                         ) : (
-                          <Text size="sm" c="dimmed">Noch keine Bestätigungen</Text>
+                          <Text size="sm" c="dimmed">
+                            Noch keine Bestätigungen
+                          </Text>
                         )}
                       </div>
                     )}
@@ -1049,37 +1189,36 @@ export function ReviewConsolidationPage() {
                           Kommentar speichern
                         </Button>
                       )}
-                      
-                      {data.final_consolidation && (
-                        data.final_consolidation.approvals?.some(a => a.approved_by_user_id === user?.id) ? (
-                          canRevokeApprovals && (
-                            <Button 
-                              onClick={handleRevokeFinalApproval}
-                              color="orange"
-                              variant="light"
-                            >
-                              Bestätigung zurücknehmen
-                            </Button>
-                          )
-                        ) : (
-                          !isReadOnly && (
-                            <Button 
-                              onClick={handleApproveFinal}
-                              color="green"
-                              leftSection={<IconCheck size={16} />}
-                              disabled={!finalComment.trim()}
-                            >
-                              Abschluss bestätigen
-                            </Button>
-                          )
+
+                      {data.final_consolidation &&
+                        (data.final_consolidation.approvals?.some(
+                          (a) => a.approved_by_user_id === user?.id
                         )
-                      )}
+                          ? canRevokeApprovals && (
+                              <Button
+                                onClick={handleRevokeFinalApproval}
+                                color="orange"
+                                variant="light"
+                              >
+                                Bestätigung zurücknehmen
+                              </Button>
+                            )
+                          : !isReadOnly && (
+                              <Button
+                                onClick={handleApproveFinal}
+                                color="green"
+                                leftSection={<IconCheck size={16} />}
+                                disabled={!finalComment.trim()}
+                              >
+                                Abschluss bestätigen
+                              </Button>
+                            ))}
                     </Group>
 
                     {data.final_consolidation?.is_fully_approved && (
                       <Alert color="green" title="Konsolidierung abgeschlossen">
-                        Alle Reviewer haben den Abschluss bestätigt. Die Bewertung wurde als "reviewed" markiert 
-                        und der/die Benutzer:in wurde benachrichtigt.
+                        Alle Reviewer haben den Abschluss bestätigt. Die Bewertung wurde als
+                        "reviewed" markiert und der/die Benutzer:in wurde benachrichtigt.
                       </Alert>
                     )}
                   </Stack>

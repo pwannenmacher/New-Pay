@@ -39,14 +39,14 @@ import type { CatalogWithDetails, Category, CategoryWithPaths, Level } from '../
 // Helper function to parse German date format DD.MM.YYYY
 const dateParser = (input: string): Date | null => {
   if (!input || input.trim() === '') return null;
-  
+
   // Try to parse DD.MM.YYYY format
   const parts = input.trim().split('.');
   if (parts.length === 3) {
     const day = parseInt(parts[0], 10);
     const month = parseInt(parts[1], 10) - 1; // JavaScript months are 0-indexed
     const year = parseInt(parts[2], 10);
-    
+
     // Validate the parts
     if (!isNaN(day) && !isNaN(month) && !isNaN(year)) {
       const date = new Date(year, month, day);
@@ -56,7 +56,7 @@ const dateParser = (input: string): Date | null => {
       }
     }
   }
-  
+
   // If parsing fails, return null
   return null;
 };

@@ -14,12 +14,7 @@ import {
   Button,
   LoadingOverlay,
 } from '@mantine/core';
-import {
-  IconSearch,
-  IconFilter,
-  IconArchive,
-  IconEye,
-} from '@tabler/icons-react';
+import { IconSearch, IconFilter, IconArchive, IconEye } from '@tabler/icons-react';
 import { DateInput } from '@mantine/dates';
 import { selfAssessmentService } from '../../services/selfAssessment';
 import type { SelfAssessment, Role } from '../../types';
@@ -76,7 +71,7 @@ export function ReviewCompletedAssessmentsPage() {
       const data = await selfAssessmentService.getCompletedAssessmentsForReview(filters);
       const assessmentsList = Array.isArray(data) ? data : [];
       setAssessments(assessmentsList);
-      
+
       // Store all assessments for catalog dropdown
       if (!allAssessments.length) {
         setAllAssessments(assessmentsList);
@@ -124,7 +119,10 @@ export function ReviewCompletedAssessmentsPage() {
     new Map(
       allAssessments
         .filter((a) => a.catalog_id && a.catalog_name)
-        .map((a) => [a.catalog_id, { value: String(a.catalog_id), label: a.catalog_name || `Katalog ${a.catalog_id}` }])
+        .map((a) => [
+          a.catalog_id,
+          { value: String(a.catalog_id), label: a.catalog_name || `Katalog ${a.catalog_id}` },
+        ])
     ).values()
   );
 
@@ -136,7 +134,7 @@ export function ReviewCompletedAssessmentsPage() {
         <div>
           <Title order={1}>Abgeschlossene Selbsteinschätzungen</Title>
           <Text c="dimmed" size="sm">
-            {isAdmin 
+            {isAdmin
               ? 'Übersicht aller archivierten Selbsteinschätzungen'
               : 'Übersicht Ihrer archivierten Selbsteinschätzungen als Reviewer'}
           </Text>
@@ -158,10 +156,7 @@ export function ReviewCompletedAssessmentsPage() {
                 placeholder="Alle Kataloge"
                 value={catalogId}
                 onChange={(value) => setCatalogId(value || '')}
-                data={[
-                  { value: '', label: 'Alle' },
-                  ...catalogOptions,
-                ]}
+                data={[{ value: '', label: 'Alle' }, ...catalogOptions]}
                 clearable
                 searchable
                 style={{ minWidth: 200 }}

@@ -757,7 +757,11 @@ export const UserManagementPage = () => {
                           </ActionIcon>
                         </Tooltip>
                       )}
-                      <Tooltip label={currentUser?.id === user.id ? "Cannot edit your own roles" : "Assign Role"}>
+                      <Tooltip
+                        label={
+                          currentUser?.id === user.id ? 'Cannot edit your own roles' : 'Assign Role'
+                        }
+                      >
                         <ActionIcon
                           color="blue"
                           variant="light"
@@ -767,12 +771,18 @@ export const UserManagementPage = () => {
                           <IconUserPlus size={16} />
                         </ActionIcon>
                       </Tooltip>
-                      <Tooltip label={currentUser?.id === user.id ? "Cannot edit your own roles" : "Remove Role"}>
+                      <Tooltip
+                        label={
+                          currentUser?.id === user.id ? 'Cannot edit your own roles' : 'Remove Role'
+                        }
+                      >
                         <ActionIcon
                           color="red"
                           variant="light"
                           onClick={() => openRemoveRoleModal(user)}
-                          disabled={currentUser?.id === user.id || !user.roles || user.roles.length === 0}
+                          disabled={
+                            currentUser?.id === user.id || !user.roles || user.roles.length === 0
+                          }
                         >
                           <IconUserMinus size={16} />
                         </ActionIcon>

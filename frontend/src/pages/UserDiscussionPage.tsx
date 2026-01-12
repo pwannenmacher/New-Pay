@@ -82,7 +82,7 @@ export function UserDiscussionPage() {
 
   // Check if reviewer has confirmed
   const reviewerConfirmed = data?.confirmations?.some((c) => c.user_type === 'reviewer');
-  
+
   // Check if current user (owner) has confirmed
   const currentUserConfirmed = data?.confirmations?.some(
     (c) => c.user_id === user?.id && c.user_type === 'owner'
@@ -283,7 +283,8 @@ export function UserDiscussionPage() {
                         {confirmation.user_type === 'reviewer' ? 'Reviewer' : 'Sie'}
                       </Badge>
                       <Text size="sm">
-                        {confirmation.user_type === 'reviewer' && `${confirmation.user_name || 'Unbekannt'} - `}
+                        {confirmation.user_type === 'reviewer' &&
+                          `${confirmation.user_name || 'Unbekannt'} - `}
                         {new Date(confirmation.confirmed_at).toLocaleString('de-DE')}
                       </Text>
                     </Group>
