@@ -113,6 +113,29 @@ new-pay-gh/
 
 First registered user becomes admin automatically.
 
+## Upgrading dependencies
+
+### Frontend
+
+```bash
+cd frontend
+npx npm-check-updates -u
+npm install
+```
+
+### Backend
+
+```bash
+cd backend
+
+# Only patch and minor updates
+go get -u=patch
+# Or for all updates:
+go get -u ./...
+
+go mod tidy
+```
+
 ## License
 
 MIT
