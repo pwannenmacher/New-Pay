@@ -45,7 +45,7 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
         message: 'Verification email sent successfully. Please check your inbox.',
         color: 'green',
       });
-    } catch (error) {
+    } catch {
       notifications.show({
         title: 'Error',
         message: 'Failed to send verification email',

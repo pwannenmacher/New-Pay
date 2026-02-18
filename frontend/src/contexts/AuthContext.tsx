@@ -117,7 +117,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
     sessionCheckTimerRef.current = setInterval(async () => {
       const token = tokenService.getAccessToken();
-      
+
       if (!token) {
         console.log('No token found, redirecting to login');
         clearInterval(sessionCheckTimerRef.current!);

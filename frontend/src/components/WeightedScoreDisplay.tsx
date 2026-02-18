@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Badge, Group, Loader, Text, Tooltip } from '@mantine/core';
 import { selfAssessmentService } from '../services/selfAssessment';
 import type { WeightedScore } from '../types';
@@ -12,11 +12,7 @@ export function WeightedScoreBadge({ assessmentId, compact = false }: WeightedSc
   const [score, setScore] = useState<WeightedScore | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    loadScore();
-  }, [assessmentId]);
-
-  const loadScore = async () => {
+  const loadScore = useCallback(async () => {
     try {
       setLoading(true);
       const data = await selfAssessmentService.getWeightedScore(assessmentId);
@@ -27,7 +23,11 @@ export function WeightedScoreBadge({ assessmentId, compact = false }: WeightedSc
     } finally {
       setLoading(false);
     }
-  };
+  }, [assessmentId]);
+
+  useEffect(() => {
+    loadScore();
+  }, [loadScore]);
 
   if (loading) {
     return <Loader size="xs" />;
@@ -54,11 +54,7 @@ export function WeightedScoreDisplay({ assessmentId }: { assessmentId: number })
   const [score, setScore] = useState<WeightedScore | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    loadScore();
-  }, [assessmentId]);
-
-  const loadScore = async () => {
+  const loadScore = useCallback(async () => {
     try {
       setLoading(true);
       const data = await selfAssessmentService.getWeightedScore(assessmentId);
@@ -69,7 +65,11 @@ export function WeightedScoreDisplay({ assessmentId }: { assessmentId: number })
     } finally {
       setLoading(false);
     }
-  };
+  }, [assessmentId]);
+
+  useEffect(() => {
+    loadScore();
+  }, [loadScore]);
 
   if (loading) {
     return (
