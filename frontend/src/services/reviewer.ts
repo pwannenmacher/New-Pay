@@ -1,4 +1,5 @@
 import apiClient from './api';
+import type { SelfAssessment } from '../types';
 
 export interface ReviewerResponse {
   id?: number;
@@ -58,7 +59,7 @@ const reviewerService = {
    * Complete the review (mark all categories as reviewed)
    */
   completeReview: (assessmentId: number, newStatus: string) =>
-    apiClient.post<{ message: string; assessment: any }>(
+    apiClient.post<{ message: string; assessment: SelfAssessment }>(
       `/review/assessment/${assessmentId}/complete`,
       {
         new_status: newStatus,

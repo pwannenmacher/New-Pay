@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { getErrorMessage } from '../../utils/errorUtils';
 import { useNavigate } from 'react-router-dom';
 import {
   Container,
@@ -92,8 +93,8 @@ export function CatalogManagementPage() {
       setError(null);
       const data = await adminApi.listCatalogs();
       setCatalogs(data);
-    } catch (err: any) {
-      setError(err.response?.data?.error || 'Failed to load catalogs');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Failed to load catalogs'));
     } finally {
       setLoading(false);
     }
@@ -115,8 +116,8 @@ export function CatalogManagementPage() {
     try {
       await adminApi.deleteCatalog(catalogId);
       await loadCatalogs();
-    } catch (err: any) {
-      alert(err.response?.data?.error || 'Failed to delete catalog');
+    } catch (err: unknown) {
+      alert(getErrorMessage(err, 'Failed to delete catalog'));
     }
   };
 
@@ -132,8 +133,8 @@ export function CatalogManagementPage() {
     try {
       await adminApi.transitionToActive(catalogId);
       await loadCatalogs();
-    } catch (err: any) {
-      alert(err.response?.data?.error || 'Failed to transition catalog');
+    } catch (err: unknown) {
+      alert(getErrorMessage(err, 'Failed to transition catalog'));
     }
   };
 
@@ -149,8 +150,8 @@ export function CatalogManagementPage() {
     try {
       await adminApi.transitionToArchived(catalogId);
       await loadCatalogs();
-    } catch (err: any) {
-      alert(err.response?.data?.error || 'Failed to archive catalog');
+    } catch (err: unknown) {
+      alert(getErrorMessage(err, 'Failed to archive catalog'));
     }
   };
 
@@ -191,8 +192,8 @@ export function CatalogManagementPage() {
       setValidUntilModalOpen(false);
       await loadCatalogs();
       alert(`Enddatum erfolgreich geändert. Betroffene Mitarbeiter werden per E-Mail informiert.`);
-    } catch (err: any) {
-      alert(err.response?.data?.error || 'Failed to update valid_until date');
+    } catch (err: unknown) {
+      alert(getErrorMessage(err, 'Failed to update valid_until date'));
     } finally {
       setSaving(false);
     }

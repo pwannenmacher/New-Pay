@@ -16,6 +16,7 @@ import {
 } from '@mantine/core';
 import { IconAlertCircle, IconArrowLeft } from '@tabler/icons-react';
 import { adminApi } from '../../services/admin';
+import { getErrorMessage } from '../../utils/errorUtils';
 import type { CatalogWithDetails, CatalogPhase } from '../../types';
 
 const getPhaseColor = (phase: CatalogPhase): string => {
@@ -74,8 +75,8 @@ export function CatalogViewPage() {
       setError(null);
       const data = await adminApi.getCatalog(catalogId);
       setCatalog(data);
-    } catch (err: any) {
-      setError(err.response?.data?.error || 'Failed to load catalog');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Failed to load catalog'));
     } finally {
       setLoading(false);
     }

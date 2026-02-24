@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Container,
@@ -40,6 +40,7 @@ import { notifications } from '@mantine/notifications';
 import { selfAssessmentService } from '../services/selfAssessment';
 import catalogService from '../services/catalog';
 import { WeightedScoreDisplay } from '../components/WeightedScoreDisplay';
+import { getErrorMessage } from '../utils/errorUtils';
 import type {
   SelfAssessment,
   CatalogWithDetails,
@@ -83,37 +84,7 @@ export default function SelfAssessmentPage() {
 
   const isReadOnly = assessment?.status !== 'draft';
 
-  useEffect(() => {
-    loadData();
-  }, [assessmentId]);
-
-  useEffect(() => {
-    if (catalog?.categories && catalog.categories.length > 0 && !activeCategory) {
-      setActiveCategory(catalog.categories[0].id.toString());
-    }
-  }, [catalog]);
-
-  useEffect(() => {
-    // Load existing response for active category
-    if (activeCategory && responses && responses.length > 0) {
-      const categoryId = parseInt(activeCategory);
-      const existingResponse = responses.find((r) => r.category_id === categoryId);
-
-      if (existingResponse) {
-        setSelectedPath(existingResponse.path_id);
-        setSelectedLevel(existingResponse.level_id);
-        setJustification(existingResponse.justification);
-      } else {
-        // Reset form
-        setSelectedPath(null);
-        setSelectedLevel(null);
-        setJustification('');
-      }
-      setLevelViewStart(0);
-    }
-  }, [activeCategory, responses]);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     setLoading(true);
     try {
       // Load assessment
@@ -141,7 +112,37 @@ export default function SelfAssessmentPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [assessmentId]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  useEffect(() => {
+    if (catalog?.categories && catalog.categories.length > 0 && !activeCategory) {
+      setActiveCategory(catalog.categories[0].id.toString());
+    }
+  }, [catalog, activeCategory]);
+
+  useEffect(() => {
+    // Load existing response for active category
+    if (activeCategory && responses && responses.length > 0) {
+      const categoryId = parseInt(activeCategory);
+      const existingResponse = responses.find((r) => r.category_id === categoryId);
+
+      if (existingResponse) {
+        setSelectedPath(existingResponse.path_id);
+        setSelectedLevel(existingResponse.level_id);
+        setJustification(existingResponse.justification);
+      } else {
+        // Reset form
+        setSelectedPath(null);
+        setSelectedLevel(null);
+        setJustification('');
+      }
+      setLevelViewStart(0);
+    }
+  }, [activeCategory, responses]);
 
   const handleSaveResponse = async () => {
     if (!selectedPath || !selectedLevel || !activeCategory) {
@@ -245,11 +246,11 @@ export default function SelfAssessmentPage() {
         color: 'green',
       });
       await loadData();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error updating status:', error);
       notifications.show({
         title: 'Fehler',
-        message: error.response?.data?.error || 'Status konnte nicht aktualisiert werden',
+        message: getErrorMessage(error, 'Status konnte nicht aktualisiert werden'),
         color: 'red',
       });
     } finally {
@@ -300,12 +301,11 @@ export default function SelfAssessmentPage() {
         color: 'green',
       });
       await loadData();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error reopening assessment:', error);
       notifications.show({
         title: 'Fehler',
-        message:
-          error.response?.data?.error || 'Selbsteinschätzung konnte nicht wiedereröffnet werden',
+        message: getErrorMessage(error, 'Selbsteinschätzung konnte nicht wiedereröffnet werden'),
         color: 'red',
       });
     } finally {

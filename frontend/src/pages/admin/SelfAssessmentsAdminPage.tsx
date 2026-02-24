@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   Container,
   Title,
@@ -26,6 +26,7 @@ import {
 import { DateInput } from '@mantine/dates';
 import { selfAssessmentService } from '../../services/selfAssessment';
 import type { SelfAssessment } from '../../types';
+import { getErrorMessage } from '../../utils/errorUtils';
 import { notifications } from '@mantine/notifications';
 
 // Helper function to parse German date format DD.MM.YYYY
@@ -64,14 +65,10 @@ export default function SelfAssessmentsAdminPage() {
   const [fromDate, setFromDate] = useState<string | null>(null);
   const [toDate, setToDate] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       setLoading(true);
-      const filters: any = {};
+      const filters: Record<string, string> = {};
       if (status) filters.status = status;
       if (username) filters.username = username;
       if (fromDate) filters.from_date = new Date(fromDate).toISOString();
@@ -79,7 +76,7 @@ export default function SelfAssessmentsAdminPage() {
 
       const data = await selfAssessmentService.getAllSelfAssessmentsAdmin(filters);
       setAssessments(Array.isArray(data) ? data : []);
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Error loading data:', error);
       setAssessments([]);
       notifications.show({
@@ -90,7 +87,11 @@ export default function SelfAssessmentsAdminPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [fromDate, status, toDate, username]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const handleFilter = () => {
     loadData();
@@ -113,11 +114,10 @@ export default function SelfAssessmentsAdminPage() {
         color: 'green',
       });
       await loadData();
-    } catch (error: any) {
+    } catch (error: unknown) {
       notifications.show({
         title: 'Fehler',
-        message:
-          error.response?.data?.error || 'Selbsteinschätzung konnte nicht geschlossen werden',
+        message: getErrorMessage(error, 'Selbsteinschätzung konnte nicht geschlossen werden'),
         color: 'red',
       });
     }
@@ -136,10 +136,10 @@ export default function SelfAssessmentsAdminPage() {
         color: 'green',
       });
       await loadData();
-    } catch (error: any) {
+    } catch (error: unknown) {
       notifications.show({
         title: 'Fehler',
-        message: error.response?.data?.error || 'Selbsteinschätzung konnte nicht gelöscht werden',
+        message: getErrorMessage(error, 'Selbsteinschätzung konnte nicht gelöscht werden'),
         color: 'red',
       });
     }
@@ -177,11 +177,10 @@ export default function SelfAssessmentsAdminPage() {
         color: 'green',
       });
       await loadData();
-    } catch (error: any) {
+    } catch (error: unknown) {
       notifications.show({
         title: 'Fehler',
-        message:
-          error.response?.data?.error || 'Selbsteinschätzung konnte nicht wiedereröffnet werden',
+        message: getErrorMessage(error, 'Selbsteinschätzung konnte nicht wiedereröffnet werden'),
         color: 'red',
       });
     }

@@ -13,6 +13,7 @@ import {
 } from '@mantine/core';
 import { IconEye, IconAlertCircle } from '@tabler/icons-react';
 import { adminApi } from '../services/admin';
+import { getErrorMessage } from '../utils/errorUtils';
 import type { CriteriaCatalog, CatalogPhase } from '../types';
 
 const getPhaseColor = (phase: CatalogPhase): string => {
@@ -57,8 +58,8 @@ export function CatalogsPage() {
       setError(null);
       const data = await adminApi.listCatalogs();
       setCatalogs(data);
-    } catch (err: any) {
-      setError(err.response?.data?.error || 'Fehler beim Laden der Kriterienkataloge');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Fehler beim Laden der Kriterienkataloge'));
     } finally {
       setLoading(false);
     }

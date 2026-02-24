@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   Container,
   Paper,
@@ -36,11 +36,7 @@ export const AuditLogsPage = () => {
   const [sortBy, setSortBy] = useState<string>('created_at');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
-  useEffect(() => {
-    loadLogs();
-  }, [currentPage, actionFilter, resourceFilter, sortBy, sortOrder, pageSize]);
-
-  const loadLogs = async () => {
+  const loadLogs = useCallback(async () => {
     setIsLoading(true);
     try {
       const params: AuditLogListParams = {
@@ -67,7 +63,11 @@ export const AuditLogsPage = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [currentPage, pageSize, sortBy, sortOrder, actionFilter, resourceFilter]);
+
+  useEffect(() => {
+    loadLogs();
+  }, [loadLogs]);
 
   const getActionColor = (action: string): string => {
     if (action.includes('login')) return 'blue';

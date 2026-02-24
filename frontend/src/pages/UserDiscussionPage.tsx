@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Container,
@@ -26,6 +26,7 @@ import {
 import { notifications } from '@mantine/notifications';
 import discussionService, { type DiscussionResult } from '../services/discussion';
 import { useAuth } from '../contexts/AuthContext';
+import { getErrorMessage } from '../utils/errorUtils';
 
 export function UserDiscussionPage() {
   const { id } = useParams<{ id: string }>();
@@ -37,26 +38,26 @@ export function UserDiscussionPage() {
   const [data, setData] = useState<DiscussionResult | null>(null);
   const [confirming, setConfirming] = useState(false);
 
-  useEffect(() => {
-    loadData();
-  }, [assessmentId]);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       setLoading(true);
       const discussionData = await discussionService.getDiscussionResult(assessmentId);
       setData(discussionData);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error loading discussion data:', error);
       notifications.show({
         title: 'Fehler',
-        message: error.response?.data?.error || 'Diskussionsdaten konnten nicht geladen werden',
+        message: getErrorMessage(error, 'Diskussionsdaten konnten nicht geladen werden'),
         color: 'red',
       });
     } finally {
       setLoading(false);
     }
-  };
+  }, [assessmentId]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const handleConfirmMeeting = async () => {
     try {
@@ -68,11 +69,11 @@ export function UserDiscussionPage() {
         color: 'green',
       });
       await loadData();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error confirming meeting:', error);
       notifications.show({
         title: 'Fehler',
-        message: error.response?.data?.error || 'Bestätigung konnte nicht gespeichert werden',
+        message: getErrorMessage(error, 'Bestätigung konnte nicht gespeichert werden'),
         color: 'red',
       });
     } finally {

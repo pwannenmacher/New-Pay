@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { getErrorMessage } from '../../utils/errorUtils';
 import {
   Container,
   Paper,
@@ -52,11 +53,7 @@ export function ReviewConsolidationPage() {
       ? new Date().getTime() - new Date(data.assessment.reviewed_at).getTime() < 60 * 60 * 1000
       : false;
 
-  useEffect(() => {
-    loadData();
-  }, [id]);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       setLoading(true);
       const consolidationData = await consolidationService.getConsolidationData(parseInt(id!));
@@ -89,20 +86,21 @@ export function ReviewConsolidationPage() {
         });
       }
       setCategoryComments(comments);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error loading consolidation data:', error);
       notifications.show({
         title: 'Fehler',
-        message:
-          error.response?.data?.error ||
-          error.message ||
-          'Fehler beim Laden der Konsolidierungsdaten',
+        message: getErrorMessage(error, 'Fehler beim Laden der Konsolidierungsdaten'),
         color: 'red',
       });
     } finally {
       setLoading(false);
     }
-  };
+  }, [id]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const handleSaveOverride = async (categoryId: number) => {
     const override = overrideData[categoryId];
@@ -131,10 +129,10 @@ export function ReviewConsolidationPage() {
       });
 
       loadData();
-    } catch (error: any) {
+    } catch (error: unknown) {
       notifications.show({
         title: 'Fehler',
-        message: error.response?.data?.error || 'Fehler beim Speichern der Überschreibung',
+        message: getErrorMessage(error, 'Fehler beim Speichern der Überschreibung'),
         color: 'red',
       });
     }
@@ -151,10 +149,10 @@ export function ReviewConsolidationPage() {
       });
 
       loadData();
-    } catch (error: any) {
+    } catch (error: unknown) {
       notifications.show({
         title: 'Fehler',
-        message: error.response?.data?.error || 'Fehler beim Bestätigen der Überschreibung',
+        message: getErrorMessage(error, 'Fehler beim Bestätigen der Überschreibung'),
         color: 'red',
       });
     }
@@ -171,10 +169,10 @@ export function ReviewConsolidationPage() {
       });
 
       loadData();
-    } catch (error: any) {
+    } catch (error: unknown) {
       notifications.show({
         title: 'Fehler',
-        message: error.response?.data?.error || 'Fehler beim Bestätigen der gemittelten Bewertung',
+        message: getErrorMessage(error, 'Fehler beim Bestätigen der gemittelten Bewertung'),
         color: 'red',
       });
     }
@@ -198,10 +196,10 @@ export function ReviewConsolidationPage() {
       });
 
       loadData();
-    } catch (error: any) {
+    } catch (error: unknown) {
       notifications.show({
         title: 'Fehler',
-        message: error.response?.data?.error || 'Fehler beim Löschen der Anpassung',
+        message: getErrorMessage(error, 'Fehler beim Löschen der Anpassung'),
         color: 'red',
       });
     }
@@ -227,10 +225,10 @@ export function ReviewConsolidationPage() {
       });
 
       loadData();
-    } catch (error: any) {
+    } catch (error: unknown) {
       notifications.show({
         title: 'Fehler',
-        message: error.response?.data?.error || 'Fehler beim Speichern des Abschluss-Kommentars',
+        message: getErrorMessage(error, 'Fehler beim Speichern des Abschluss-Kommentars'),
         color: 'red',
       });
     }
@@ -257,10 +255,10 @@ export function ReviewConsolidationPage() {
       });
 
       loadData();
-    } catch (error: any) {
+    } catch (error: unknown) {
       notifications.show({
         title: 'Fehler',
-        message: error.response?.data?.error || 'Fehler beim Speichern des Kommentars',
+        message: getErrorMessage(error, 'Fehler beim Speichern des Kommentars'),
         color: 'red',
       });
     }
@@ -277,10 +275,10 @@ export function ReviewConsolidationPage() {
       });
 
       loadData();
-    } catch (error: any) {
+    } catch (error: unknown) {
       notifications.show({
         title: 'Fehler',
-        message: error.response?.data?.error || 'Fehler beim Zurücknehmen der Bestätigung',
+        message: getErrorMessage(error, 'Fehler beim Zurücknehmen der Bestätigung'),
         color: 'red',
       });
     }
@@ -297,10 +295,10 @@ export function ReviewConsolidationPage() {
       });
 
       loadData();
-    } catch (error: any) {
+    } catch (error: unknown) {
       notifications.show({
         title: 'Fehler',
-        message: error.response?.data?.error || 'Fehler beim Zurücknehmen der Bestätigung',
+        message: getErrorMessage(error, 'Fehler beim Zurücknehmen der Bestätigung'),
         color: 'red',
       });
     }
@@ -317,10 +315,10 @@ export function ReviewConsolidationPage() {
       });
 
       loadData();
-    } catch (error: any) {
+    } catch (error: unknown) {
       notifications.show({
         title: 'Fehler',
-        message: error.response?.data?.error || 'Fehler beim Zurücknehmen der Bestätigung',
+        message: getErrorMessage(error, 'Fehler beim Zurücknehmen der Bestätigung'),
         color: 'red',
       });
     }
@@ -337,10 +335,10 @@ export function ReviewConsolidationPage() {
       });
 
       loadData();
-    } catch (error: any) {
+    } catch (error: unknown) {
       notifications.show({
         title: 'Fehler',
-        message: error.response?.data?.error || 'Fehler beim Bestätigen des Abschlusses',
+        message: getErrorMessage(error, 'Fehler beim Bestätigen des Abschlusses'),
         color: 'red',
       });
     }
@@ -361,12 +359,11 @@ export function ReviewConsolidationPage() {
       setTimeout(() => {
         loadData();
       }, 2000);
-    } catch (error: any) {
+    } catch (error: unknown) {
       setLoading(false);
       notifications.show({
         title: 'Fehler',
-        message:
-          error.response?.data?.error || 'Fehler beim Generieren der Kategorie-Zusammenfassungen',
+        message: getErrorMessage(error, 'Fehler beim Generieren der Kategorie-Zusammenfassungen'),
         color: 'red',
       });
     }
@@ -387,11 +384,11 @@ export function ReviewConsolidationPage() {
       setTimeout(() => {
         loadData();
       }, 2000);
-    } catch (error: any) {
+    } catch (error: unknown) {
       setLoading(false);
       notifications.show({
         title: 'Fehler',
-        message: error.response?.data?.error || 'Fehler beim Generieren des Abschluss-Kommentars',
+        message: getErrorMessage(error, 'Fehler beim Generieren des Abschluss-Kommentars'),
         color: 'red',
       });
     }
@@ -466,15 +463,15 @@ export function ReviewConsolidationPage() {
       // Use override if it exists (TODO: check if approved when approval system is implemented)
       if (override) {
         // Find the level number for the override
-        const overrideLevel = data.catalog.levels.find((l: any) => l.id === override.level_id);
+        const overrideLevel = data.catalog.levels?.find((l) => l.id === override.level_id);
         if (overrideLevel) {
-          totalWeightedScore += overrideLevel.level_number * category.weight;
-          totalWeight += category.weight;
+          totalWeightedScore += overrideLevel.level_number * (category.weight ?? 0);
+          totalWeight += category.weight ?? 0;
         }
       } else if (averaged) {
         // Use averaged reviewer response if no override exists
-        totalWeightedScore += averaged.average_level_number * category.weight;
-        totalWeight += category.weight;
+        totalWeightedScore += averaged.average_level_number * (category.weight ?? 0);
+        totalWeight += category.weight ?? 0;
       }
     });
 
@@ -483,9 +480,9 @@ export function ReviewConsolidationPage() {
     const overallAverage = totalWeightedScore / totalWeight;
 
     // Find closest level name
-    const closestLevel = data.catalog.levels
-      .map((l: any) => ({ ...l, diff: Math.abs(l.level_number - overallAverage) }))
-      .sort((a: any, b: any) => a.diff - b.diff)[0];
+    const closestLevel = (data.catalog.levels ?? [])
+      .map((l) => ({ ...l, diff: Math.abs(l.level_number - overallAverage) }))
+      .sort((a, b) => a.diff - b.diff)[0];
 
     return {
       number: Math.round(overallAverage * 100) / 100,
@@ -638,7 +635,7 @@ export function ReviewConsolidationPage() {
                                 Pfad
                               </Text>
                               <Text>
-                                {categoryPaths.find((p: any) => p.id === currentUserReview.path_id)
+                                {categoryPaths.find((p) => p.id === currentUserReview.path_id)
                                   ?.name || '-'}
                               </Text>
                             </div>
@@ -648,14 +645,14 @@ export function ReviewConsolidationPage() {
                               </Text>
                               <Badge>
                                 {
-                                  data.catalog.levels.find(
-                                    (l: any) => l.id === currentUserReview.level_id
+                                  data.catalog.levels?.find(
+                                    (l) => l.id === currentUserReview.level_id
                                   )?.name
                                 }{' '}
                                 (Stufe{' '}
                                 {
-                                  data.catalog.levels.find(
-                                    (l: any) => l.id === currentUserReview.level_id
+                                  data.catalog.levels?.find(
+                                    (l) => l.id === currentUserReview.level_id
                                   )?.level_number
                                 }
                                 )
@@ -786,7 +783,7 @@ export function ReviewConsolidationPage() {
                             label="Pfad"
                             description="Wählen Sie den Entwicklungspfad"
                             placeholder="Pfad auswählen"
-                            data={categoryPaths.map((p: any) => ({
+                            data={categoryPaths.map((p) => ({
                               value: p.id.toString(),
                               label: p.name,
                             }))}
@@ -821,11 +818,11 @@ export function ReviewConsolidationPage() {
                             disabled={isReadOnly}
                           >
                             <Stack gap="sm" mt="xs">
-                              {data.catalog.levels.map((level: any) => {
+                              {(data.catalog.levels ?? []).map((level) => {
                                 const pathLevelDesc = override?.path_id
                                   ? categoryPaths
-                                      .find((p: any) => p.id === override.path_id)
-                                      ?.descriptions?.find((d: any) => d.level_id === level.id)
+                                      .find((p) => p.id === override.path_id)
+                                      ?.descriptions?.find((d) => d.level_id === level.id)
                                   : null;
 
                                 return (
@@ -1027,9 +1024,7 @@ export function ReviewConsolidationPage() {
 
                       if (override && override.is_approved) {
                         // Find the level for the override from catalog levels
-                        const level = data.catalog.levels?.find(
-                          (l: any) => l.id === override.level_id
-                        );
+                        const level = data.catalog.levels?.find((l) => l.id === override.level_id);
                         if (level) {
                           resultLevel = {
                             level_number: level.level_number,

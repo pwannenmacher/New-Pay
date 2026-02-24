@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Container,
@@ -33,6 +33,7 @@ import { selfAssessmentService } from '../../services/selfAssessment';
 import catalogService from '../../services/catalog';
 import reviewerService, { type ReviewerResponse } from '../../services/reviewer';
 import { useAuth } from '../../contexts/AuthContext';
+import { getErrorMessage } from '../../utils/errorUtils';
 import type {
   SelfAssessment,
   CatalogWithDetails,
@@ -66,17 +67,7 @@ export function ReviewAssessmentPage() {
   const [savingCategory, setSavingCategory] = useState<number | null>(null);
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadData();
-  }, [assessmentId]);
-
-  useEffect(() => {
-    if (catalog?.categories && catalog.categories.length > 0 && !activeCategory) {
-      setActiveCategory(catalog.categories[0].id.toString());
-    }
-  }, [catalog]);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       setLoading(true);
       const [assessmentData, responsesData, reviewerResponsesData] = await Promise.all([
@@ -132,17 +123,27 @@ export function ReviewAssessmentPage() {
 
       setReviewerResponses(loadedReviewerResponses);
       setSelectedPaths(initialSelectedPaths);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error loading data:', error);
       notifications.show({
         title: 'Fehler',
-        message: error.response?.data?.error || 'Daten konnten nicht geladen werden',
+        message: getErrorMessage(error, 'Daten konnten nicht geladen werden'),
         color: 'red',
       });
     } finally {
       setLoading(false);
     }
-  };
+  }, [assessmentId, navigate]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  useEffect(() => {
+    if (catalog?.categories && catalog.categories.length > 0 && !activeCategory) {
+      setActiveCategory(catalog.categories[0].id.toString());
+    }
+  }, [catalog, activeCategory]);
 
   const getStatusBadge = (status: string) => {
     const config = statusConfig[status as keyof typeof statusConfig];
@@ -266,11 +267,11 @@ export function ReviewAssessmentPage() {
         message: 'Kategorie gespeichert',
         color: 'green',
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error saving category:', error);
       notifications.show({
         title: 'Fehler',
-        message: error.response?.data?.error || 'Kategorie konnte nicht gespeichert werden',
+        message: getErrorMessage(error, 'Kategorie konnte nicht gespeichert werden'),
         color: 'red',
       });
     } finally {

@@ -16,6 +16,7 @@ const AppConfigContext = createContext<AppConfig>({
   refetch: async () => {},
 });
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useAppConfig = () => useContext(AppConfigContext);
 
 interface AppConfigProviderProps {

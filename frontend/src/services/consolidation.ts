@@ -1,4 +1,5 @@
 import api from './api';
+import type { SelfAssessment, AssessmentResponseWithDetails, CatalogWithDetails } from '../types';
 
 export interface ConsolidationAveragedApproval {
   id: number;
@@ -57,12 +58,12 @@ export interface CategoryDiscussionComment {
 }
 
 export interface ConsolidationData {
-  assessment: any; // SelfAssessment type
-  user_responses: any[]; // AssessmentResponseWithDetails[]
+  assessment: SelfAssessment;
+  user_responses: AssessmentResponseWithDetails[];
   averaged_responses: AveragedReviewerResponse[];
   overrides: ConsolidationOverride[];
-  catalog: any; // CatalogWithDetails type
-  current_user_responses?: any[]; // Current user's own reviewer responses
+  catalog: CatalogWithDetails;
+  current_user_responses?: AssessmentResponseWithDetails[];
   final_consolidation?: FinalConsolidation;
   all_categories_approved?: boolean;
   category_discussion_comments?: CategoryDiscussionComment[];

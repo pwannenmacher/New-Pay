@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Container,
@@ -29,6 +29,7 @@ import { selfAssessmentService } from '../../services/selfAssessment';
 import adminService from '../../services/admin';
 import type { SelfAssessment, CriteriaCatalog } from '../../types';
 import { notifications } from '@mantine/notifications';
+import { getErrorMessage } from '../../utils/errorUtils';
 
 const statusConfig = {
   draft: { label: 'Entwurf', color: 'gray', icon: IconClock },
@@ -48,13 +49,7 @@ export default function AdminSelfAssessmentDetailPage() {
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
 
-  useEffect(() => {
-    if (id) {
-      loadAssessment();
-    }
-  }, [id]);
-
-  const loadAssessment = async () => {
+  const loadAssessment = useCallback(async () => {
     try {
       setLoading(true);
       const data = await selfAssessmentService.getSelfAssessment(parseInt(id!));
@@ -67,18 +62,24 @@ export default function AdminSelfAssessmentDetailPage() {
       } catch (error) {
         console.error('Error loading catalog:', error);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error loading assessment:', error);
       notifications.show({
         title: 'Fehler',
-        message: error.response?.data?.error || 'Selbsteinschätzung konnte nicht geladen werden',
+        message: getErrorMessage(error, 'Selbsteinschätzung konnte nicht geladen werden'),
         color: 'red',
       });
       navigate('/admin/self-assessments');
     } finally {
       setLoading(false);
     }
-  };
+  }, [id, navigate]);
+
+  useEffect(() => {
+    if (id) {
+      loadAssessment();
+    }
+  }, [id, loadAssessment]);
 
   const handleStatusChange = async (newStatus: string) => {
     if (!assessment) return;
@@ -92,11 +93,11 @@ export default function AdminSelfAssessmentDetailPage() {
         color: 'green',
       });
       await loadAssessment();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error updating status:', error);
       notifications.show({
         title: 'Fehler',
-        message: error.response?.data?.error || 'Status konnte nicht aktualisiert werden',
+        message: getErrorMessage(error, 'Status konnte nicht aktualisiert werden'),
         color: 'red',
       });
     } finally {
@@ -119,10 +120,10 @@ export default function AdminSelfAssessmentDetailPage() {
         color: 'green',
       });
       navigate('/admin/self-assessments');
-    } catch (error: any) {
+    } catch (error: unknown) {
       notifications.show({
         title: 'Fehler',
-        message: error.response?.data?.error || 'Selbsteinschätzung konnte nicht gelöscht werden',
+        message: getErrorMessage(error, 'Selbsteinschätzung konnte nicht gelöscht werden'),
         color: 'red',
       });
     }
@@ -201,12 +202,11 @@ export default function AdminSelfAssessmentDetailPage() {
         color: 'green',
       });
       await loadAssessment();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error reopening assessment:', error);
       notifications.show({
         title: 'Fehler',
-        message:
-          error.response?.data?.error || 'Selbsteinschätzung konnte nicht wiedereröffnet werden',
+        message: getErrorMessage(error, 'Selbsteinschätzung konnte nicht wiedereröffnet werden'),
         color: 'red',
       });
     } finally {
