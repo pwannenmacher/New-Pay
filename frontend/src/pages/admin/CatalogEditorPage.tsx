@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { getErrorMessage } from '../../utils/errorUtils';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   Container,
@@ -34,7 +35,13 @@ import { DateInput } from '@mantine/dates';
 import { notifications } from '@mantine/notifications';
 import { adminApi } from '../../services/admin';
 import { PathManagement } from '../../components/admin/PathManagement';
-import type { CatalogWithDetails, Category, CategoryWithPaths, Level } from '../../types';
+import type {
+  CatalogPhase,
+  CatalogWithDetails,
+  Category,
+  CategoryWithPaths,
+  Level,
+} from '../../types';
 
 // Helper function to parse German date format DD.MM.YYYY
 const dateParser = (input: string): Date | null => {
@@ -121,8 +128,8 @@ export function CatalogEditorPage() {
       setPhase(data.phase || 'draft');
       setCategories(data.categories?.map((c) => c) || []);
       setLevels(data.levels || []);
-    } catch (err: any) {
-      setError(err.response?.data?.error || 'Failed to load catalog');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Failed to load catalog'));
     } finally {
       setLoading(false);
     }
@@ -189,7 +196,7 @@ export function CatalogEditorPage() {
         description: description || undefined,
         valid_from: fromDate.toISOString().split('T')[0],
         valid_until: untilDate.toISOString().split('T')[0],
-        phase: phase as any,
+        phase: phase as CatalogPhase,
       };
 
       if (isNew) {
@@ -222,20 +229,12 @@ export function CatalogEditorPage() {
         });
         await loadCatalog(parseInt(id));
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error saving catalog:', err);
-      console.error('Error response:', err.response);
-      console.error('Error data:', err.response?.data);
-
-      const errorMessage =
-        err.response?.data?.error ||
-        err.response?.data?.message ||
-        err.message ||
-        'Fehler beim Speichern';
 
       notifications.show({
         title: 'Fehler beim Speichern',
-        message: errorMessage,
+        message: getErrorMessage(err, 'Fehler beim Speichern'),
         color: 'red',
       });
     } finally {
@@ -297,10 +296,10 @@ export function CatalogEditorPage() {
       setEditingLevel(null);
       setNewLevelName('');
       setNewLevelDescription('');
-    } catch (err: any) {
+    } catch (err: unknown) {
       notifications.show({
         title: 'Fehler',
-        message: err.response?.data?.error || 'Fehler beim Speichern',
+        message: getErrorMessage(err, 'Fehler beim Speichern'),
         color: 'red',
       });
     }
@@ -348,10 +347,10 @@ export function CatalogEditorPage() {
         message: 'Reihenfolge erfolgreich geändert',
         color: 'green',
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
       notifications.show({
         title: 'Fehler',
-        message: err.response?.data?.error || 'Fehler beim Umsortieren',
+        message: getErrorMessage(err, 'Fehler beim Umsortieren'),
         color: 'red',
       });
       // Reload to get correct state
@@ -393,10 +392,10 @@ export function CatalogEditorPage() {
 
       // Reload catalog to update progress
       await loadCatalog(catalog.id);
-    } catch (err: any) {
+    } catch (err: unknown) {
       notifications.show({
         title: 'Fehler',
-        message: err.response?.data?.error || 'Fehler beim Löschen',
+        message: getErrorMessage(err, 'Fehler beim Löschen'),
         color: 'red',
       });
     }
@@ -467,10 +466,10 @@ export function CatalogEditorPage() {
       setNewCategoryName('');
       setNewCategoryDescription('');
       setNewCategoryWeight('');
-    } catch (err: any) {
+    } catch (err: unknown) {
       notifications.show({
         title: 'Fehler',
-        message: err.response?.data?.error || 'Fehler beim Speichern',
+        message: getErrorMessage(err, 'Fehler beim Speichern'),
         color: 'red',
       });
     }
@@ -521,10 +520,10 @@ export function CatalogEditorPage() {
         message: 'Reihenfolge erfolgreich geändert',
         color: 'green',
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
       notifications.show({
         title: 'Fehler',
-        message: err.response?.data?.error || 'Fehler beim Umsortieren',
+        message: getErrorMessage(err, 'Fehler beim Umsortieren'),
         color: 'red',
       });
       if (id) loadCatalog(parseInt(id));
@@ -562,10 +561,10 @@ export function CatalogEditorPage() {
         message: 'Kategorie erfolgreich gelöscht',
         color: 'green',
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
       notifications.show({
         title: 'Fehler',
-        message: err.response?.data?.error || 'Fehler beim Löschen',
+        message: getErrorMessage(err, 'Fehler beim Löschen'),
         color: 'red',
       });
     }
