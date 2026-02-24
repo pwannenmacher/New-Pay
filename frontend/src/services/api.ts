@@ -113,58 +113,54 @@ class ApiClient {
       headers['Authorization'] = `Bearer ${token}`;
     }
 
-    try {
-      const response = await fetch(url, {
-        ...options,
-        headers,
-        credentials: 'include', // Always include cookies
-      });
+    const response = await fetch(url, {
+      ...options,
+      headers,
+      credentials: 'include', // Always include cookies
+    });
 
-      // If unauthorized and we have a refresh token, try to refresh
-      if (response.status === 401 && tokenService.getRefreshToken()) {
-        if (!this.isRefreshing) {
-          this.isRefreshing = true;
+    // If unauthorized and we have a refresh token, try to refresh
+    if (response.status === 401 && tokenService.getRefreshToken()) {
+      if (!this.isRefreshing) {
+        this.isRefreshing = true;
 
-          try {
-            const newToken = await this.refreshToken();
-            this.isRefreshing = false;
-            this.onRefreshed(newToken);
+        try {
+          const newToken = await this.refreshToken();
+          this.isRefreshing = false;
+          this.onRefreshed(newToken);
 
-            // Retry original request with new token
-            headers['Authorization'] = `Bearer ${newToken}`;
-            const retryResponse = await fetch(url, {
+          // Retry original request with new token
+          headers['Authorization'] = `Bearer ${newToken}`;
+          const retryResponse = await fetch(url, {
+            ...options,
+            headers,
+            credentials: 'include',
+          });
+
+          return this.handleResponse<T>(retryResponse);
+        } catch (error) {
+          this.isRefreshing = false;
+          throw error;
+        }
+      } else {
+        // Wait for the token to be refreshed
+        return new Promise((resolve, reject) => {
+          this.addRefreshSubscriber((token: string) => {
+            headers['Authorization'] = `Bearer ${token}`;
+            fetch(url, {
               ...options,
               headers,
               credentials: 'include',
-            });
-
-            return this.handleResponse<T>(retryResponse);
-          } catch (error) {
-            this.isRefreshing = false;
-            throw error;
-          }
-        } else {
-          // Wait for the token to be refreshed
-          return new Promise((resolve, reject) => {
-            this.addRefreshSubscriber((token: string) => {
-              headers['Authorization'] = `Bearer ${token}`;
-              fetch(url, {
-                ...options,
-                headers,
-                credentials: 'include',
-              })
-                .then((res) => this.handleResponse<T>(res))
-                .then(resolve)
-                .catch(reject);
-            });
+            })
+              .then((res) => this.handleResponse<T>(res))
+              .then(resolve)
+              .catch(reject);
           });
-        }
+        });
       }
-
-      return this.handleResponse<T>(response);
-    } catch (error) {
-      throw error;
     }
+
+    return this.handleResponse<T>(response);
   }
 
   async get<T>(endpoint: string, options?: RequestInit): Promise<T> {
