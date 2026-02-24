@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useMemo } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Container, Paper, Title, Text, Button, Loader, Center, Stack } from '@mantine/core';
 import { IconCheck, IconX } from '@tabler/icons-react';
@@ -8,16 +8,15 @@ import type { ApiError } from '../../types';
 export const EmailVerificationPage = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
-  const [message, setMessage] = useState('');
+  const token = useMemo(() => searchParams.get('token'), [searchParams]);
+  const [status, setStatus] = useState<'loading' | 'success' | 'error'>(() =>
+    token ? 'loading' : 'error'
+  );
+  const [message, setMessage] = useState(() => (token ? '' : 'Verification token is missing'));
   const hasVerified = useRef(false);
 
   useEffect(() => {
-    const token = searchParams.get('token');
-
     if (!token) {
-      setStatus('error');
-      setMessage('Verification token is missing');
       return;
     }
 
@@ -40,7 +39,7 @@ export const EmailVerificationPage = () => {
     };
 
     verifyEmail();
-  }, [searchParams]);
+  }, [token]);
 
   return (
     <Container size={420} my={40}>
