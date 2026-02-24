@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Container,
@@ -26,8 +26,9 @@ import {
 } from '@tabler/icons-react';
 import { DateInput } from '@mantine/dates';
 import { selfAssessmentService } from '../../services/selfAssessment';
-import discussionService from '../../services/discussion';
+import discussionService, { type DiscussionConfirmation } from '../../services/discussion';
 import type { SelfAssessment, Role } from '../../types';
+import { getErrorMessage } from '../../utils/errorUtils';
 import { notifications } from '@mantine/notifications';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -71,17 +72,13 @@ export function ReviewOpenAssessmentsPage() {
   const [toDate, setToDate] = useState<string | null>(null);
   const [fromSubmittedDate, setFromSubmittedDate] = useState<string | null>(null);
   const [toSubmittedDate, setToSubmittedDate] = useState<string | null>(null);
-  const [confirmations, setConfirmations] = useState<Record<number, any[]>>({});
+  const [confirmations, setConfirmations] = useState<Record<number, DiscussionConfirmation[]>>({});
   const [archivingId, setArchivingId] = useState<number | null>(null);
 
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       setLoading(true);
-      const filters: any = {};
+      const filters: Record<string, string | number> = {};
       if (status) filters.status = status;
       if (username) filters.username = username;
       if (catalogId) filters.catalog_id = parseInt(catalogId);
@@ -96,7 +93,7 @@ export function ReviewOpenAssessmentsPage() {
 
       // Load confirmations for discussion status assessments
       const discussionAssessments = assessmentsList.filter((a) => a.status === 'discussion');
-      const confirmationsData: Record<number, any[]> = {};
+      const confirmationsData: Record<number, DiscussionConfirmation[]> = {};
 
       await Promise.all(
         discussionAssessments.map(async (assessment) => {
@@ -116,17 +113,30 @@ export function ReviewOpenAssessmentsPage() {
       if (!allAssessments.length) {
         setAllAssessments(assessmentsList);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error loading assessments:', error);
       notifications.show({
         title: 'Fehler',
-        message: error.response?.data?.error || 'Fehler beim Laden der Selbsteinschätzungen',
+        message: getErrorMessage(error, 'Fehler beim Laden der Selbsteinschätzungen'),
         color: 'red',
       });
     } finally {
       setLoading(false);
     }
-  };
+  }, [
+    allAssessments.length,
+    catalogId,
+    fromDate,
+    fromSubmittedDate,
+    status,
+    toDate,
+    toSubmittedDate,
+    username,
+  ]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const handleFilter = () => {
     loadData();
@@ -153,10 +163,10 @@ export function ReviewOpenAssessmentsPage() {
         color: 'green',
       });
       loadData();
-    } catch (error: any) {
+    } catch (error: unknown) {
       notifications.show({
         title: 'Fehler',
-        message: error.response?.data?.error || 'Fehler beim Aktualisieren des Status',
+        message: getErrorMessage(error, 'Fehler beim Aktualisieren des Status'),
         color: 'red',
       });
     }
@@ -172,10 +182,10 @@ export function ReviewOpenAssessmentsPage() {
         color: 'green',
       });
       loadData();
-    } catch (error: any) {
+    } catch (error: unknown) {
       notifications.show({
         title: 'Fehler',
-        message: error.response?.data?.error || 'Archivierung fehlgeschlagen',
+        message: getErrorMessage(error, 'Archivierung fehlgeschlagen'),
         color: 'red',
       });
     } finally {
@@ -425,10 +435,8 @@ export function ReviewOpenAssessmentsPage() {
                             </Button>
                             {(() => {
                               const confs = confirmations[assessment.id] || [];
-                              const hasReviewer = confs.some(
-                                (c: any) => c.user_type === 'reviewer'
-                              );
-                              const hasOwner = confs.some((c: any) => c.user_type === 'owner');
+                              const hasReviewer = confs.some((c) => c.user_type === 'reviewer');
+                              const hasOwner = confs.some((c) => c.user_type === 'owner');
                               return hasReviewer && hasOwner ? (
                                 <Button
                                   size="xs"

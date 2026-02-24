@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   Container,
   Paper,
@@ -90,24 +90,7 @@ export const UserManagementPage = () => {
   const [sortBy, setSortBy] = useState<string>('created_at');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
-  useEffect(() => {
-    loadUsers();
-  }, [
-    currentPage,
-    searchQuery,
-    selectedRoleFilters,
-    activeFilter,
-    verifiedFilter,
-    sortBy,
-    sortOrder,
-    pageSize,
-  ]);
-
-  useEffect(() => {
-    loadRoles();
-  }, []);
-
-  const loadUsers = async () => {
+  const loadUsers = useCallback(async () => {
     setIsLoading(true);
     try {
       const params: UserListParams = {
@@ -138,7 +121,24 @@ export const UserManagementPage = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [
+    currentPage,
+    searchQuery,
+    selectedRoleFilters,
+    activeFilter,
+    verifiedFilter,
+    sortBy,
+    sortOrder,
+    pageSize,
+  ]);
+
+  useEffect(() => {
+    loadUsers();
+  }, [loadUsers]);
+
+  useEffect(() => {
+    loadRoles();
+  }, []);
 
   const loadRoles = async () => {
     try {

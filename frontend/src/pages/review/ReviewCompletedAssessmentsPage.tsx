@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Container,
@@ -18,6 +18,7 @@ import { IconSearch, IconFilter, IconArchive, IconEye } from '@tabler/icons-reac
 import { DateInput } from '@mantine/dates';
 import { selfAssessmentService } from '../../services/selfAssessment';
 import type { SelfAssessment, Role } from '../../types';
+import { getErrorMessage } from '../../utils/errorUtils';
 import { notifications } from '@mantine/notifications';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -53,14 +54,10 @@ export function ReviewCompletedAssessmentsPage() {
   const [fromSubmittedDate, setFromSubmittedDate] = useState<string | null>(null);
   const [toSubmittedDate, setToSubmittedDate] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       setLoading(true);
-      const filters: any = {};
+      const filters: Record<string, string | number> = {};
       if (username) filters.username = username;
       if (catalogId) filters.catalog_id = parseInt(catalogId);
       if (fromDate) filters.from_date = fromDate;
@@ -76,17 +73,29 @@ export function ReviewCompletedAssessmentsPage() {
       if (!allAssessments.length) {
         setAllAssessments(assessmentsList);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error loading assessments:', error);
       notifications.show({
         title: 'Fehler',
-        message: error.response?.data?.error || 'Fehler beim Laden der Selbsteinschätzungen',
+        message: getErrorMessage(error, 'Fehler beim Laden der Selbsteinschätzungen'),
         color: 'red',
       });
     } finally {
       setLoading(false);
     }
-  };
+  }, [
+    allAssessments.length,
+    catalogId,
+    fromDate,
+    fromSubmittedDate,
+    toDate,
+    toSubmittedDate,
+    username,
+  ]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const handleFilter = () => {
     loadData();

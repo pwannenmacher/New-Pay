@@ -26,6 +26,7 @@ import {
 } from '@tabler/icons-react';
 import { selfAssessmentService } from '../../services/selfAssessment';
 import type { SelfAssessment, CriteriaCatalog } from '../../types';
+import { getErrorMessage } from '../../utils/errorUtils';
 import { notifications } from '@mantine/notifications';
 import { WeightedScoreBadge } from '../../components/WeightedScoreDisplay';
 import discussionService, { type DiscussionResult } from '../../services/discussion';
@@ -125,11 +126,11 @@ export default function SelfAssessmentsPage() {
       setCreateModalOpen(false);
       await loadData();
       navigate(`/self-assessments/${newAssessment.id}`);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error creating assessment:', error);
       notifications.show({
         title: 'Fehler',
-        message: error.response?.data?.error || 'Selbsteinschätzung konnte nicht erstellt werden',
+        message: getErrorMessage(error, 'Selbsteinschätzung konnte nicht erstellt werden'),
         color: 'red',
       });
     } finally {

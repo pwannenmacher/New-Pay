@@ -363,8 +363,7 @@ export function ReviewConsolidationPage() {
       setLoading(false);
       notifications.show({
         title: 'Fehler',
-        message:
-          getErrorMessage(error, 'Fehler beim Generieren der Kategorie-Zusammenfassungen'),
+        message: getErrorMessage(error, 'Fehler beim Generieren der Kategorie-Zusammenfassungen'),
         color: 'red',
       });
     }
@@ -1025,9 +1024,7 @@ export function ReviewConsolidationPage() {
 
                       if (override && override.is_approved) {
                         // Find the level for the override from catalog levels
-                        const level = data.catalog.levels?.find(
-                          (l) => l.id === override.level_id
-                        );
+                        const level = data.catalog.levels?.find((l) => l.id === override.level_id);
                         if (level) {
                           resultLevel = {
                             level_number: level.level_number,

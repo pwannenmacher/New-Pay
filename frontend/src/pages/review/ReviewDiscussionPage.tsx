@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Container,
@@ -27,6 +27,7 @@ import {
   IconArchive,
 } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
+import { getErrorMessage } from '../../utils/errorUtils';
 import discussionService, { type DiscussionResult } from '../../services/discussion';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -44,11 +45,7 @@ export function ReviewDiscussionPage() {
   const [archiving, setArchiving] = useState(false);
   const [assessmentStatus, setAssessmentStatus] = useState<string>('discussion');
 
-  useEffect(() => {
-    loadData();
-  }, [assessmentId]);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       setLoading(true);
       const discussionData = await discussionService.getDiscussionResult(assessmentId);
@@ -58,17 +55,21 @@ export function ReviewDiscussionPage() {
       if (discussionData.assessment_status) {
         setAssessmentStatus(discussionData.assessment_status);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error loading discussion data:', error);
       notifications.show({
         title: 'Fehler',
-        message: error.response?.data?.error || 'Diskussionsdaten konnten nicht geladen werden',
+        message: getErrorMessage(error, 'Diskussionsdaten konnten nicht geladen werden'),
         color: 'red',
       });
     } finally {
       setLoading(false);
     }
-  };
+  }, [assessmentId]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const handleSaveComment = async () => {
     try {
@@ -80,11 +81,11 @@ export function ReviewDiscussionPage() {
         color: 'green',
       });
       await loadData(); // Reload to get updated data
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error saving comment:', error);
       notifications.show({
         title: 'Fehler',
-        message: error.response?.data?.error || 'Notizen konnten nicht gespeichert werden',
+        message: getErrorMessage(error, 'Notizen konnten nicht gespeichert werden'),
         color: 'red',
       });
     } finally {
@@ -102,11 +103,11 @@ export function ReviewDiscussionPage() {
         color: 'green',
       });
       await loadData();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error confirming meeting:', error);
       notifications.show({
         title: 'Fehler',
-        message: error.response?.data?.error || 'Bestätigung konnte nicht gespeichert werden',
+        message: getErrorMessage(error, 'Bestätigung konnte nicht gespeichert werden'),
         color: 'red',
       });
     } finally {
@@ -124,11 +125,11 @@ export function ReviewDiscussionPage() {
         color: 'green',
       });
       navigate('/review/open-assessments');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error archiving assessment:', error);
       notifications.show({
         title: 'Fehler',
-        message: error.response?.data?.error || 'Archivierung fehlgeschlagen',
+        message: getErrorMessage(error, 'Archivierung fehlgeschlagen'),
         color: 'red',
       });
     } finally {
