@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import type { ReactNode } from 'react';
 import { configApi } from '../services/api';
 
@@ -29,7 +29,7 @@ export function AppConfigProvider({ children }: AppConfigProviderProps) {
     loading: true,
   });
 
-  const fetchConfig = async () => {
+  const fetchConfig = useCallback(async () => {
     try {
       const response = await configApi.getAppConfig();
       setConfig({
@@ -46,11 +46,12 @@ export function AppConfigProvider({ children }: AppConfigProviderProps) {
         loading: false,
       });
     }
-  };
+  }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchConfig();
-  }, []);
+  }, [fetchConfig]);
 
   return (
     <AppConfigContext.Provider value={{ ...config, refetch: fetchConfig }}>

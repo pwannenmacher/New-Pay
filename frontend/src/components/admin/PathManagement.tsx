@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   Stack,
   Group,
@@ -46,7 +46,7 @@ export function PathManagement({
   const [editingPathForDescriptions, setEditingPathForDescriptions] = useState<Path | null>(null);
   const [descriptionTexts, setDescriptionTexts] = useState<Record<number, string>>({});
 
-  const loadAllPathCounts = async () => {
+  const loadAllPathCounts = useCallback(async () => {
     try {
       const catalog = await adminApi.getCatalog(catalogId);
       const counts: Record<number, number> = {};
@@ -54,16 +54,17 @@ export function PathManagement({
         counts[cat.id] = cat.paths?.length || 0;
       });
       setCategoryPathCounts(counts);
-    } catch (err: any) {
+    } catch {
       // Silent fail for counts
     }
-  };
+  }, [catalogId]);
 
   useEffect(() => {
     if (categories.length > 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       loadAllPathCounts();
     }
-  }, [catalogId, categories.length]);
+  }, [catalogId, categories.length, loadAllPathCounts]);
 
   const loadPathsForCategory = async (category: Category) => {
     try {
@@ -72,10 +73,10 @@ export function PathManagement({
       setPaths(cat?.paths || []);
       setSelectedCategory(category);
       loadAllPathCounts(); // Refresh counts
-    } catch (err: any) {
+    } catch (error) {
       notifications.show({
         title: 'Fehler',
-        message: 'Pfade konnten nicht geladen werden',
+        message: error instanceof Error ? error.message : 'Pfade konnten nicht geladen werden',
         color: 'red',
       });
     }
@@ -139,10 +140,22 @@ export function PathManagement({
       setEditingPath(null);
       setNewPathName('');
       setNewPathDescription('');
-    } catch (err: any) {
+    } catch (error) {
+      const errorMessage =
+        error &&
+        typeof error === 'object' &&
+        'response' in error &&
+        error.response &&
+        typeof error.response === 'object' &&
+        'data' in error.response &&
+        error.response.data &&
+        typeof error.response.data === 'object' &&
+        'error' in error.response.data
+          ? String(error.response.data.error)
+          : 'Fehler beim Speichern';
       notifications.show({
         title: 'Fehler',
-        message: err.response?.data?.error || 'Fehler beim Speichern',
+        message: errorMessage,
         color: 'red',
       });
     }
@@ -184,10 +197,22 @@ export function PathManagement({
         message: 'Reihenfolge erfolgreich geändert',
         color: 'green',
       });
-    } catch (err: any) {
+    } catch (error) {
+      const errorMessage =
+        error &&
+        typeof error === 'object' &&
+        'response' in error &&
+        error.response &&
+        typeof error.response === 'object' &&
+        'data' in error.response &&
+        error.response.data &&
+        typeof error.response.data === 'object' &&
+        'error' in error.response.data
+          ? String(error.response.data.error)
+          : 'Fehler beim Umsortieren';
       notifications.show({
         title: 'Fehler',
-        message: err.response?.data?.error || 'Fehler beim Umsortieren',
+        message: errorMessage,
         color: 'red',
       });
       if (selectedCategory) loadPathsForCategory(selectedCategory);
@@ -227,10 +252,22 @@ export function PathManagement({
       if (onUpdate) {
         onUpdate();
       }
-    } catch (err: any) {
+    } catch (error) {
+      const errorMessage =
+        error &&
+        typeof error === 'object' &&
+        'response' in error &&
+        error.response &&
+        typeof error.response === 'object' &&
+        'data' in error.response &&
+        error.response.data &&
+        typeof error.response.data === 'object' &&
+        'error' in error.response.data
+          ? String(error.response.data.error)
+          : 'Fehler beim Löschen';
       notifications.show({
         title: 'Fehler',
-        message: err.response?.data?.error || 'Fehler beim Löschen',
+        message: errorMessage,
         color: 'red',
       });
     }
@@ -252,7 +289,7 @@ export function PathManagement({
       });
       setDescriptionTexts(texts);
       setDescriptionModalOpened(true);
-    } catch (err: any) {
+    } catch {
       notifications.show({
         title: 'Fehler',
         message: 'Beschreibungen konnten nicht geladen werden',
@@ -290,10 +327,22 @@ export function PathManagement({
       if (onUpdate) {
         onUpdate();
       }
-    } catch (err: any) {
+    } catch (error) {
+      const errorMessage =
+        error &&
+        typeof error === 'object' &&
+        'response' in error &&
+        error.response &&
+        typeof error.response === 'object' &&
+        'data' in error.response &&
+        error.response.data &&
+        typeof error.response.data === 'object' &&
+        'error' in error.response.data
+          ? String(error.response.data.error)
+          : 'Fehler beim Speichern';
       notifications.show({
         title: 'Fehler',
-        message: err.response?.data?.error || 'Fehler beim Speichern',
+        message: errorMessage,
         color: 'red',
       });
     }
@@ -301,8 +350,9 @@ export function PathManagement({
 
   const calculatePathProgress = (path: Path) => {
     const totalDescriptions = levels.length;
+    const pathWithDescriptions = path as Path & { descriptions?: Array<{ description?: string }> };
     const filledDescriptions =
-      (path as any).descriptions?.filter((d: any) => d.description && d.description.trim())
+      pathWithDescriptions.descriptions?.filter((d) => d.description && d.description.trim())
         .length || 0;
     const percentage =
       totalDescriptions > 0 ? Math.round((filledDescriptions / totalDescriptions) * 100) : 0;
