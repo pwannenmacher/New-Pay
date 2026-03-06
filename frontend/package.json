@@ -14,12 +14,12 @@
     "update:deps": "npx npm-check-updates -u && npm install"
   },
   "dependencies": {
-    "@mantine/core": "^8.3.15",
-    "@mantine/dates": "^8.3.15",
-    "@mantine/form": "^8.3.15",
-    "@mantine/hooks": "^8.3.15",
-    "@mantine/notifications": "^8.3.15",
-    "@tabler/icons-react": "^3.38.0",
+    "@mantine/core": "^8.3.16",
+    "@mantine/dates": "^8.3.16",
+    "@mantine/form": "^8.3.16",
+    "@mantine/hooks": "^8.3.16",
+    "@mantine/notifications": "^8.3.16",
+    "@tabler/icons-react": "^3.39.0",
     "dayjs": "^1.11.19",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
@@ -32,7 +32,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "@types/node": "^25.3.3",
+    "@types/node": "^25.3.5",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.1.4",
