@@ -14,13 +14,13 @@
     "update:deps": "npx npm-check-updates -u && npm install"
   },
   "dependencies": {
-    "@mantine/core": "^8.3.16",
-    "@mantine/dates": "^8.3.16",
-    "@mantine/form": "^8.3.16",
-    "@mantine/hooks": "^8.3.16",
-    "@mantine/notifications": "^8.3.16",
-    "@tabler/icons-react": "^3.39.0",
-    "dayjs": "^1.11.19",
+    "@mantine/core": "^8.3.17",
+    "@mantine/dates": "^8.3.17",
+    "@mantine/form": "^8.3.17",
+    "@mantine/hooks": "^8.3.17",
+    "@mantine/notifications": "^8.3.17",
+    "@tabler/icons-react": "^3.40.0",
+    "dayjs": "^1.11.20",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "react-router-dom": "^7.13.1"
@@ -32,11 +32,11 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "@types/node": "^25.3.5",
+    "@types/node": "^25.5.0",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
-    "@vitejs/plugin-react": "^5.1.4",
-    "eslint": "^10.0.2",
+    "@vitejs/plugin-react": "^6.0.1",
+    "eslint": "^10.0.3",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.5.5",
     "eslint-plugin-react-hooks": "^7.0.1",
@@ -47,7 +47,7 @@
     "postcss-simple-vars": "^7.0.1",
     "prettier": "^3.8.1",
     "typescript": "~5.9.3",
-    "typescript-eslint": "^8.56.1",
-    "vite": "^7.3.1"
+    "typescript-eslint": "^8.57.1",
+    "vite": "^8.0.0"
   }
 }
