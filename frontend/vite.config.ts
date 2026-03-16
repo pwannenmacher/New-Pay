@@ -17,10 +17,18 @@ export default defineConfig({
   build: {
     rollupOptions: {
       output: {
-        manualChunks: {
-          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
-          'mantine-core': ['@mantine/core', '@mantine/hooks'],
-          'mantine-extras': ['@mantine/form', '@mantine/notifications'],
+        manualChunks: (id) => {
+          if (id.includes('node_modules')) {
+            if (id.includes('react') || id.includes('react-dom') || id.includes('react-router-dom')) {
+              return 'react-vendor';
+            }
+            if (id.includes('@mantine/core') || id.includes('@mantine/hooks')) {
+              return 'mantine-core';
+            }
+            if (id.includes('@mantine/form') || id.includes('@mantine/notifications')) {
+              return 'mantine-extras';
+            }
+          }
         },
       },
     },
