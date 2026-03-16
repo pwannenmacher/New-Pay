@@ -14,7 +14,7 @@
     "update:deps": "npx npm-check-updates -u && npm install"
   },
   "dependencies": {
-    "@mantine/core": "^8.3.16",
+    "@mantine/core": "^8.3.17",
     "@mantine/dates": "^8.3.16",
     "@mantine/form": "^8.3.16",
     "@mantine/hooks": "^8.3.16",
