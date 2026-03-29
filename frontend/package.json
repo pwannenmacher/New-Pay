@@ -19,7 +19,7 @@
     "@mantine/form": "^8.3.18",
     "@mantine/hooks": "^8.3.18",
     "@mantine/notifications": "^8.3.18",
-    "@tabler/icons-react": "^3.40.0",
+    "@tabler/icons-react": "^3.41.0",
     "dayjs": "^1.11.20",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
@@ -48,6 +48,6 @@
     "prettier": "^3.8.1",
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.57.2",
-    "vite": "^8.0.2"
+    "vite": "^8.0.3"
   }
 }
