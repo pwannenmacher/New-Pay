@@ -14,6 +14,10 @@
 
 set -e
 
+# Ensure Docker build output is streamed line-by-line instead of spinner UI,
+# which can look like a hang in some terminals.
+export BUILDKIT_PROGRESS=plain
+
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -82,6 +86,12 @@ check_prerequisites() {
         print_error "Missing required tools: ${missing_tools[*]}"
         exit 1
     fi
+
+    if ! docker info >/dev/null 2>&1; then
+        print_error "Docker daemon is not running or not reachable. Start Docker and try again."
+        exit 1
+    fi
+
     print_success "All prerequisites met"
 }
 
@@ -345,8 +355,18 @@ KEYEOF
 
     # ── Build & start ────────────────────────────────────────────────────────
     print_header "Pulling & Building Docker Images"
-    docker compose pull postgres ollama 2>/dev/null || true
-    docker compose build frontend api
+    print_info "Pulling base images (this can take several minutes on first run)..."
+    if [ "$LLM_ENABLED" = "true" ]; then
+        docker compose pull postgres ollama || true
+    else
+        docker compose pull postgres || true
+    fi
+
+    print_info "Building application images (frontend, api)..."
+    if ! docker compose build --progress=plain frontend api; then
+        print_error "Docker build failed. Run 'docker compose build --progress=plain frontend api' for detailed logs."
+        exit 1
+    fi
     print_success "Docker images ready"
 
     if [ "$LLM_ENABLED" = "true" ]; then
