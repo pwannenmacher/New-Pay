@@ -262,11 +262,13 @@ jobs:
         DB_USER=test
         DB_PASSWORD=test
         DB_NAME=test
+        ENCRYPTION_MASTER_KEY=test-encryption-key
         EOF
         
         cat > docker/production/.env << EOF
         DB_USER=test
         DB_PASSWORD=test
+        ENCRYPTION_MASTER_KEY=test-encryption-key
         DB_NAME=test
         EOF
         
