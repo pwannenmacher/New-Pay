@@ -515,7 +515,7 @@ func (s *SelfAssessmentService) SaveResponse(userID, assessmentID uint, response
 
 	// Check if encryption service is available
 	if s.encryptedResponseSvc == nil {
-		return nil, fmt.Errorf("encryption service not available - Vault must be enabled")
+		return nil, fmt.Errorf("encryption service not available")
 	}
 
 	if existing != nil {

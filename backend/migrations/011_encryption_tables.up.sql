@@ -72,8 +72,8 @@ CREATE TRIGGER enforce_encrypted_records_append_only
     FOR EACH ROW EXECUTE FUNCTION prevent_encrypted_record_modifications();
 
 -- Comments
-COMMENT ON TABLE user_keys IS 'Stores user Ed25519 key pairs (private keys encrypted with Vault)';
-COMMENT ON TABLE process_keys IS 'Stores process-specific symmetric encryption keys (encrypted with Vault)';
+COMMENT ON TABLE user_keys IS 'Stores user Ed25519 key pairs (private keys encrypted with the application master key)';
+COMMENT ON TABLE process_keys IS 'Stores process-specific symmetric encryption keys (encrypted with the application master key)';
 COMMENT ON TABLE encrypted_records IS 'Append-only table for encrypted and signed records with hash chain audit trail';
 COMMENT ON COLUMN encrypted_records.encrypted_data IS 'AES-256-GCM encrypted payload';
 COMMENT ON COLUMN encrypted_records.encryption_nonce IS 'GCM nonce/IV for decryption';

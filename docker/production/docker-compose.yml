@@ -37,12 +37,9 @@ services:
       
       # Database
       DB_HOST: postgres
-      
-      # Vault
-      VAULT_ADDR: http://vault:8200
-      VAULT_ENABLED: "true"
-      VAULT_TOKEN: ${VAULT_TOKEN}
-      
+
+      # Encryption
+      ENCRYPTION_MASTER_KEY: ${ENCRYPTION_MASTER_KEY:?ENCRYPTION_MASTER_KEY is not set}
       # LLM
       LLM_BASE_URL: http://ollama:11434
       LLM_ENABLED: ${LLM_ENABLED:-false}
@@ -52,8 +49,6 @@ services:
       LOG_LEVEL: info
     depends_on:
       postgres:
-        condition: service_healthy
-      vault:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
@@ -86,30 +81,6 @@ services:
       - newpay-network
     restart: always
 
-  vault:
-    image: hashicorp/vault:1.21
-    container_name: newpay-vault-prod
-    restart: unless-stopped
-    environment:
-      VAULT_ADDR: http://0.0.0.0:8200
-      VAULT_API_ADDR: http://0.0.0.0:8200
-      VAULT_UI: "true"
-    cap_add:
-      - IPC_LOCK
-    volumes:
-      - ./vault-config.hcl:/vault/config/vault.hcl:ro
-      - vault-data:/vault/data
-      - vault-logs:/vault/logs
-    command: server
-    healthcheck:
-      test: ["CMD", "vault", "status"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
-    networks:
-      - newpay-network
-
   ollama:
     image: ollama/ollama:latest
     container_name: newpay-ollama-prod
@@ -133,10 +104,6 @@ networks:
 
 volumes:
   postgres-data:
-    driver: local
-  vault-data:
-    driver: local
-  vault-logs:
     driver: local
   ollama-data:
     driver: local

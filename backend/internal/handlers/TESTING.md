@@ -6,7 +6,7 @@ Dieses Verzeichnis enthält Integration Tests für die Backend-API mit Testconta
 
 Die Integration Tests verwenden:
 
-- **Testcontainers** für PostgreSQL und HashiCorp Vault
+- **Testcontainers** für PostgreSQL
 - **Test Fixtures** für konsistente Testdaten
 - **JWT Auth Helper** für Authentifizierung in Tests
 
@@ -15,7 +15,7 @@ Die Integration Tests verwenden:
 ```plain
 internal/
 ├── testutil/                    # Test-Hilfsfunktionen
-│   ├── testutil.go             # Container-Setup (PostgreSQL + Vault)
+│   ├── testutil.go             # Container-Setup (PostgreSQL)
 │   ├── fixtures.go             # Testdaten-Erstellung
 │   └── auth.go                 # JWT-Token-Generierung
 └── handlers/
@@ -65,30 +65,26 @@ go test ./internal/handlers -race -v
 
 Mit Coverage:
 
-```bContainer Setup
+```bash
+go test ./internal/handlers -coverprofile=coverage.out
+go tool cover -html=coverage.out
+```
+
+## Container Setup
 
 Jeder Test verwendet Testcontainers, die automatisch:
 
-1. PostgreSQL Container startet (postgres:16-alpine)
-2. Vault Container startet (hashicorp/vault:1.15)
-3. Datenbankmigrationen ausführt
-4. Testdaten (Fixtures) erstellt
+1. PostgreSQL Container startet (postgres:18)
+2. Datenbankmigrationen ausführt
+3. Testdaten (Fixtures) erstellt
 
 ```go
 func TestExample(t *testing.T) {
     containers := testutil.SetupTestContainers(t)
     defer containers.Cleanup(t)
-    
-    fixtures := testutil.SetupFixtures(t, containers.DB
-4. Testdaten (Fixtures) erstellt
-5. Services und Handler initialisiert
 
-```go
-func TestExample(t *testing.T) {
-    suite := setupTestSuite(t)
-    defer suite.teardownTestSuite(t)
-    
-    // Test-Code hier
+    fixtures := testutil.SetupFixtures(t, containers.DB)
+    // ...
 }
 ```
 

@@ -80,18 +80,6 @@ updates:
       prefix: "chore(docker)"
 
   - package-ecosystem: "docker"
-    directory: "/docker/vault"
-    schedule:
-      interval: "daily"
-      time: "22:00"
-    labels:
-      - "dependencies"
-      - "docker"
-      - "vault"
-    commit-message:
-      prefix: "chore(docker)"
-
-  - package-ecosystem: "docker"
     directory: "/docker/llm"
     schedule:
       interval: "daily"

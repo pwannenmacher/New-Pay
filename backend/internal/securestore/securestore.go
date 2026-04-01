@@ -9,8 +9,8 @@ import (
 	"fmt"
 	"time"
 
+	appCrypto "new-pay/internal/crypto"
 	"new-pay/internal/keymanager"
-	"new-pay/internal/vault"
 )
 
 // SecureRecord represents an encrypted and signed record
@@ -86,7 +86,7 @@ func (ss *SecureStore) CreateRecord(
 
 	// Encrypt with AES-256-GCM
 	additionalData := []byte(fmt.Sprintf("process:%s:user:%d:type:%s", processID, userID, recordType))
-	ciphertext, nonce, err := vault.EncryptLocal(plainBytes, dek, additionalData)
+	ciphertext, nonce, err := appCrypto.Encrypt(plainBytes, dek, additionalData)
 	if err != nil {
 		return nil, fmt.Errorf("encryption failed: %w", err)
 	}
@@ -195,7 +195,7 @@ func (ss *SecureStore) DecryptRecordData(record *SecureRecord) (*PlainData, erro
 	// Decrypt
 	additionalData := []byte(fmt.Sprintf("process:%s:user:%d:type:%s", record.ProcessID, record.UserID, record.RecordType))
 	ciphertext := append(record.EncryptedData, record.EncryptionTag...)
-	plainBytes, err := vault.DecryptLocal(ciphertext, dek, record.EncryptionNonce, additionalData)
+	plainBytes, err := appCrypto.Decrypt(ciphertext, dek, record.EncryptionNonce, additionalData)
 	if err != nil {
 		return nil, fmt.Errorf("decryption failed - data may be corrupted: %w", err)
 	}

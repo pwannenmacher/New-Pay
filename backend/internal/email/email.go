@@ -553,7 +553,6 @@ func (s *Service) SendHashChainAlert(to, adminName string, totalProcesses, valid
             <ol style="margin: 10px 0;">
                 <li><strong>System-Logs prüfen:</strong> Analysieren Sie die Backend-Logs auf verdächtige Aktivitäten</li>
                 <li><strong>Backup wiederherstellen:</strong> Erwägen Sie ein Rollback auf den letzten bekannt guten Zustand</li>
-                <li><strong>Vault prüfen:</strong> Überprüfen Sie die Vault Audit Logs auf unerlaubte Zugriffe</li>
                 <li><strong>Datenbank-Forensik:</strong> Untersuchen Sie die PostgreSQL Logs</li>
                 <li><strong>Security-Team informieren:</strong> Eskalieren Sie den Vorfall</li>
             </ol>

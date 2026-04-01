@@ -118,7 +118,7 @@ jobs:
     
     - name: Run integration tests with Testcontainers
       run: |
-        # Integration tests require Docker for Testcontainers (PostgreSQL + Vault)
+        # Integration tests require Docker for Testcontainers (PostgreSQL)
         # Tests validate:
         # - Reviewer isolation (reviewers can only see their own responses)
         # - User data protection (users cannot see individual reviewer comments)
@@ -262,11 +262,13 @@ jobs:
         DB_USER=test
         DB_PASSWORD=test
         DB_NAME=test
+        ENCRYPTION_MASTER_KEY=0000000000000000000000000000000000000000000000000000000000000000
         EOF
         
         cat > docker/production/.env << EOF
         DB_USER=test
         DB_PASSWORD=test
+        ENCRYPTION_MASTER_KEY=0000000000000000000000000000000000000000000000000000000000000000
         DB_NAME=test
         EOF
         

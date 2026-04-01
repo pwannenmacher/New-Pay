@@ -143,8 +143,7 @@ if assessment.Status != "draft" {
 ### Testcontainers
 
 Die Tests verwenden Testcontainers für:
-- PostgreSQL 16-alpine (Datenbank)
-- HashiCorp Vault 1.15 (Verschlüsselung)
+- PostgreSQL 18 (Datenbank)
 
 Container werden automatisch gestartet und nach Tests beendet.
 

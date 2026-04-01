@@ -445,9 +445,8 @@ func (s *Scheduler) sendReviewerSummaries() {
 
 // validateHashChains validates all hash chains and alerts admins on errors
 func (s *Scheduler) validateHashChains() {
-	// Skip if secure store is not available (Vault disabled)
 	if s.secureStore == nil {
-		slog.Warn("Hash chain validation skipped - Vault is disabled")
+		slog.Warn("Hash chain validation skipped - secure store not initialized")
 		return
 	}
 
