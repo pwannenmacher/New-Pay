@@ -39,17 +39,14 @@ services:
       # SMTP - override host for Docker network
       SMTP_HOST: mailpit
       SMTP_PORT: 1025
-      
-      # Vault - override host for Docker network
-      VAULT_ADDR: http://vault:8200
-      VAULT_TOKEN: ${VAULT_TOKEN:-dev-root-token}
-      
+
+      # Encryption
+      ENCRYPTION_MASTER_KEY: 5efb2b525d24d5d380b8c8c189e35448de54579b3b81d2256858eb18c379e70f
+
       # LLM - override host for Docker network
       LLM_BASE_URL: http://ollama:11434
     depends_on:
       postgres:
-        condition: service_healthy
-      vault:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
@@ -83,31 +80,6 @@ services:
     networks:
       - newpay-network
 
-  vault:
-    image: hashicorp/vault:1.21
-    container_name: newpay-vault
-    restart: unless-stopped
-    ports:
-      - "127.0.0.1:8200:8200"
-    environment:
-      VAULT_DEV_ROOT_TOKEN_ID: ${VAULT_TOKEN:-dev-root-token}
-      VAULT_DEV_LISTEN_ADDRESS: 0.0.0.0:8200
-      VAULT_ADDR: http://0.0.0.0:8200
-    cap_add:
-      - IPC_LOCK
-    volumes:
-      - vault-file:/vault/file
-      - vault-logs:/vault/logs
-    command: server -dev -dev-root-token-id=${VAULT_TOKEN:-dev-root-token}
-    healthcheck:
-      test: ["CMD", "vault", "status"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-      start_period: 5s
-    networks:
-      - newpay-network
-
   ollama:
     image: ollama/ollama:latest
     container_name: newpay-ollama
@@ -134,8 +106,8 @@ services:
     volumes:
       - mailpit:/data
     ports:
-      - 127.0.0.1:8025:8025
-      - 127.0.0.1:1025:1025
+      - "127.0.0.1:8025:8025"
+      - "127.0.0.1:1025:1025"
     environment:
       MP_MAX_MESSAGES: 5000
       MP_DATABASE: /data/mailpit.db
@@ -152,6 +124,4 @@ networks:
 volumes:
   postgres:
   mailpit:
-  vault-file:
-  vault-logs:
   ollama:
