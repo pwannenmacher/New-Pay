@@ -11,11 +11,10 @@ cd docker/production
 
 The script will guide you through:
 
-- ✅ Generating secure secrets and JWT keys
+- ✅ Generating secure secrets (JWT key, AES-256 encryption master key)
 - ✅ Configuring database credentials
 - ✅ Setting up SMTP for email
 - ✅ Configuring OAuth/SSO providers (optional)
-- ✅ Initializing HashiCorp Vault
 - ✅ Configuring LLM/AI features (optional)
 - ✅ Creating the production `.env` file
 
@@ -29,18 +28,14 @@ docker compose up -d
 
 ## Manual Setup (Alternative)
 
-If you prefer manual configuration:
-
-### Voraussetzungen
+### Prerequisites
 
 - Docker Compose V2
-- 4GB RAM
-- 2GB Speicherplatz
-- Domain mit DNS-Eintrag
+- 4 GB RAM minimum
+- 2 GB disk space
+- Domain with DNS record
 
-## Setup
-
-### 1. Umgebungsvariablen
+### 1. Environment Variables
 
 ```bash
 cd docker/production
@@ -48,70 +43,48 @@ cp .env.example .env
 nano .env
 ```
 
-Ändern:
+Required changes:
 
-- `DB_PASSWORD`
-- `JWT_SECRET` (siehe unten)
-- `SMTP_*`
-- `VAULT_TOKEN` (nach Vault-Init)
-- `VITE_API_BASE_URL`
+- `DB_PASSWORD` — secure database password
+- `JWT_SECRET` — generate with `go run scripts/generate-jwt-keys.go`
+- `ENCRYPTION_MASTER_KEY` — **generate with `openssl rand -hex 32`** and store securely
+- `SMTP_*` — mail server credentials
 
-### 2. JWT Key
+### 2. Generate Keys
 
 ```bash
-openssl ecparam -genkey -name prime256v1 -noout | openssl ec -outform PEM > jwt-key.pem
-cat jwt-key.pem | base64  # in .env eintragen
+# JWT key (ECDSA P-256)
+openssl ecparam -genkey -name prime256v1 -noout | openssl ec -outform PEM
+
+# Encryption master key (AES-256, 32 bytes)
+openssl rand -hex 32
 ```
 
-### 3. Stack starten
+> ⚠️ **Back up the `ENCRYPTION_MASTER_KEY` in a password manager or secrets vault.**
+> It cannot be recovered if lost, and losing it makes all encrypted review
+> justifications permanently unreadable.
 
-Reverse-Proxy muss SSL-Termination übernehmen und zu Port 80 forwarden.
+### 3. Start the Stack
 
 ```bash
 docker compose up -d
-docker compose logs -f vault
-
-# Init
-docker exec -it newpay-vault-prod vault operator init
-# Keys und Root Token sichern!
-
-# Unseal (3 Keys)
-docker exec -it newpay-vault-prod vault operator unseal
-# Wiederholen mit Key 2 und Key 3
-
-# Token in .env
-nano .env  # VAULT_TOKEN=s.xxx...
-
-# Transit Engine
-export VAULT_TOKEN=<ROOT_TOKEN>
-docker exec -e VAULT_TOKEN=$VAULT_TOKEN newpay-vault-prod vault secrets enable transit
-
-# API neu starten
-docker compose restart api
 ```
 
-Nach Neustarts: Vault mit 3 Keys unsealen.
+Migrations run automatically on API startup.
 
-## Betrieb
+---
 
-### Vault Unseal
-
-```bash
-docker exec -it newpay-vault-prod vault operator unseal
-# Wiederholen mit Key 2 und Key 3
-
-docker exec newpay-vault-prod vault status
-```
+## Operations
 
 ### Health Checks
 
 ```bash
 curl http://localhost:8080/health
-docker compose logs -f
+docker compose ps
 docker compose logs -f api
 ```
 
-## Updates
+### Updates
 
 ```bash
 git pull
@@ -120,66 +93,35 @@ docker compose up -d
 docker image prune -f
 ```
 
-Migrationen laufen automatisch beim API-Start.
-
-## Backups
-
-Details: [docs/BACKUP.md](../../docs/BACKUP.md)
+### Backups
 
 ```bash
-# DB
+# Database
 docker exec newpay-postgres-prod pg_dump -U newpay_prod newpay_prod | gzip > backup-$(date +%Y%m%d).sql.gz
 
-# Vault
-docker run --rm -v newpay_vault-data:/source:ro -v $(pwd):/backup alpine tar czf /backup/vault-$(date +%Y%m%d).tar.gz -C /source .
+# Encryption master key — already backed up outside Docker in your password manager
 ```
 
-## Sicherheit
+---
 
-```bash
-# Firewall
-sudo ufw default deny incoming
-sudo ufw default allow outgoing
-sudo ufw allow 22/tcp
-sudo ufw allow 80/tcp
-sudo ufw allow 443/tcp
-sudo ufw enable
-```
+## Security Checklist
 
-Checkliste:
-
-- Sichere Passwörter (DB, SMTP)
-- JWT Key sicher aufbewahren
-- Vault Keys an verschiedenen Orten
-- Root Token rotieren
-- Tägliche Backups
-- HTTPS via Reverse-Proxy
-- Log-Monitoring
-- Updates
-
-## Wartung
-
-```bash
-# /etc/docker/daemon.json
-{"log-driver":"json-file","log-opts":{"max-size":"10m","max-file":"3"}}
-
-sudo systemctl restart docker
-docker volume prune -f
-docker image prune -a -f
-```
+- [ ] `ENCRYPTION_MASTER_KEY` backed up to password manager
+- [ ] `DB_PASSWORD` is strong and unique
+- [ ] `JWT_SECRET` uses ECDSA key (not a plain string)
+- [ ] `.env` has permissions `600`
+- [ ] HTTPS via reverse proxy
+- [ ] Firewall: only ports 80/443 open externally
+- [ ] Log monitoring configured
 
 ## Troubleshooting
 
 ```bash
-# API startet nicht
+# API does not start
 docker compose logs api
-# → DB erreichbar? Vault unsealed?
+# → Check DB connection and ENCRYPTION_MASTER_KEY format (must be 64 hex chars)
 
-# Vault sealed
-docker exec -it newpay-vault-prod vault operator unseal
-# 3x wiederholen
-
-# Frontend API-Fehler
+# Frontend API errors
 curl http://localhost:8080/health
 docker compose logs frontend
 ```

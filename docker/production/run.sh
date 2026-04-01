@@ -1,12 +1,12 @@
 #!/bin/bash
+# Start all NewPay production services.
+# Encryption is handled by the application using ENCRYPTION_MASTER_KEY from .env.
+set -e
 
-# Start Vault container
-docker compose up -d vault
+if [ ! -f .env ]; then
+    echo "ERROR: .env not found. Run ./setup.sh first." >&2
+    exit 1
+fi
 
-sleep 10
-
-# Run auto-unseal script
-./auto-unseal.sh
-
-# Start other services
 docker compose up -d
+echo "NewPay started. Check status with: docker compose ps"
