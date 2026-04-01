@@ -40,8 +40,8 @@ services:
       SMTP_HOST: mailpit
       SMTP_PORT: 1025
 
-      # Encryption
-      ENCRYPTION_MASTER_KEY: 5efb2b525d24d5d380b8c8c189e35448de54579b3b81d2256858eb18c379e70f
+      # Encryption – dev default is intentionally non-secret; override via .env for local data persistence
+      ENCRYPTION_MASTER_KEY: ${ENCRYPTION_MASTER_KEY:-0000000000000000000000000000000000000000000000000000000000000001}
 
       # LLM - override host for Docker network
       LLM_BASE_URL: http://ollama:11434

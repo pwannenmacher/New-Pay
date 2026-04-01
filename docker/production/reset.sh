@@ -32,4 +32,17 @@ fi
 docker compose down -v
 rm -f encryption-key.txt
 rm -f .env
+
+# .env.backup.* files created by setup.sh may still contain ENCRYPTION_MASTER_KEY and other secrets
+if compgen -G ".env.backup.*" > /dev/null 2>&1; then
+    echo ""
+    print_warning "Found .env backup files (.env.backup.*) that may contain sensitive credentials."
+    if ask_yes_no "Do you also want to delete these backup files from disk?" "n"; then
+        rm -f .env.backup.*
+        print_success "Backup .env files deleted."
+    else
+        print_warning "Backup .env files were NOT deleted and still remain on disk."
+    fi
+fi
+
 print_success "Production environment reset. All data and configurations removed."
