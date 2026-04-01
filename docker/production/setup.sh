@@ -157,7 +157,7 @@ BANNER
     print_info "Generating AES-256 master key (32 bytes / 64 hex chars)..."
     ENCRYPTION_MASTER_KEY=$(generate_master_key)
     print_success "Encryption master key generated"
-    print_warning "IMPORTANT: Back up this key securely (password manager, secrets vault)."
+    print_warning "IMPORTANT: Back up this key securely (password manager, secret manager)."
     print_warning "Losing it makes all encrypted data permanently unreadable!"
 
     # ── SMTP ─────────────────────────────────────────────────────────────────
@@ -343,7 +343,7 @@ ENVEOF
 # ============================================================================
 # Generated: $(date)
 #
-# Store this key in a password manager or secrets vault.
+# Store this key in a password manager or secret manager.
 # Delete this file once the key is safely backed up.
 # ============================================================================
 

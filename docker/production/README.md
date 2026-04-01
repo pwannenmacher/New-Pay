@@ -60,7 +60,7 @@ openssl ecparam -genkey -name prime256v1 -noout | openssl ec -outform PEM
 openssl rand -hex 32
 ```
 
-> ⚠️ **Back up the `ENCRYPTION_MASTER_KEY` in a password manager or secrets vault.**
+> ⚠️ **Back up the `ENCRYPTION_MASTER_KEY` in a password manager or secret manager.**
 > It cannot be recovered if lost, and losing it makes all encrypted review
 > justifications permanently unreadable.
 

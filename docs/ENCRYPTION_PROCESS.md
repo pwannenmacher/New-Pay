@@ -1,175 +1,87 @@
-# Verschlüsselungs-Prozess für Tabellenspalten
+# Verschluesselungs-Prozess fuer Tabellenspalten
 
-## Übersicht
+## Uebersicht
 
-Dieser Prozess beschreibt, wie sensible Tabellenspalten verschlüsselt werden, um die Daten end-to-end zu schützen.
+Dieser Leitfaden beschreibt, wie sensible Felder (z. B. `justification`) ueber `encrypted_records` abgesichert werden.
 
 ## Architektur
 
-### 3-Tier Key Hierarchy
+### Key-Hierarchie
 
-1. **System Master Key**: In Vault Transit Engine (AES-256-GCM)
-2. **Process Keys**: Pro Assessment, verschlüsselt mit System Key
-3. **User Keys**: Pro User (Ed25519 Keypair), Private Key verschlüsselt mit System Key
+1. **Master Key**: `ENCRYPTION_MASTER_KEY` (32 Byte, 64 Hex-Zeichen)
+2. **Process Keys**: pro Prozess, in DB verschluesselt gespeichert
+3. **User Keys**: pro User (Ed25519), Private Key verschluesselt gespeichert
 
 ### Data Encryption Key (DEK)
 
-Der DEK wird aus allen drei Schlüsselebenen abgeleitet:
-
-```plain
-DEK = SHA256(ProcessKey || UserKey.Seed() || "process:{processID}:user:{userID}")
-```
+Der DEK wird mit HKDF-SHA256 aus Kontext und Key-Material abgeleitet.
 
 ### Append-Only Encrypted Records
 
-- Alle verschlüsselten Daten werden in `encrypted_records` Tabelle gespeichert
-- Records sind append-only (durch DB-Trigger geschützt)
-- Jeder Record enthält: verschlüsselte Daten, Nonce, Tag, Ed25519 Signatur
-- Hash-Chain über alle Records eines Prozesses für Tamper-Detection
+- Verschluesselte Nutzdaten liegen in `encrypted_records`
+- Records sind append-only (DB-Trigger)
+- Pro Record: ciphertext, nonce, tag, Ed25519-Signatur
+- Hash-Chain pro Prozess fuer Tamper-Detection
 
 ## Implementierungs-Schritte
 
-### Schritt 1: Migration erstellen
-
-Füge eine Spalte hinzu, die auf `encrypted_records` verweist:
+### Schritt 1: Migration vorbereiten
 
 ```sql
--- Beispiel: migrations/012_encrypt_justification.up.sql
-ALTER TABLE assessment_responses 
-ADD COLUMN encrypted_justification_id BIGINT 
+ALTER TABLE assessment_responses
+ADD COLUMN encrypted_justification_id BIGINT
 REFERENCES encrypted_records(id);
 
--- Optional: Alte Spalte nullable machen für Migration
-ALTER TABLE assessment_responses 
+ALTER TABLE assessment_responses
 ALTER COLUMN justification DROP NOT NULL;
 ```
 
-### Schritt 2: Model erweitern
+### Schritt 2: Modell erweitern
 
 ```go
-// In internal/models/models.go
 type AssessmentResponse struct {
-    // ... existing fields
-    Justification            string    `json:"justification" db:"-"` // Nur für Display, nicht in DB
-    EncryptedJustificationID *int64    `json:"encrypted_justification_id,omitempty" db:"encrypted_justification_id"`
+    Justification            string `json:"justification" db:"-"`
+    EncryptedJustificationID *int64 `json:"encrypted_justification_id,omitempty" db:"encrypted_justification_id"`
 }
 ```
 
-### Schritt 3: Encrypted Service erstellen
+### Schritt 3: Service fuer verschluesselte Felder
 
 ```go
-// Beispiel: internal/service/encrypted_response_service.go
 type EncryptedResponseService struct {
     db           *sql.DB
     responseRepo *repository.AssessmentResponseRepository
     keyManager   *keymanager.KeyManager
     secureStore  *securestore.SecureStore
 }
-
-func (s *EncryptedResponseService) CreateResponse(response *models.AssessmentResponse, userID uint) error {
-    // 1. Ensure keys exist
-    processID := fmt.Sprintf("assessment-%d", response.AssessmentID)
-    s.keyManager.ensureUserKey(int64(userID))
-    s.keyManager.ensureProcessKey(processID)
-    
-    // 2. Encrypt data via SecureStore
-    data := &securestore.PlainData{
-        Fields: map[string]interface{}{
-            "justification": response.Justification,
-        },
-        Metadata: map[string]string{
-            "assessment_id": fmt.Sprintf("%d", response.AssessmentID),
-            "category_id":   fmt.Sprintf("%d", response.CategoryID),
-        },
-    }
-    
-    record, err := s.secureStore.CreateRecord(
-        processID,
-        int64(userID),
-        "JUSTIFICATION",
-        data,
-        "",
-    )
-    
-    // 3. Store reference
-    response.EncryptedJustificationID = &record.ID
-    response.Justification = "" // Clear plaintext
-    
-    // 4. Insert into main table
-    query := `INSERT INTO assessment_responses (..., encrypted_justification_id) VALUES (..., $N)`
-    // Execute query
-    
-    return nil
-}
-
-func (s *EncryptedResponseService) DecryptJustification(encryptedJustificationID int64) (string, error) {
-    plainData, err := s.secureStore.DecryptRecord(encryptedJustificationID)
-    if err != nil {
-        return "", err
-    }
-    
-    if justification, ok := plainData.Fields["justification"].(string); ok {
-        return justification, nil
-    }
-    
-    return "", fmt.Errorf("justification field not found")
-}
 ```
+
+Ablauf beim Speichern:
+1. User- und Process-Key sicherstellen
+2. `justification` als PlainData an `SecureStore.CreateRecord(...)`
+3. erzeugte Record-ID in `encrypted_justification_id` speichern
+4. Klartextfeld leeren
 
 ### Schritt 4: Business Logic anpassen
 
-```go
-// In SaveResponse
-if s.encryptedResponseSvc == nil {
-    return nil, fmt.Errorf("encryption service not available")
-}
+- Beim Schreiben immer ueber `EncryptedResponseService` gehen.
+- Beim Lesen bei gesetzter `encrypted_justification_id` entschluesseln.
+- Bei Entschluesselungsfehlern keine geheimen Inhalte loggen.
 
-// Create/Update via EncryptedResponseService
-if existing != nil {
-    response.ID = existing.ID
-    err = s.encryptedResponseSvc.UpdateResponse(response, userID)
-} else {
-    err = s.encryptedResponseSvc.CreateResponse(response, userID)
-}
+### Schritt 5: Repository-Queries bereinigen
 
-// In GetResponses
-for i := range responses {
-    if responses[i].EncryptedJustificationID != nil {
-        decrypted, err := s.encryptedResponseSvc.DecryptJustification(*responses[i].EncryptedJustificationID)
-        if err != nil {
-            slog.Error("Failed to decrypt", "error", err)
-            responses[i].Justification = "[Decryption failed]"
-        } else {
-            responses[i].Justification = decrypted
-        }
-    }
-}
-```
+- Klartextspalte aus SELECT/INSERT/UPDATE entfernen.
+- `Scan()`-Signaturen entsprechend anpassen.
 
-### Schritt 5: Repository Queries anpassen
-
-```go
-// Entferne die alte Spalte aus allen SELECT Queries
-// ALTE Version:
-SELECT id, ..., justification, encrypted_justification_id FROM table
-
-// NEUE Version:
-SELECT id, ..., encrypted_justification_id FROM table
-
-// Wichtig: Entferne auch aus Scan() calls!
-```
-
-### Schritt 6: Migration für Spalten-Entfernung
+### Schritt 6: Klartextspalte sicher entfernen
 
 ```sql
--- migrations/013_remove_justification_column.up.sql
--- Safety check: Fail if unencrypted data exists
 DO $$
 BEGIN
     IF EXISTS (
-        SELECT 1 FROM assessment_responses 
-        WHERE justification IS NOT NULL 
-        AND encrypted_justification_id IS NULL
+        SELECT 1 FROM assessment_responses
+        WHERE justification IS NOT NULL
+          AND encrypted_justification_id IS NULL
     ) THEN
         RAISE EXCEPTION 'Cannot drop column: unencrypted justifications exist';
     END IF;
@@ -178,103 +90,67 @@ END $$;
 ALTER TABLE assessment_responses DROP COLUMN justification;
 ```
 
-### Schritt 7: main.go Initialisierung
+### Schritt 7: Initialisierung in `main.go`
 
-```go
-// Initialize encryption services if Vault is enabled
-if config.GetBool("VAULT_ENABLED") {
-    vaultClient := vault.NewClient(&vault.Config{...})
-    keyManager := keymanager.NewKeyManager(db.DB, vaultClient)
-    secureStore := securestore.NewSecureStore(db.DB, keyManager)
-    encryptedResponseSvc := service.NewEncryptedResponseService(
-        db.DB, responseRepo, keyManager, secureStore
-    )
-    
-    // Pass to business service
-    selfAssessmentSvc := service.NewSelfAssessmentService(
-        ..., encryptedResponseSvc
-    )
-}
-```
+- `ENCRYPTION_MASTER_KEY` aus Config laden
+- `keymanager.NewKeyManager(db, masterKey)` initialisieren
+- `securestore.NewSecureStore(db, keyManager)` initialisieren
+- Services mit aktivem Encryption-Stack verdrahten
 
 ## Wichtige Hinweise
 
-### ⚠️ Slice Memory Issue
-
-Beim Aufteilen von Ciphertext in Data und Tag IMMER kopieren, nicht slicen:
+### Slice Memory Issue vermeiden
 
 ```go
-// FALSCH - Slices teilen sich das zugrunde liegende Array
-encryptedData := ciphertext[:len-16]
-tag := ciphertext[len-16:]
+// Richtig: Kopieren statt geteilte Slices
+encryptedData := make([]byte, len(ciphertext)-16)
+copy(encryptedData, ciphertext[:len(ciphertext)-16])
 
-// RICHTIG - Explizit kopieren
-encryptedData := make([]byte, len-16)
-copy(encryptedData, ciphertext[:len-16])
 tag := make([]byte, 16)
-copy(tag, ciphertext[len-16:])
+copy(tag, ciphertext[len(ciphertext)-16:])
 ```
 
-### 🔐 Sicherheit
+### Sicherheit
 
-- System Master Key nie im Code/Logs ausgeben
-- DEK, Nonces, Tags nie loggen
-- Plaintext Daten nie in Logs ausgeben
-- Vault Token sicher speichern (Umgebungsvariable)
+- Master-Key niemals loggen
+- Plaintext, DEK, Nonce, Tag nicht in Logs schreiben
+- Secrets nur ueber sichere Secret-Distribution verteilen
 
-### 🔄 Key Rotation
+### Monitoring
 
-Process Keys können rotiert werden:
-
-```go
-keyManager.RotateProcessKey(processID)
-```
-
-Alte Records bleiben mit altem Key verschlüsselt (append-only).
-
-### 📊 Monitoring
-
-Wichtige Logs mit slog:
-
-```go
-slog.Error("Failed to decrypt", "error", err, "record_id", id)
-slog.Info("Encryption service initialized", "vault_addr", addr)
-```
+- Fehler mit Kontext loggen (record/process), aber ohne sensitive Daten
+- Regelmaessige Hash-Chain-Validierung einplanen
 
 ## Testing
 
-### Manuell testen
+### Manuell
 
-1. Response mit Justification speichern
-2. In DB prüfen: `justification` leer, `encrypted_justification_id` gesetzt
-3. Response abrufen: Justification sollte entschlüsselt erscheinen
-4. In `encrypted_records`: Record mit korrekten Längen (Nonce: 12, Tag: 16)
+1. Response mit Begruendung speichern
+2. In DB pruefen: Klartext leer, `encrypted_justification_id` gesetzt
+3. Response lesen: Begruendung wird entschluesselt angezeigt
+4. In `encrypted_records`: nonce=12 Bytes, tag=16 Bytes
 
-### Datenbank-Prüfung
+### SQL-Check
 
 ```sql
--- Check encrypted record
 SELECT id, length(encrypted_data), length(encryption_nonce), length(encryption_tag)
-FROM encrypted_records WHERE id = X;
-
--- Should return: nonce=12, tag=16
+FROM encrypted_records
+WHERE id = $1;
 ```
 
 ## Fehlerbehebung
 
-### "cipher: message authentication failed"
+### `cipher: message authentication failed`
 
-- DEK stimmt nicht → Keys prüfen (User/Process)
-- Tag korrumpiert → Slice-Kopie Problem (siehe oben)
-- Additional Data unterschiedlich → Format prüfen
+- falscher Kontext/DEK
+- korrumpierte Daten
+- AAD stimmt nicht mit Encrypt-Aufruf ueberein
 
-### "column does not exist"
+### `column does not exist`
 
-- Repository Queries noch nicht angepasst
-- Migration noch nicht ausgeführt
+- Migration oder Query-Anpassung unvollstaendig
 
-### "encryption service not available"
+### `encryption service not available`
 
-- Vault nicht erreichbar
-- VAULT_ENABLED=false in .env
-- KeyManager nicht initialisiert in main.go
+- Service nicht verdrahtet
+- `ENCRYPTION_MASTER_KEY` fehlt/ungueltig
