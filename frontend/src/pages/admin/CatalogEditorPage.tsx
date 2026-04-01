@@ -413,7 +413,7 @@ export function CatalogEditorPage() {
     setEditingCategory(category);
     setNewCategoryName(category.name);
     setNewCategoryDescription(category.description || '');
-    setNewCategoryWeight(category.weight !== undefined ? category.weight.toString() : '');
+    setNewCategoryWeight(category.weight != null ? category.weight.toString() : '');
     setCategoryModalOpened(true);
   };
 
@@ -845,8 +845,8 @@ export function CatalogEditorPage() {
                           <Table.Td>{category.name}</Table.Td>
                           <Table.Td>{category.description || '-'}</Table.Td>
                           <Table.Td>
-                            {category.weight !== undefined
-                              ? category.weight.toLocaleString('de-DE', {
+                            {category.weight != null && Number.isFinite(Number(category.weight))
+                              ? Number(category.weight).toLocaleString('de-DE', {
                                   minimumFractionDigits: 2,
                                   maximumFractionDigits: 2,
                                 })

@@ -156,7 +156,7 @@ export interface Category {
   name: string;
   description?: string;
   sort_order: number;
-  weight?: number;
+  weight?: number | null;
   created_at: string;
   updated_at: string;
 }

@@ -3,7 +3,6 @@
 ## Komponenten
 
 - Datenbank: PostgreSQL
-- Vault: Verschlüsselte Daten
 - Config: .env (Secrets separat sichern)
 
 ## Backup Script
@@ -17,12 +16,6 @@ mkdir -p "$BACKUP_DIR"
 
 # Database
 docker exec newpay-postgres-prod pg_dump -U newpay_prod newpay_prod | gzip > "$BACKUP_DIR/database.sql.gz"
-
-# Vault
-docker run --rm \
-  -v newpay_vault-data:/source:ro \
-  -v "$(pwd)/backups:/backup" \
-  alpine tar czf "/backup/$(basename $BACKUP_DIR)/vault-data.tar.gz" -C /source .
 
 # Config
 cp .env "$BACKUP_DIR/.env.backup"
@@ -54,16 +47,6 @@ docker exec newpay-postgres-prod pg_dump -U newpay_prod newpay_prod --schema-onl
 
 # Nur Daten (ohne Schema)
 docker exec newpay-postgres-prod pg_dump -U newpay_prod newpay_prod --data-only | gzip > data-$(date +%Y%m%d).sql.gz
-```
-
-### Vault Daten Backup
-
-```bash
-# Volume als tar.gz sichern
-docker run --rm \
-  -v newpay_vault-data:/source:ro \
-  -v $(pwd):/backup \
-  alpine tar czf /backup/vault-backup-$(date +%Y%m%d-%H%M%S).tar.gz -C /source .
 ```
 
 ### Umgebungsvariablen Backup

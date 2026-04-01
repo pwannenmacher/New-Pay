@@ -25,7 +25,9 @@ func NewKeyManager(db *sql.DB, masterKey []byte) (*KeyManager, error) {
 	if len(masterKey) != 32 {
 		return nil, fmt.Errorf("masterKey must be 32 bytes, got %d", len(masterKey))
 	}
-	return &KeyManager{db: db, masterKey: masterKey}, nil
+	mkCopy := make([]byte, 32)
+	copy(mkCopy, masterKey)
+	return &KeyManager{db: db, masterKey: mkCopy}, nil
 }
 
 // CreateUserKey generates a new Ed25519 keypair, encrypts the private key with
@@ -156,7 +158,10 @@ func (km *KeyManager) DeriveDataEncryptionKey(processID string, userID int64) ([
 		return nil, fmt.Errorf("failed to get process key: %w", err)
 	}
 	salt := append(processKey, userKey.Seed()...)
-	dek := appCrypto.DeriveKey(km.masterKey, salt, fmt.Sprintf("process:%s:user:%d", processID, userID))
+	dek, err := appCrypto.DeriveKey(km.masterKey, salt, fmt.Sprintf("process:%s:user:%d", processID, userID))
+	if err != nil {
+		return nil, fmt.Errorf("failed to derive data encryption key: %w", err)
+	}
 	return dek, nil
 }
 

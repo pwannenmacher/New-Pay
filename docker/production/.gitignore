@@ -1,3 +1,2 @@
 .env
-auto-unseal.sh
-vault-credentials.txt
+encryption-key.txt

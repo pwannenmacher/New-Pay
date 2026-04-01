@@ -1,5 +1,5 @@
 // Package crypto provides AES-256-GCM encryption/decryption primitives and
-// SHA-256-based key derivation for the local master-key encryption architecture.
+// HKDF-SHA256-based key derivation for the local master-key encryption architecture.
 package crypto
 
 import (
@@ -10,6 +10,8 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+
+	"golang.org/x/crypto/hkdf"
 )
 
 // Encrypt performs AES-256-GCM encryption and returns (ciphertext+tag, nonce, error).
@@ -55,17 +57,15 @@ func Decrypt(ciphertext, key, nonce, additionalData []byte) ([]byte, error) {
 	return plaintext, nil
 }
 
-// DeriveKey derives a 32-byte AES-256 key from masterKey using a SHA-256-based
-// HKDF-like construction seeded with salt and an info string.
-func DeriveKey(masterKey, salt []byte, info string) []byte {
-	h := sha256.New()
-	h.Write(masterKey)
-	if len(salt) > 0 {
-		h.Write(salt)
+// DeriveKey derives a 32-byte AES-256 key from masterKey using HKDF-SHA256,
+// with salt and info providing domain separation and context binding.
+func DeriveKey(masterKey, salt []byte, info string) ([]byte, error) {
+	derived := make([]byte, 32)
+	reader := hkdf.New(sha256.New, masterKey, salt, []byte(info))
+	if _, err := io.ReadFull(reader, derived); err != nil {
+		return nil, fmt.Errorf("key derivation failed: %w", err)
 	}
-	h.Write([]byte(info))
-	derived := h.Sum(nil) // 32 bytes – fits AES-256 exactly
-	return derived
+	return derived, nil
 }
 
 // EncryptWithMasterKey encrypts small secrets (e.g. private keys, process keys)

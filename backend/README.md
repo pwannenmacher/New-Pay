@@ -16,7 +16,7 @@ New Pay is a platform for salary estimation and peer review, designed to enable 
 
 *   **Language**: Go (Golang) 1.25
 *   **Database**: PostgreSQL
-*   **Security**: AES-256-GCM encryption with ECDSA-signed hash-chain audit trail
+*   **Security**: AES-256-GCM encryption with Ed25519-signed hash-chain audit trail
 *   **Authentication**: JWT (JSON Web Tokens) with ECDSA Signature
 *   **Documentation**: Swagger / OpenAPI
 

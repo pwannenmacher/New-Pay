@@ -118,7 +118,7 @@ jobs:
     
     - name: Run integration tests with Testcontainers
       run: |
-        # Integration tests require Docker for Testcontainers (PostgreSQL + Vault)
+        # Integration tests require Docker for Testcontainers (PostgreSQL)
         # Tests validate:
         # - Reviewer isolation (reviewers can only see their own responses)
         # - User data protection (users cannot see individual reviewer comments)

@@ -260,16 +260,6 @@ FROM encrypted_records WHERE id = X;
 -- Should return: nonce=12, tag=16
 ```
 
-## Vault Setup
-
-Vault muss im Dev-Modus oder mit persistentem Storage laufen:
-
-```bash
-docker-compose up -d vault
-# Vault läuft auf localhost:8200
-# Transit Engine wird automatisch beim Start gemountet
-```
-
 ## Fehlerbehebung
 
 ### "cipher: message authentication failed"
