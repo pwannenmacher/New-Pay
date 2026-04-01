@@ -834,6 +834,7 @@ export function CatalogEditorPage() {
                       <Table.Tr>
                         <Table.Th>Name</Table.Th>
                         <Table.Th>Beschreibung</Table.Th>
+                        <Table.Th>Gewichtung</Table.Th>
                         <Table.Th>Sortierung</Table.Th>
                         <Table.Th>Aktionen</Table.Th>
                       </Table.Tr>
@@ -843,6 +844,14 @@ export function CatalogEditorPage() {
                         <Table.Tr key={category.id}>
                           <Table.Td>{category.name}</Table.Td>
                           <Table.Td>{category.description || '-'}</Table.Td>
+                          <Table.Td>
+                            {category.weight !== undefined
+                              ? category.weight.toLocaleString('de-DE', {
+                                  minimumFractionDigits: 2,
+                                  maximumFractionDigits: 2,
+                                })
+                              : '-'}
+                          </Table.Td>
                           <Table.Td>{category.sort_order}</Table.Td>
                           <Table.Td>
                             <Group gap="xs">
