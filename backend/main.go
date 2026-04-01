@@ -24,7 +24,6 @@ import (
 	"new-pay/internal/scheduler"
 	"new-pay/internal/securestore"
 	"new-pay/internal/service"
-	"new-pay/internal/vault"
 
 	httpSwagger "github.com/swaggo/http-swagger"
 )
@@ -126,40 +125,26 @@ func main() {
 		go llmService.PullModel()
 	}
 
-	// Initialize encryption services (if Vault is enabled)
-	var encryptedResponseSvc *service.EncryptedResponseService
-	var reviewerService *service.ReviewerService
-	var consolidationService *service.ConsolidationService
-	var discussionService *service.DiscussionService
-	var secureStore *securestore.SecureStore
-	if cfg.Vault.Enabled {
-		slog.Info("Vault is enabled - initializing encryption services")
-		vaultClient, err := vault.NewClient(&vault.Config{
-			Address:      cfg.Vault.Address,
-			Token:        cfg.Vault.Token,
-			TransitMount: cfg.Vault.TransitMount,
-		})
-		if err != nil {
-			slog.Error("Failed to initialize Vault client", "error", err)
-			os.Exit(1)
-		}
-
-		keyManager, err := keymanager.NewKeyManager(db.DB, vaultClient)
-		if err != nil {
-			slog.Error("Failed to initialize KeyManager", "error", err)
-			os.Exit(1)
-		}
-
-		secureStore = securestore.NewSecureStore(db.DB, keyManager)
-		encryptedResponseSvc = service.NewEncryptedResponseService(db.DB, assessmentResponseRepo, keyManager, secureStore)
-		reviewerService = service.NewReviewerService(db.DB, reviewerResponseRepo, selfAssessmentRepo, assessmentResponseRepo, keyManager, secureStore)
-		consolidationService = service.NewConsolidationService(db.DB, consolidationOverrideRepo, consolidationOverrideApprovalRepo, consolidationAveragedApprovalRepo, finalConsolidationRepo, finalConsolidationApprovalRepo, selfAssessmentRepo, assessmentResponseRepo, reviewerResponseRepo, catalogRepo, categoryDiscussionCommentRepo, encryptedResponseSvc, keyManager, secureStore, emailService, llmService)
-		discussionService = service.NewDiscussionService(discussionRepo, selfAssessmentRepo, reviewerResponseRepo, assessmentResponseRepo, consolidationOverrideRepo, finalConsolidationRepo, catalogRepo, userRepo, categoryDiscussionCommentRepo, discussionConfirmationRepo, secureStore)
-
-		slog.Info("Encryption services initialized", "vault_addr", cfg.Vault.Address)
-	} else {
-		slog.Warn("Vault is disabled - encrypted responses will not work")
+	// Initialize encryption services
+	masterKey, err := config.ParseMasterKey(cfg.Encryption.MasterKey)
+	if err != nil {
+		slog.Error("Failed to parse ENCRYPTION_MASTER_KEY", "error", err)
+		os.Exit(1)
 	}
+
+	keyManager, err := keymanager.NewKeyManager(db.DB, masterKey)
+	if err != nil {
+		slog.Error("Failed to initialize KeyManager", "error", err)
+		os.Exit(1)
+	}
+
+	secureStore := securestore.NewSecureStore(db.DB, keyManager)
+	encryptedResponseSvc := service.NewEncryptedResponseService(db.DB, assessmentResponseRepo, keyManager, secureStore)
+	reviewerService := service.NewReviewerService(db.DB, reviewerResponseRepo, selfAssessmentRepo, assessmentResponseRepo, keyManager, secureStore)
+	consolidationService := service.NewConsolidationService(db.DB, consolidationOverrideRepo, consolidationOverrideApprovalRepo, consolidationAveragedApprovalRepo, finalConsolidationRepo, finalConsolidationApprovalRepo, selfAssessmentRepo, assessmentResponseRepo, reviewerResponseRepo, catalogRepo, categoryDiscussionCommentRepo, encryptedResponseSvc, keyManager, secureStore, emailService, llmService)
+	discussionService := service.NewDiscussionService(discussionRepo, selfAssessmentRepo, reviewerResponseRepo, assessmentResponseRepo, consolidationOverrideRepo, finalConsolidationRepo, catalogRepo, userRepo, categoryDiscussionCommentRepo, discussionConfirmationRepo, secureStore)
+
+	slog.Info("Encryption services initialized (local master key)")
 
 	selfAssessmentService := service.NewSelfAssessmentService(selfAssessmentRepo, catalogRepo, auditService, assessmentResponseRepo, encryptedResponseSvc, reviewerResponseRepo)
 

@@ -1,6 +1,7 @@
 package config
 
 import (
+	"encoding/hex"
 	"fmt"
 	"os"
 	"strconv"
@@ -12,19 +13,19 @@ import (
 
 // Config holds all application configuration
 type Config struct {
-	Server    ServerConfig
-	Database  DatabaseConfig
-	JWT       JWTConfig
-	Session   SessionConfig
-	Email     EmailConfig
-	OAuth     OAuthProvidersConfig
-	CORS      CORSConfig
-	RateLimit RateLimitConfig
-	App       AppConfig
-	Log       LogConfig
-	Scheduler SchedulerConfig
-	Vault     VaultConfig
-	LLM       LLMConfig
+	Server     ServerConfig
+	Database   DatabaseConfig
+	JWT        JWTConfig
+	Session    SessionConfig
+	Email      EmailConfig
+	OAuth      OAuthProvidersConfig
+	CORS       CORSConfig
+	RateLimit  RateLimitConfig
+	App        AppConfig
+	Log        LogConfig
+	Scheduler  SchedulerConfig
+	Encryption EncryptionConfig
+	LLM        LLMConfig
 }
 
 // ServerConfig holds server-related configuration
@@ -136,12 +137,11 @@ type SchedulerConfig struct {
 	EnableHashChainValidation bool   // Enable/disable hash chain validation
 }
 
-// VaultConfig holds Vault-related configuration
-type VaultConfig struct {
-	Address      string
-	Token        string
-	TransitMount string
-	Enabled      bool
+// EncryptionConfig holds local encryption configuration.
+type EncryptionConfig struct {
+	// MasterKey is a 64-character hex string encoding a 32-byte AES-256 key.
+	// Generate with: openssl rand -hex 32
+	MasterKey string
 }
 
 // LLMConfig holds LLM-related configuration
@@ -230,11 +230,8 @@ func Load() (*Config, error) {
 			EnableReviewerSummary:     getBoolEnv("SCHEDULER_ENABLE_REVIEWER_SUMMARY", true),
 			EnableHashChainValidation: getBoolEnv("SCHEDULER_ENABLE_HASH_CHAIN_VALIDATION", true),
 		},
-		Vault: VaultConfig{
-			Address:      getEnv("VAULT_ADDR", "http://localhost:8200"),
-			Token:        getEnv("VAULT_TOKEN", ""),
-			TransitMount: getEnv("VAULT_TRANSIT_MOUNT", "transit"),
-			Enabled:      getBoolEnv("VAULT_ENABLED", true),
+		Encryption: EncryptionConfig{
+			MasterKey: getEnv("ENCRYPTION_MASTER_KEY", ""),
 		},
 		LLM: LLMConfig{
 			BaseURL: getEnv("LLM_BASE_URL", "http://localhost:11434"),
@@ -327,10 +324,43 @@ func (c *Config) Validate() error {
 	if c.JWT.Secret == "" {
 		return fmt.Errorf("JWT_SECRET is required")
 	}
+	if c.Encryption.MasterKey == "" {
+		return fmt.Errorf("ENCRYPTION_MASTER_KEY is required")
+	}
 	if c.Database.Password == "" && c.App.Env == "production" {
 		return fmt.Errorf("DB_PASSWORD is required in production")
 	}
 	return nil
+}
+
+// ParseMasterKey decodes the hex-encoded ENCRYPTION_MASTER_KEY into a 32-byte slice.
+//
+// The expected input is exactly 64 hexadecimal characters, which encode 32 bytes
+// (one byte = two hex characters). "openssl rand -hex 32" produces exactly this:
+// 32 random bytes written as 64 lowercase hex characters.
+//
+// 128 characters (64 bytes) is NOT supported: AES only accepts key sizes of
+// 16, 24, or 32 bytes (128/192/256-bit). 64 bytes would be rejected by crypto/aes.
+//
+// Generate a suitable key with: openssl rand -hex 32
+func ParseMasterKey(hexKey string) ([]byte, error) {
+	if hexKey == "" {
+		return nil, fmt.Errorf("ENCRYPTION_MASTER_KEY must not be empty")
+	}
+	// Accept both lower and upper hex
+	hexKey = strings.TrimSpace(hexKey)
+	key := make([]byte, hex.DecodedLen(len(hexKey)))
+	n, err := hex.Decode(key, []byte(hexKey))
+	if err != nil {
+		return nil, fmt.Errorf("ENCRYPTION_MASTER_KEY is not valid hex: %w", err)
+	}
+	if n != 32 {
+		return nil, fmt.Errorf(
+			"ENCRYPTION_MASTER_KEY must decode to exactly 32 bytes / 64 hex chars (got %d bytes / %d chars); generate with: openssl rand -hex 32",
+			n, len(hexKey),
+		)
+	}
+	return key[:n], nil
 }
 
 // Helper functions
