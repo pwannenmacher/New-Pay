@@ -109,7 +109,10 @@ func (km *KeyManager) CreateProcessKey(processID string, expiresAt *time.Time) e
 		 VALUES ($1, $2, $3, $4, $5) ON CONFLICT (process_id) DO NOTHING`,
 		processID, encryptedKey, keyHash, time.Now(), expiresAt,
 	)
-	return err
+	if err != nil {
+		return fmt.Errorf("failed to insert process key for process_id=%s: %w", processID, err)
+	}
+	return nil
 }
 
 // GetProcessKey retrieves and decrypts a process key.
