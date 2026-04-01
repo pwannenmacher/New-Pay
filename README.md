@@ -82,7 +82,7 @@ Required:
 
 - `ENABLE_REGISTRATION` - Allow email/password registration (default: false)
 - `ENABLE_OAUTH_REGISTRATION` - Allow OAuth registration (default: false)
-- **Note**: First user can always register (when database is empty)
+- **Note**: First user can always register (when the database is empty)
 
 ## Documentation
 
@@ -111,30 +111,7 @@ new-pay-gh/
 
 ## Default Credentials
 
-First registered user becomes admin automatically.
-
-## Upgrading dependencies
-
-### Frontend
-
-```bash
-cd frontend
-npx npm-check-updates -u
-npm install
-```
-
-### Backend
-
-```bash
-cd backend
-
-# Only patch and minor updates
-go get -u=patch
-# Or for all updates:
-go get -u ./...
-
-go mod tidy
-```
+The first registered user becomes admin automatically.
 
 ## License
 

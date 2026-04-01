@@ -70,3 +70,20 @@ Special attention is paid to data security:
 *   **SecureStore**: Sensitive texts (e.g., justifications in reviews) are encrypted with AES-256-GCM and stored in `encrypted_records`.
 *   **Key Hierarchy**: A master key from `ENCRYPTION_MASTER_KEY` protects per-user Ed25519 keys and per-process symmetric keys in the database.
 *   **Audit Logs**: Important actions are logged with a tamper-evident hash chain.
+
+## Upgrading dependencies
+
+```bash
+cd backend
+
+# Only patch and minor updates
+go get -u=patch
+# Or for all updates:
+go get -u ./...
+
+go mod tidy
+```
+
+## License
+
+MIT
