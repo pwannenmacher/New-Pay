@@ -30,6 +30,18 @@ updates:
       prefix: "chore(frontend)"
       include: "scope"
     versioning-strategy: increase
+    groups:
+      mantine:
+        patterns:
+          - "@mantine/*"
+          - "postcss-preset-mantine"
+      react:
+        patterns:
+          - "react"
+          - "react-dom"
+          - "react-router-dom"
+          - "@types/react"
+          - "@types/react-dom"
 
   # Docker base images
   - package-ecosystem: "docker"
