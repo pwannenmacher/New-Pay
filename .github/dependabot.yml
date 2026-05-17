@@ -14,6 +14,10 @@ updates:
     commit-message:
       prefix: "chore(backend)"
       include: "scope"
+    groups:
+      testcontainers:
+        patterns:
+          - "github.com/testcontainers/testcontainers-go*"
 
   # Frontend npm dependencies
   - package-ecosystem: "npm"
@@ -42,6 +46,21 @@ updates:
           - "react-router-dom"
           - "@types/react"
           - "@types/react-dom"
+      vite:
+        patterns:
+          - "vite"
+          - "@vitejs/plugin-react"
+      linting-formatting:
+        patterns:
+          - "eslint"
+          - "@eslint/js"
+          - "eslint-*"
+          - "typescript-eslint"
+          - "prettier"
+          - "globals"
+      types:
+        patterns:
+          - "@types/node"
 
   # Docker base images
   - package-ecosystem: "docker"
@@ -114,3 +133,17 @@ updates:
       - "github-actions"
     commit-message:
       prefix: "chore(ci)"
+    groups:
+      actions:
+        patterns:
+          - "actions/*"
+      docker:
+        patterns:
+          - "docker/*"
+      security:
+        patterns:
+          - "aquasecurity/*"
+          - "github/codeql-action"
+      codecov:
+        patterns:
+          - "codecov/*"
