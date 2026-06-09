@@ -27,7 +27,7 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
     ./main.go
 
 # Final stage - use Alpine for small size with shell access
-FROM alpine:3.23
+FROM alpine:3.24
 
 # Install runtime dependencies
 RUN apk add --no-cache ca-certificates tzdata wget
