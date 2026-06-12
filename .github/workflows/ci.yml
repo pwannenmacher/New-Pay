@@ -82,7 +82,7 @@ jobs:
         go test -v -race -coverprofile=coverage.out -covermode=atomic $(go list ./... | grep -v /handlers)
     
     - name: Upload coverage
-      uses: codecov/codecov-action@v6
+      uses: codecov/codecov-action@v7
       with:
         files: ./backend/coverage.out
         flags: backend-unit
