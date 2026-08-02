@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 	"time"
 
 	"new-pay/internal/config"
@@ -18,15 +19,7 @@ type Database struct {
 
 // New creates a new database connection
 func New(cfg *config.DatabaseConfig) (*Database, error) {
-	dsn := fmt.Sprintf(
-		"host=%s port=%s user=%s password=%s dbname=%s sslmode=%s",
-		cfg.Host,
-		cfg.Port,
-		cfg.User,
-		cfg.Password,
-		cfg.Name,
-		cfg.SSLMode,
-	)
+	dsn := buildDSN(cfg)
 
 	db, err := sql.Open("postgres", dsn)
 	if err != nil {
@@ -44,6 +37,40 @@ func New(cfg *config.DatabaseConfig) (*Database, error) {
 	}
 
 	return &Database{DB: db}, nil
+}
+
+// buildDSN assembles the lib/pq connection string, including server-side
+// timeout GUCs passed via the libpq "options" parameter. These timeouts apply
+// to every connection in the pool and bound query/lock/idle-transaction
+// duration server-side, so a hung query cannot hold a pool connection forever
+// even where a request context is not propagated.
+func buildDSN(cfg *config.DatabaseConfig) string {
+	dsn := fmt.Sprintf(
+		"host=%s port=%s user=%s password=%s dbname=%s sslmode=%s",
+		cfg.Host,
+		cfg.Port,
+		cfg.User,
+		cfg.Password,
+		cfg.Name,
+		cfg.SSLMode,
+	)
+
+	var opts []string
+	if cfg.StatementTimeout > 0 {
+		opts = append(opts, fmt.Sprintf("-c statement_timeout=%d", cfg.StatementTimeout.Milliseconds()))
+	}
+	if cfg.LockTimeout > 0 {
+		opts = append(opts, fmt.Sprintf("-c lock_timeout=%d", cfg.LockTimeout.Milliseconds()))
+	}
+	if cfg.IdleInTxTimeout > 0 {
+		opts = append(opts, fmt.Sprintf("-c idle_in_transaction_session_timeout=%d", cfg.IdleInTxTimeout.Milliseconds()))
+	}
+	if len(opts) > 0 {
+		// libpq expects the options value single-quoted because it contains spaces.
+		dsn += fmt.Sprintf(" options='%s'", strings.Join(opts, " "))
+	}
+
+	return dsn
 }
 
 // Close closes the database connection
