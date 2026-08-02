@@ -225,6 +225,7 @@ type SelfAssessment struct {
 	ArchivedAt            *time.Time `json:"archived_at,omitempty" db:"archived_at"`
 	ClosedAt              *time.Time `json:"closed_at,omitempty" db:"closed_at"`
 	PreviousStatus        *string    `json:"previous_status,omitempty" db:"previous_status"`
+	LastReminderSentAt    *time.Time `json:"last_reminder_sent_at,omitempty" db:"last_reminder_sent_at"`
 }
 
 // SelfAssessmentWithDetails includes user and catalog information
