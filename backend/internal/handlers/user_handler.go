@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
@@ -229,6 +230,12 @@ func (h *UserHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 		_ = h.auditMw.LogAction(&userID, "user.password.change.error", "users", "Password update failed: "+err.Error(), getIP(r), r.UserAgent())
 		respondWithError(w, http.StatusInternalServerError, "Failed to update password")
 		return
+	}
+
+	// Invalidate all sessions so a password change logs the user out everywhere,
+	// evicting any session an attacker may still hold.
+	if err := h.authSvc.InvalidateAllUserSessions(userID); err != nil {
+		slog.Error("Failed to invalidate sessions after password change", "user_id", userID, "error", err)
 	}
 
 	// Log successful password change
@@ -917,6 +924,12 @@ func (h *UserHandler) SetUserPassword(w http.ResponseWriter, r *http.Request) {
 		_ = h.auditMw.LogAction(&adminID, "set_user_password.error", "users", "Password update failed: "+err.Error(), getIP(r), r.UserAgent())
 		respondWithError(w, http.StatusInternalServerError, "Failed to update password")
 		return
+	}
+
+	// Invalidate the target user's sessions so an admin-initiated password reset
+	// evicts any existing (possibly attacker-held) session for that account.
+	if err := h.authSvc.InvalidateAllUserSessions(req.UserID); err != nil {
+		slog.Error("Failed to invalidate sessions after admin password reset", "user_id", req.UserID, "error", err)
 	}
 
 	// Log the action

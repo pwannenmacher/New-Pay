@@ -13,9 +13,16 @@ import (
 )
 
 var (
-	ErrInvalidCredentials = errors.New("invalid credentials")
-	ErrUserInactive       = errors.New("user account is inactive")
+	ErrInvalidCredentials    = errors.New("invalid credentials")
+	ErrUserInactive          = errors.New("user account is inactive")
+	ErrOAuthEmailNotVerified = errors.New("oauth email not verified")
 )
+
+// dummyPasswordHash is a valid bcrypt hash used to perform a constant-time-ish
+// password comparison when a login is attempted for a non-existent account. This
+// keeps the response time for unknown emails comparable to known ones, mitigating
+// user enumeration via timing.
+const dummyPasswordHash = "$2a$10$.oWv6x3Q0FMSYsEYUhVG6.RO0zYZL9xwCrzPn9qiYhqE6WFwxuscC"
 
 // AuthService handles authentication business logic
 type AuthService struct {
@@ -109,6 +116,10 @@ func (s *AuthService) Login(email, password string) (accessToken, refreshToken, 
 	// Get user by email
 	user, err = s.userRepo.GetByEmail(email)
 	if err != nil {
+		// Perform a dummy password comparison so that the response time for an
+		// unknown email is comparable to that of a known one, mitigating user
+		// enumeration via timing.
+		_ = s.authSvc.VerifyPassword(dummyPasswordHash, password)
 		return "", "", "", "", nil, ErrInvalidCredentials
 	}
 
@@ -294,6 +305,12 @@ func (s *AuthService) ResetPassword(tokenString, newPassword string) error {
 		return fmt.Errorf("failed to mark token as used: %w", err)
 	}
 
+	// Invalidate all existing sessions so that anyone holding a token for this
+	// account (e.g. an attacker the reset is meant to lock out) loses access.
+	if err := s.InvalidateAllUserSessions(token.UserID); err != nil {
+		slog.Error("Failed to invalidate sessions after password reset", "user_id", token.UserID, "error", err)
+	}
+
 	return nil
 }
 
@@ -446,7 +463,7 @@ func (s *AuthService) ExtractJTI(tokenString string) (string, error) {
 
 // FindOrCreateOAuthUser finds an existing user by OAuth provider or email and manages OAuth connections
 // Returns the user and a boolean indicating if the user was newly created
-func (s *AuthService) FindOrCreateOAuthUser(email, firstName, lastName, oauthProvider, oauthProviderID string) (*models.User, bool, error) {
+func (s *AuthService) FindOrCreateOAuthUser(email string, emailVerified bool, firstName, lastName, oauthProvider, oauthProviderID string) (*models.User, bool, error) {
 	var user *models.User
 	var isNewUser bool
 
@@ -479,7 +496,17 @@ func (s *AuthService) FindOrCreateOAuthUser(email, firstName, lastName, oauthPro
 	// OAuth connection not found, try to find user by email
 	user, err := s.userRepo.GetByEmail(email)
 	if err == nil {
-		// User exists but no OAuth connection for this provider
+		// User exists but no OAuth connection for this provider. Only auto-link
+		// the OAuth identity to the existing local account when the provider
+		// asserts the email address is verified. Otherwise an attacker could
+		// register an account with the victim's (unverified) email at a permissive
+		// IdP and take over the local account.
+		if !emailVerified {
+			slog.Warn("Refusing to link OAuth identity: email not verified by provider",
+				"email", email, "provider", oauthProvider)
+			return nil, false, ErrOAuthEmailNotVerified
+		}
+
 		// Create new OAuth connection for this user
 		if oauthProviderID != "" {
 			conn := &models.OAuthConnection{
@@ -520,7 +547,7 @@ func (s *AuthService) FindOrCreateOAuthUser(email, firstName, lastName, oauthPro
 		Email:         email,
 		FirstName:     firstName,
 		LastName:      lastName,
-		EmailVerified: true, // OAuth users are considered verified
+		EmailVerified: emailVerified, // trust the provider's assertion
 		IsActive:      true,
 		// No password for OAuth-only users
 	}

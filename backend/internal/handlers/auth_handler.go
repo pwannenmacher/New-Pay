@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -15,6 +16,11 @@ import (
 	"new-pay/internal/service"
 	"new-pay/pkg/validator"
 )
+
+// oauthHTTPClient is used for all outbound calls to identity providers. It has a
+// bounded timeout so a hanging or unresponsive IdP cannot block the request
+// goroutine indefinitely (the default http client has no timeout).
+var oauthHTTPClient = &http.Client{Timeout: 15 * time.Second}
 
 // AuthHandler handles authentication requests
 type AuthHandler struct {
@@ -733,6 +739,17 @@ func (h *AuthHandler) OAuthCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Extract whether the provider considers the email verified. The standard
+	// OIDC claim is a bool, but some providers send it as the string "true".
+	// A missing claim is treated as unverified (secure default).
+	emailVerified := false
+	switch v := userInfo["email_verified"].(type) {
+	case bool:
+		emailVerified = v
+	case string:
+		emailVerified = v == "true"
+	}
+
 	// Extract name (optional, try different fields)
 	var firstName, lastName string
 	if name, ok := userInfo["name"].(string); ok {
@@ -823,8 +840,16 @@ func (h *AuthHandler) OAuthCallback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Try to find or create user
-	user, isNewUser, err := h.authService.FindOrCreateOAuthUser(email, firstName, lastName, providerConfig.Name, oauthProviderID)
+	user, isNewUser, err := h.authService.FindOrCreateOAuthUser(email, emailVerified, firstName, lastName, providerConfig.Name, oauthProviderID)
 	if err != nil {
+		if errors.Is(err, service.ErrOAuthEmailNotVerified) {
+			slog.Warn("OAuth callback rejected: email not verified for account linking",
+				"email", email, "provider", providerConfig.Name)
+			_ = h.auditMw.LogActionWithEmail(nil, &email, "user.oauth.linking.rejected", "users", fmt.Sprintf("OAuth account linking rejected for %s via %s: email not verified", email, providerConfig.Name), getIP(r), r.UserAgent())
+			redirectURL := fmt.Sprintf("%s/login?error=email_not_verified", frontendBaseURL)
+			http.Redirect(w, r, redirectURL, http.StatusTemporaryRedirect)
+			return
+		}
 		slog.Error("OAuth callback failed: user creation failed",
 			"email", email,
 			"provider", providerConfig.Name,
@@ -994,7 +1019,7 @@ func (h *AuthHandler) exchangeCodeForToken(code string, providerConfig *config.O
 	data.Set("client_id", providerConfig.ClientID)
 	data.Set("client_secret", providerConfig.ClientSecret)
 
-	resp, err := http.PostForm(providerConfig.TokenURL, data)
+	resp, err := oauthHTTPClient.PostForm(providerConfig.TokenURL, data)
 	if err != nil {
 		return "", fmt.Errorf("failed to exchange code: %w", err)
 	}
@@ -1025,7 +1050,7 @@ func (h *AuthHandler) getUserInfo(accessToken string, providerConfig *config.OAu
 
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := oauthHTTPClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get user info: %w", err)
 	}

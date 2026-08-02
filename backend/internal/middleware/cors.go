@@ -23,11 +23,19 @@ func (m *CORSMiddleware) Handler(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		origin := r.Header.Get("Origin")
 
-		// Check if origin is allowed
+		// Check if origin is allowed. A wildcard is only honored when credentials
+		// are disabled: sending "Access-Control-Allow-Origin: *" together with
+		// "Access-Control-Allow-Credentials: true" is invalid per the CORS spec
+		// (browsers reject it) and would be a foot-gun. With credentials enabled,
+		// only exact origin matches are allowed.
 		allowedOrigin := ""
 		for _, allowedOrig := range m.config.AllowedOrigins {
-			if allowedOrig == "*" || allowedOrig == origin {
-				allowedOrigin = allowedOrig
+			if allowedOrig == origin {
+				allowedOrigin = origin
+				break
+			}
+			if allowedOrig == "*" && !m.config.AllowCredentials {
+				allowedOrigin = "*"
 				break
 			}
 		}
