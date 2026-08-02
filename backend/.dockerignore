@@ -10,6 +10,13 @@
 .env.*.local
 .env.template
 
+# Secrets / keys (must never enter the build context or image layers)
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+
 # Documentation markdown files (keep docs/ directory for Swagger files)
 README.md
 SECURITY_TESTS.md
