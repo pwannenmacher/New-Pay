@@ -700,7 +700,7 @@ func (h *UserHandler) RemoveRole(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// If removing Admin role, check if user is the last active admin
-	if role.Name == "Admin" {
+	if strings.EqualFold(role.Name, "admin") {
 		isLastAdmin, err := h.userRepo.IsLastActiveAdmin(req.UserID)
 		if err != nil {
 			_ = h.auditMw.LogAction(&adminID, "user.role.remove.error", "users", ErrMsgFailedToCheckAdminStatus+err.Error(), getIP(r), r.UserAgent())
