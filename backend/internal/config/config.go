@@ -1,7 +1,9 @@
 package config
 
 import (
+	"crypto/x509"
 	"encoding/hex"
+	"encoding/pem"
 	"fmt"
 	"os"
 	"strconv"
@@ -330,6 +332,13 @@ func (c *Config) Validate() error {
 	if c.JWT.Secret == "" {
 		return fmt.Errorf("JWT_SECRET is required")
 	}
+	// In production the JWT secret must be a valid persistent ECDSA private key.
+	// Otherwise the auth service silently falls back to an ephemeral key pair,
+	// which invalidates all sessions on restart and breaks multi-instance
+	// deployments (each replica signs with a different key). Fail closed instead.
+	if c.App.Env == "production" && !isValidECPrivateKeyPEM(c.JWT.Secret) {
+		return fmt.Errorf("JWT_SECRET must be a valid PEM-encoded ECDSA private key in production; generate one with 'go run scripts/generate-jwt-keys.go'")
+	}
 	if c.Encryption.MasterKey == "" {
 		return fmt.Errorf("ENCRYPTION_MASTER_KEY is required")
 	}
@@ -337,6 +346,19 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("DB_PASSWORD is required in production")
 	}
 	return nil
+}
+
+// isValidECPrivateKeyPEM reports whether secret is a PEM-encoded ECDSA private
+// key. It mirrors the key-loading logic in the auth package, including the
+// "\n"-to-newline normalization used for .env single-line values.
+func isValidECPrivateKeyPEM(secret string) bool {
+	secret = strings.ReplaceAll(secret, "\\n", "\n")
+	block, _ := pem.Decode([]byte(secret))
+	if block == nil {
+		return false
+	}
+	_, err := x509.ParseECPrivateKey(block.Bytes)
+	return err == nil
 }
 
 // ParseMasterKey decodes the hex-encoded ENCRYPTION_MASTER_KEY into a 32-byte slice.
