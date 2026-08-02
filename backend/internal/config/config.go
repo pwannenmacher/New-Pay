@@ -50,6 +50,15 @@ type DatabaseConfig struct {
 	MaxOpenConns    int
 	MaxIdleConns    int
 	ConnMaxLifetime time.Duration
+	// StatementTimeout bounds how long any single query may run server-side.
+	// This is the primary safeguard against a hung query holding a pool
+	// connection indefinitely. Set to 0 to disable.
+	StatementTimeout time.Duration
+	// LockTimeout bounds how long a query waits to acquire a lock. Set to 0 to disable.
+	LockTimeout time.Duration
+	// IdleInTxTimeout bounds how long a connection may sit idle inside an open
+	// transaction before the server aborts it. Set to 0 to disable.
+	IdleInTxTimeout time.Duration
 }
 
 // JWTConfig holds JWT-related configuration
@@ -176,15 +185,18 @@ func Load() (*Config, error) {
 			TimeoutIdle:  getDurationEnv("SERVER_TIMEOUT_IDLE", 60*time.Second),
 		},
 		Database: DatabaseConfig{
-			Host:            getEnv("DB_HOST", "localhost"),
-			Port:            getEnv("DB_PORT", "5432"),
-			User:            getEnv("DB_USER", "newpay"),
-			Password:        getEnv("DB_PASSWORD", ""),
-			Name:            getEnv("DB_NAME", "newpay_db"),
-			SSLMode:         getEnv("DB_SSLMODE", "prefer"),
-			MaxOpenConns:    getIntEnv("DB_MAX_OPEN_CONNS", 25),
-			MaxIdleConns:    getIntEnv("DB_MAX_IDLE_CONNS", 5),
-			ConnMaxLifetime: getDurationEnv("DB_CONN_MAX_LIFETIME", 5*time.Minute),
+			Host:             getEnv("DB_HOST", "localhost"),
+			Port:             getEnv("DB_PORT", "5432"),
+			User:             getEnv("DB_USER", "newpay"),
+			Password:         getEnv("DB_PASSWORD", ""),
+			Name:             getEnv("DB_NAME", "newpay_db"),
+			SSLMode:          getEnv("DB_SSLMODE", "prefer"),
+			MaxOpenConns:     getIntEnv("DB_MAX_OPEN_CONNS", 25),
+			MaxIdleConns:     getIntEnv("DB_MAX_IDLE_CONNS", 5),
+			ConnMaxLifetime:  getDurationEnv("DB_CONN_MAX_LIFETIME", 5*time.Minute),
+			StatementTimeout: getDurationEnv("DB_STATEMENT_TIMEOUT", 30*time.Second),
+			LockTimeout:      getDurationEnv("DB_LOCK_TIMEOUT", 10*time.Second),
+			IdleInTxTimeout:  getDurationEnv("DB_IDLE_IN_TX_TIMEOUT", 60*time.Second),
 		},
 		JWT: JWTConfig{
 			Secret:            getEnv("JWT_SECRET", ""),
