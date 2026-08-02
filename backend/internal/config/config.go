@@ -109,6 +109,11 @@ type RateLimitConfig struct {
 	Enabled  bool
 	Requests int
 	Duration time.Duration
+	// TrustProxyHeaders enables deriving the client IP from X-Forwarded-For /
+	// X-Real-IP. Only enable this when the app runs behind a trusted reverse
+	// proxy that overwrites these headers; otherwise clients can spoof them to
+	// bypass rate limiting.
+	TrustProxyHeaders bool
 }
 
 // AppConfig holds general application configuration
@@ -206,9 +211,10 @@ func Load() (*Config, error) {
 			MaxAge:           getIntEnv("CORS_MAX_AGE", 300),
 		},
 		RateLimit: RateLimitConfig{
-			Enabled:  getBoolEnv("RATE_LIMIT_ENABLED", true),
-			Requests: getIntEnv("RATE_LIMIT_REQUESTS", 100),
-			Duration: getDurationEnv("RATE_LIMIT_DURATION", 1*time.Minute),
+			Enabled:           getBoolEnv("RATE_LIMIT_ENABLED", true),
+			Requests:          getIntEnv("RATE_LIMIT_REQUESTS", 100),
+			Duration:          getDurationEnv("RATE_LIMIT_DURATION", 1*time.Minute),
+			TrustProxyHeaders: getBoolEnv("RATE_LIMIT_TRUST_PROXY", false),
 		},
 		App: AppConfig{
 			Env:                     getEnv("APP_ENV", "development"),

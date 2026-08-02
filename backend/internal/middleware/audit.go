@@ -39,7 +39,7 @@ func (m *AuditMiddleware) Log(action, resource string, details string) func(http
 				Action:    action,
 				Resource:  resource,
 				Details:   details,
-				IPAddress: getIP(r),
+				IPAddress: auditIP(r),
 				UserAgent: r.UserAgent(),
 			}
 
