@@ -291,6 +291,14 @@ func (s *Scheduler) sendDraftReminders() {
 	remindersSent := 0
 	reminderIntervalMins := s.config.ReminderIntervalMins
 
+	// Guard against misconfiguration: a non-positive interval would make every
+	// draft due on every run, causing repeated reminder emails.
+	if reminderIntervalMins <= 0 {
+		slog.Error("Draft reminders skipped: reminder interval must be positive",
+			"reminder_interval_mins", reminderIntervalMins)
+		return
+	}
+
 	for _, assessment := range assessments {
 		// A reminder is due once the draft is at least one interval old and the
 		// previous reminder (if any) was sent at least one interval ago. Tracking
@@ -332,9 +340,12 @@ func (s *Scheduler) sendDraftReminders() {
 			continue
 		}
 
-		// Record the send so the next interval is measured from here.
+		// Record the send so the next interval is measured from here. The email is
+		// sent first on purpose: recording before sending would suppress the
+		// reminder entirely if the send failed. The downside is that if this write
+		// fails the reminder may be resent on the next run, so flag that clearly.
 		if err := s.selfAssessmentRepo.UpdateLastReminderSentAt(assessment.ID, now); err != nil {
-			slog.Error("Failed to record draft reminder timestamp",
+			slog.Warn("Draft reminder sent but timestamp not recorded; reminder may be resent next run",
 				"assessment_id", assessment.ID,
 				"error", err,
 			)
