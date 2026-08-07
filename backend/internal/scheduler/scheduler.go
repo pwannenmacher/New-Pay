@@ -291,46 +291,72 @@ func (s *Scheduler) sendDraftReminders() {
 	remindersSent := 0
 	reminderIntervalMins := s.config.ReminderIntervalMins
 
+	// Guard against misconfiguration: a non-positive interval would make every
+	// draft due on every run, causing repeated reminder emails.
+	if reminderIntervalMins <= 0 {
+		slog.Error("Draft reminders skipped: reminder interval must be positive",
+			"reminder_interval_mins", reminderIntervalMins)
+		return
+	}
+
 	for _, assessment := range assessments {
-		// Calculate minutes since creation
+		// A reminder is due once the draft is at least one interval old and the
+		// previous reminder (if any) was sent at least one interval ago. Tracking
+		// last_reminder_sent_at makes this robust against the scheduler's run
+		// cadence, unlike a modulo check that required an exact age match.
 		minutesSinceCreation := int(now.Sub(assessment.CreatedAt).Minutes())
+		if minutesSinceCreation < reminderIntervalMins {
+			continue
+		}
+		if assessment.LastReminderSentAt != nil &&
+			int(now.Sub(*assessment.LastReminderSentAt).Minutes()) < reminderIntervalMins {
+			continue
+		}
 
-		// Send reminder at each interval (e.g., 10080 mins = 7 days, 20160 = 14 days, etc.)
-		if minutesSinceCreation > 0 && minutesSinceCreation%reminderIntervalMins == 0 {
-			// Get user details
-			user, err := s.userRepo.GetByID(assessment.UserID)
-			if err != nil || user == nil {
-				slog.Error("Failed to get user", "user_id", assessment.UserID, "error", err)
-				continue
-			}
+		// Get user details
+		user, err := s.userRepo.GetByID(assessment.UserID)
+		if err != nil || user == nil {
+			slog.Error("Failed to get user", "user_id", assessment.UserID, "error", err)
+			continue
+		}
 
-			userName := fmt.Sprintf("%s %s", user.FirstName, user.LastName)
-			daysSinceCreation := int(now.Sub(assessment.CreatedAt).Hours() / 24)
+		userName := fmt.Sprintf("%s %s", user.FirstName, user.LastName)
+		daysSinceCreation := int(now.Sub(assessment.CreatedAt).Hours() / 24)
 
-			// Send reminder email
-			err = s.emailService.SendDraftReminderEmail(
-				user.Email,
-				userName,
-				assessment.CatalogName,
-				assessment.ID,
-				daysSinceCreation,
-			)
-			if err != nil {
-				slog.Error("Failed to send draft reminder",
-					"assessment_id", assessment.ID,
-					"user_email", user.Email,
-					"error", err,
-				)
-				continue
-			}
-
-			remindersSent++
-			slog.Info("Draft reminder sent",
+		// Send reminder email
+		err = s.emailService.SendDraftReminderEmail(
+			user.Email,
+			userName,
+			assessment.CatalogName,
+			assessment.ID,
+			daysSinceCreation,
+		)
+		if err != nil {
+			slog.Error("Failed to send draft reminder",
 				"assessment_id", assessment.ID,
 				"user_email", user.Email,
-				"days_old", daysSinceCreation,
+				"error", err,
+			)
+			continue
+		}
+
+		// Record the send so the next interval is measured from here. The email is
+		// sent first on purpose: recording before sending would suppress the
+		// reminder entirely if the send failed. The downside is that if this write
+		// fails the reminder may be resent on the next run, so flag that clearly.
+		if err := s.selfAssessmentRepo.UpdateLastReminderSentAt(assessment.ID, now); err != nil {
+			slog.Warn("Draft reminder sent but timestamp not recorded; reminder may be resent next run",
+				"assessment_id", assessment.ID,
+				"error", err,
 			)
 		}
+
+		remindersSent++
+		slog.Info("Draft reminder sent",
+			"assessment_id", assessment.ID,
+			"user_email", user.Email,
+			"days_old", daysSinceCreation,
+		)
 	}
 
 	slog.Info("Draft reminders completed", "reminders_sent", remindersSent)
