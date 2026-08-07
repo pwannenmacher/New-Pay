@@ -95,6 +95,7 @@ func (r *SelfAssessmentRepository) GetByStatus(status string) ([]models.SelfAsse
 			sa.id, sa.catalog_id, sa.user_id, sa.status, 
 			sa.created_at, sa.updated_at, sa.submitted_at, sa.in_review_at, 
 			sa.reviewed_at, sa.discussion_started_at, sa.archived_at, sa.closed_at, sa.previous_status,
+			sa.last_reminder_sent_at,
 			CONCAT(u.first_name, ' ', u.last_name) as user_name, u.email as user_email,
 			c.name as catalog_name
 		FROM self_assessments sa
@@ -117,6 +118,7 @@ func (r *SelfAssessmentRepository) GetByStatus(status string) ([]models.SelfAsse
 			&sa.ID, &sa.CatalogID, &sa.UserID, &sa.Status,
 			&sa.CreatedAt, &sa.UpdatedAt, &sa.SubmittedAt, &sa.InReviewAt,
 			&sa.ReviewedAt, &sa.DiscussionStartedAt, &sa.ArchivedAt, &sa.ClosedAt, &sa.PreviousStatus,
+			&sa.LastReminderSentAt,
 			&sa.UserName, &sa.UserEmail, &sa.CatalogName,
 		)
 		if err != nil {
@@ -126,6 +128,15 @@ func (r *SelfAssessmentRepository) GetByStatus(status string) ([]models.SelfAsse
 	}
 
 	return assessments, nil
+}
+
+// UpdateLastReminderSentAt records the time a draft reminder was sent for an assessment.
+func (r *SelfAssessmentRepository) UpdateLastReminderSentAt(id uint, sentAt time.Time) error {
+	_, err := r.db.Exec(
+		`UPDATE self_assessments SET last_reminder_sent_at = $1 WHERE id = $2`,
+		sentAt, id,
+	)
+	return err
 }
 
 // GetByCatalogID retrieves all self-assessments for a catalog with user details
@@ -425,7 +436,6 @@ func (r *SelfAssessmentRepository) GetAllMetadata() ([]models.SelfAssessment, er
 		); err != nil {
 			return nil, err
 		}
-		assessments = append(assessments, assessment)
 		assessments = append(assessments, assessment)
 	}
 	return assessments, nil

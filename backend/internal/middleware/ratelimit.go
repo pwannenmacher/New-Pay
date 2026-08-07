@@ -1,7 +1,9 @@
 package middleware
 
 import (
+	"net"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -10,11 +12,12 @@ import (
 
 // RateLimiter implements a simple token bucket rate limiter
 type RateLimiter struct {
-	enabled  bool
-	requests int
-	duration time.Duration
-	visitors map[string]*visitor
-	mu       sync.RWMutex
+	enabled           bool
+	requests          int
+	duration          time.Duration
+	trustProxyHeaders bool
+	visitors          map[string]*visitor
+	mu                sync.RWMutex
 }
 
 type visitor struct {
@@ -25,10 +28,11 @@ type visitor struct {
 // NewRateLimiter creates a new rate limiter
 func NewRateLimiter(cfg *config.RateLimitConfig) *RateLimiter {
 	rl := &RateLimiter{
-		enabled:  cfg.Enabled,
-		requests: cfg.Requests,
-		duration: cfg.Duration,
-		visitors: make(map[string]*visitor),
+		enabled:           cfg.Enabled,
+		requests:          cfg.Requests,
+		duration:          cfg.Duration,
+		trustProxyHeaders: cfg.TrustProxyHeaders,
+		visitors:          make(map[string]*visitor),
 	}
 
 	// Clean up old visitors every minute
@@ -45,7 +49,7 @@ func (rl *RateLimiter) Limit(next http.Handler) http.Handler {
 			return
 		}
 
-		ip := getIP(r)
+		ip := rl.clientIP(r)
 
 		rl.mu.Lock()
 		v, exists := rl.visitors[ip]
@@ -102,20 +106,55 @@ func (rl *RateLimiter) cleanupVisitors() {
 	}
 }
 
-// getIP gets the client IP address from the request
-func getIP(r *http.Request) string {
-	// Check X-Forwarded-For header first
-	forwarded := r.Header.Get("X-Forwarded-For")
-	if forwarded != "" {
-		return forwarded
+// clientIP determines the rate-limiting key for a request.
+//
+// By default it uses the connection's RemoteAddr, which a client cannot forge.
+// Proxy headers (X-Forwarded-For / X-Real-IP) are only honored when
+// TrustProxyHeaders is enabled, i.e. when a trusted reverse proxy sits in front
+// and overwrites them. In that case the rightmost X-Forwarded-For entry is used
+// because it is the address the trusted proxy actually observed; entries a
+// client prepends to spoof the header end up to the left and are ignored.
+func (rl *RateLimiter) clientIP(r *http.Request) string {
+	remoteIP := hostOnly(r.RemoteAddr)
+
+	if !rl.trustProxyHeaders {
+		return remoteIP
 	}
 
-	// Check X-Real-IP header
-	realIP := r.Header.Get("X-Real-IP")
-	if realIP != "" {
+	if forwarded := r.Header.Get("X-Forwarded-For"); forwarded != "" {
+		parts := strings.Split(forwarded, ",")
+		candidate := strings.TrimSpace(parts[len(parts)-1])
+		if net.ParseIP(candidate) != nil {
+			return candidate
+		}
+	}
+
+	if realIP := strings.TrimSpace(r.Header.Get("X-Real-IP")); net.ParseIP(realIP) != nil {
 		return realIP
 	}
 
-	// Fall back to RemoteAddr
+	return remoteIP
+}
+
+// auditIP returns the raw client IP information for audit logging, preserving
+// the full X-Forwarded-For proxy chain for forensic purposes. Unlike the
+// rate-limiting key, this value is client-influenced and must not be used for
+// security decisions.
+func auditIP(r *http.Request) string {
+	if forwarded := r.Header.Get("X-Forwarded-For"); forwarded != "" {
+		return forwarded
+	}
+	if realIP := r.Header.Get("X-Real-IP"); realIP != "" {
+		return realIP
+	}
 	return r.RemoteAddr
+}
+
+// hostOnly strips the port from a "host:port" address, returning the host as-is
+// if it has no port (e.g. when RemoteAddr was already sanitized).
+func hostOnly(addr string) string {
+	if host, _, err := net.SplitHostPort(addr); err == nil {
+		return host
+	}
+	return addr
 }

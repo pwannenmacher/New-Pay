@@ -1,7 +1,9 @@
 package config
 
 import (
+	"crypto/x509"
 	"encoding/hex"
+	"encoding/pem"
 	"fmt"
 	"os"
 	"strconv"
@@ -48,6 +50,15 @@ type DatabaseConfig struct {
 	MaxOpenConns    int
 	MaxIdleConns    int
 	ConnMaxLifetime time.Duration
+	// StatementTimeout bounds how long any single query may run server-side.
+	// This is the primary safeguard against a hung query holding a pool
+	// connection indefinitely. Set to 0 to disable.
+	StatementTimeout time.Duration
+	// LockTimeout bounds how long a query waits to acquire a lock. Set to 0 to disable.
+	LockTimeout time.Duration
+	// IdleInTxTimeout bounds how long a connection may sit idle inside an open
+	// transaction before the server aborts it. Set to 0 to disable.
+	IdleInTxTimeout time.Duration
 }
 
 // JWTConfig holds JWT-related configuration
@@ -109,6 +120,11 @@ type RateLimitConfig struct {
 	Enabled  bool
 	Requests int
 	Duration time.Duration
+	// TrustProxyHeaders enables deriving the client IP from X-Forwarded-For /
+	// X-Real-IP. Only enable this when the app runs behind a trusted reverse
+	// proxy that overwrites these headers; otherwise clients can spoof them to
+	// bypass rate limiting.
+	TrustProxyHeaders bool
 }
 
 // AppConfig holds general application configuration
@@ -169,15 +185,18 @@ func Load() (*Config, error) {
 			TimeoutIdle:  getDurationEnv("SERVER_TIMEOUT_IDLE", 60*time.Second),
 		},
 		Database: DatabaseConfig{
-			Host:            getEnv("DB_HOST", "localhost"),
-			Port:            getEnv("DB_PORT", "5432"),
-			User:            getEnv("DB_USER", "newpay"),
-			Password:        getEnv("DB_PASSWORD", ""),
-			Name:            getEnv("DB_NAME", "newpay_db"),
-			SSLMode:         getEnv("DB_SSLMODE", "prefer"),
-			MaxOpenConns:    getIntEnv("DB_MAX_OPEN_CONNS", 25),
-			MaxIdleConns:    getIntEnv("DB_MAX_IDLE_CONNS", 5),
-			ConnMaxLifetime: getDurationEnv("DB_CONN_MAX_LIFETIME", 5*time.Minute),
+			Host:             getEnv("DB_HOST", "localhost"),
+			Port:             getEnv("DB_PORT", "5432"),
+			User:             getEnv("DB_USER", "newpay"),
+			Password:         getEnv("DB_PASSWORD", ""),
+			Name:             getEnv("DB_NAME", "newpay_db"),
+			SSLMode:          getEnv("DB_SSLMODE", "prefer"),
+			MaxOpenConns:     getIntEnv("DB_MAX_OPEN_CONNS", 25),
+			MaxIdleConns:     getIntEnv("DB_MAX_IDLE_CONNS", 5),
+			ConnMaxLifetime:  getDurationEnv("DB_CONN_MAX_LIFETIME", 5*time.Minute),
+			StatementTimeout: getDurationEnv("DB_STATEMENT_TIMEOUT", 30*time.Second),
+			LockTimeout:      getDurationEnv("DB_LOCK_TIMEOUT", 10*time.Second),
+			IdleInTxTimeout:  getDurationEnv("DB_IDLE_IN_TX_TIMEOUT", 60*time.Second),
 		},
 		JWT: JWTConfig{
 			Secret:            getEnv("JWT_SECRET", ""),
@@ -206,9 +225,10 @@ func Load() (*Config, error) {
 			MaxAge:           getIntEnv("CORS_MAX_AGE", 300),
 		},
 		RateLimit: RateLimitConfig{
-			Enabled:  getBoolEnv("RATE_LIMIT_ENABLED", true),
-			Requests: getIntEnv("RATE_LIMIT_REQUESTS", 100),
-			Duration: getDurationEnv("RATE_LIMIT_DURATION", 1*time.Minute),
+			Enabled:           getBoolEnv("RATE_LIMIT_ENABLED", true),
+			Requests:          getIntEnv("RATE_LIMIT_REQUESTS", 100),
+			Duration:          getDurationEnv("RATE_LIMIT_DURATION", 1*time.Minute),
+			TrustProxyHeaders: getBoolEnv("RATE_LIMIT_TRUST_PROXY", false),
 		},
 		App: AppConfig{
 			Env:                     getEnv("APP_ENV", "development"),
@@ -324,6 +344,13 @@ func (c *Config) Validate() error {
 	if c.JWT.Secret == "" {
 		return fmt.Errorf("JWT_SECRET is required")
 	}
+	// In production the JWT secret must be a valid persistent ECDSA private key.
+	// Otherwise the auth service silently falls back to an ephemeral key pair,
+	// which invalidates all sessions on restart and breaks multi-instance
+	// deployments (each replica signs with a different key). Fail closed instead.
+	if c.App.Env == "production" && !isValidECPrivateKeyPEM(c.JWT.Secret) {
+		return fmt.Errorf("JWT_SECRET must be a valid PEM-encoded ECDSA private key in production; generate one with 'go run scripts/generate-jwt-keys.go'")
+	}
 	if c.Encryption.MasterKey == "" {
 		return fmt.Errorf("ENCRYPTION_MASTER_KEY is required")
 	}
@@ -331,6 +358,19 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("DB_PASSWORD is required in production")
 	}
 	return nil
+}
+
+// isValidECPrivateKeyPEM reports whether secret is a PEM-encoded ECDSA private
+// key. It mirrors the key-loading logic in the auth package, including the
+// "\n"-to-newline normalization used for .env single-line values.
+func isValidECPrivateKeyPEM(secret string) bool {
+	secret = strings.ReplaceAll(secret, "\\n", "\n")
+	block, _ := pem.Decode([]byte(secret))
+	if block == nil {
+		return false
+	}
+	_, err := x509.ParseECPrivateKey(block.Bytes)
+	return err == nil
 }
 
 // ParseMasterKey decodes the hex-encoded ENCRYPTION_MASTER_KEY into a 32-byte slice.
