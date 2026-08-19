@@ -20,7 +20,7 @@
     "@mantine/hooks": "^9.5.1",
     "@mantine/notifications": "^9.5.1",
     "@tabler/icons-react": "^3.46.0",
-    "dayjs": "^1.11.21",
+    "dayjs": "^1.11.22",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "react-router-dom": "^7.18.2"
