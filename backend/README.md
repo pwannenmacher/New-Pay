@@ -14,7 +14,7 @@ New Pay is a platform for salary estimation and peer review, designed to enable 
 
 ## Tech Stack
 
-*   **Language**: Go (Golang) 1.25
+*   **Language**: Go (Golang) 1.27
 *   **Database**: PostgreSQL
 *   **Security**: AES-256-GCM encryption with Ed25519-signed hash-chain audit trail
 *   **Authentication**: JWT (JSON Web Tokens) with ECDSA Signature
@@ -22,7 +22,7 @@ New Pay is a platform for salary estimation and peer review, designed to enable 
 
 ## Prerequisites
 
-*   Go 1.25 or higher
+*   Go 1.27 or higher
 *   Docker (for database container)
 *   PostgreSQL 14+
 
