@@ -4,7 +4,7 @@ Platform for salary estimates and peer reviews.
 
 ## Stack
 
-- Backend: Go 1.25
+- Backend: Go 1.27
 - Frontend: React 19, TypeScript 5.9, Mantine 8
 - Database: PostgreSQL 17
 - Auth: JWT (ES256)

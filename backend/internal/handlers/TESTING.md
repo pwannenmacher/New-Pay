@@ -27,7 +27,7 @@ internal/
 ### Voraussetzungen
 
 - Docker muss laufen (für Testcontainers)
-- Go 1.25+
+- Go 1.27+
 
 ### Dependencies installieren
 
