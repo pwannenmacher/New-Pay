@@ -74,7 +74,9 @@ export default function SelfAssessmentPage() {
   const [updating, setUpdating] = useState(false);
   const [submitModalOpen, setSubmitModalOpen] = useState(false);
 
-  const [activeCategory, setActiveCategory] = useState<string | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  // Default to the first category until the user picks one
+  const activeCategory = selectedCategory ?? catalog?.categories?.[0]?.id.toString() ?? null;
   const [selectedPath, setSelectedPath] = useState<number | null>(null);
   const [selectedLevel, setSelectedLevel] = useState<number | null>(null);
   const [justification, setJustification] = useState('');
@@ -84,65 +86,75 @@ export default function SelfAssessmentPage() {
 
   const isReadOnly = assessment?.status !== 'draft';
 
-  const loadData = useCallback(async () => {
+  // State is only updated in promise callbacks so this can run directly inside an effect
+  const fetchData = useCallback(
+    () =>
+      selfAssessmentService
+        .getSelfAssessment(assessmentId)
+        .then(async (assessmentData) => {
+          setAssessment(assessmentData);
+
+          // Load catalog with details
+          const catalogData = await catalogService.getCatalog(assessmentData.catalog_id);
+          setCatalog(catalogData);
+
+          // Load responses
+          const responsesData = await selfAssessmentService.getResponses(assessmentId);
+          setResponses(responsesData);
+
+          // Load completeness
+          const completenessData = await selfAssessmentService.getCompleteness(assessmentId);
+          setCompleteness(completenessData);
+        })
+        .catch((error) => {
+          console.error('Error loading data:', error);
+          notifications.show({
+            title: 'Fehler',
+            message: 'Daten konnten nicht geladen werden',
+            color: 'red',
+          });
+        })
+        .finally(() => setLoading(false)),
+    [assessmentId]
+  );
+
+  const loadData = () => {
     setLoading(true);
-    try {
-      // Load assessment
-      const assessmentData = await selfAssessmentService.getSelfAssessment(assessmentId);
-      setAssessment(assessmentData);
-
-      // Load catalog with details
-      const catalogData = await catalogService.getCatalog(assessmentData.catalog_id);
-      setCatalog(catalogData);
-
-      // Load responses
-      const responsesData = await selfAssessmentService.getResponses(assessmentId);
-      setResponses(responsesData);
-
-      // Load completeness
-      const completenessData = await selfAssessmentService.getCompleteness(assessmentId);
-      setCompleteness(completenessData);
-    } catch (error) {
-      console.error('Error loading data:', error);
-      notifications.show({
-        title: 'Fehler',
-        message: 'Daten konnten nicht geladen werden',
-        color: 'red',
-      });
-    } finally {
-      setLoading(false);
-    }
-  }, [assessmentId]);
+    return fetchData();
+  };
 
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    fetchData();
+  }, [fetchData]);
 
-  useEffect(() => {
-    if (catalog?.categories && catalog.categories.length > 0 && !activeCategory) {
-      setActiveCategory(catalog.categories[0].id.toString());
+  // Load existing response for active category whenever the category or the responses change
+  // (adjusted during render instead of in an effect)
+  const [formSource, setFormSource] = useState<{
+    category: string;
+    responses: AssessmentResponseWithDetails[];
+  } | null>(null);
+  if (
+    activeCategory &&
+    responses.length > 0 &&
+    (formSource?.category !== activeCategory || formSource.responses !== responses)
+  ) {
+    setFormSource({ category: activeCategory, responses });
+
+    const categoryId = parseInt(activeCategory);
+    const existingResponse = responses.find((r) => r.category_id === categoryId);
+
+    if (existingResponse) {
+      setSelectedPath(existingResponse.path_id);
+      setSelectedLevel(existingResponse.level_id);
+      setJustification(existingResponse.justification);
+    } else {
+      // Reset form
+      setSelectedPath(null);
+      setSelectedLevel(null);
+      setJustification('');
     }
-  }, [catalog, activeCategory]);
-
-  useEffect(() => {
-    // Load existing response for active category
-    if (activeCategory && responses && responses.length > 0) {
-      const categoryId = parseInt(activeCategory);
-      const existingResponse = responses.find((r) => r.category_id === categoryId);
-
-      if (existingResponse) {
-        setSelectedPath(existingResponse.path_id);
-        setSelectedLevel(existingResponse.level_id);
-        setJustification(existingResponse.justification);
-      } else {
-        // Reset form
-        setSelectedPath(null);
-        setSelectedLevel(null);
-        setJustification('');
-      }
-      setLevelViewStart(0);
-    }
-  }, [activeCategory, responses]);
+    setLevelViewStart(0);
+  }
 
   const handleSaveResponse = async () => {
     if (!selectedPath || !selectedLevel || !activeCategory) {
@@ -593,7 +605,7 @@ export default function SelfAssessmentPage() {
         </Paper>
       )}
 
-      <Tabs value={activeCategory} onChange={setActiveCategory}>
+      <Tabs value={activeCategory} onChange={setSelectedCategory}>
         <Tabs.List>
           {catalog.categories?.map((category) => (
             <Tabs.Tab

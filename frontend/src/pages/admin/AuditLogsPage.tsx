@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Container,
   Paper,
@@ -17,9 +17,10 @@ import {
   useMantineColorScheme,
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
-import { IconSearch, IconX, IconChevronUp, IconChevronDown } from '@tabler/icons-react';
+import { IconSearch, IconX } from '@tabler/icons-react';
 import { adminApi, type AuditLogListParams } from '../../services/admin';
 import type { AuditLog, ApiError } from '../../types';
+import { SortIcon } from '../../components/SortIcon';
 
 export const AuditLogsPage = () => {
   const { colorScheme } = useMantineColorScheme();
@@ -36,38 +37,52 @@ export const AuditLogsPage = () => {
   const [sortBy, setSortBy] = useState<string>('created_at');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
-  const loadLogs = useCallback(async () => {
+  // Show the loading state as soon as a filter changes (set during render, not in the effect)
+  const queryKey = [currentPage, pageSize, sortBy, sortOrder, actionFilter, resourceFilter].join(
+    '|'
+  );
+  const [prevQueryKey, setPrevQueryKey] = useState(queryKey);
+  if (queryKey !== prevQueryKey) {
+    setPrevQueryKey(queryKey);
     setIsLoading(true);
-    try {
-      const params: AuditLogListParams = {
-        page: currentPage,
-        limit: pageSize,
-        sort_by: sortBy,
-        sort_order: sortOrder,
-      };
-
-      if (actionFilter) params.action = actionFilter;
-      if (resourceFilter) params.resource = resourceFilter;
-
-      const data = await adminApi.listAuditLogs(params);
-      setLogs(data.logs || []);
-      setTotalPages(data.total_pages);
-      setTotalCount(data.total);
-    } catch (error) {
-      const apiError = error as ApiError;
-      notifications.show({
-        title: 'Error',
-        message: apiError.error || 'Failed to load audit logs',
-        color: 'red',
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  }, [currentPage, pageSize, sortBy, sortOrder, actionFilter, resourceFilter]);
+  }
 
   useEffect(() => {
-    loadLogs();
-  }, [loadLogs]);
+    const params: AuditLogListParams = {
+      page: currentPage,
+      limit: pageSize,
+      sort_by: sortBy,
+      sort_order: sortOrder,
+    };
+
+    if (actionFilter) params.action = actionFilter;
+    if (resourceFilter) params.resource = resourceFilter;
+
+    let ignore = false;
+    adminApi
+      .listAuditLogs(params)
+      .then((data) => {
+        if (ignore) return;
+        setLogs(data.logs || []);
+        setTotalPages(data.total_pages);
+        setTotalCount(data.total);
+      })
+      .catch((error) => {
+        if (ignore) return;
+        const apiError = error as ApiError;
+        notifications.show({
+          title: 'Error',
+          message: apiError.error || 'Failed to load audit logs',
+          color: 'red',
+        });
+      })
+      .finally(() => {
+        if (!ignore) setIsLoading(false);
+      });
+    return () => {
+      ignore = true;
+    };
+  }, [currentPage, pageSize, sortBy, sortOrder, actionFilter, resourceFilter]);
 
   const getActionColor = (action: string): string => {
     if (action.includes('login')) return 'blue';
@@ -97,11 +112,6 @@ export const AuditLogsPage = () => {
       setPageSize(parseInt(value));
       setCurrentPage(1);
     }
-  };
-
-  const SortIcon = ({ column }: { column: string }) => {
-    if (sortBy !== column) return null;
-    return sortOrder === 'asc' ? <IconChevronUp size={14} /> : <IconChevronDown size={14} />;
   };
 
   return (
@@ -169,22 +179,22 @@ export const AuditLogsPage = () => {
             <Table.Tr>
               <Table.Th style={{ cursor: 'pointer' }} onClick={() => handleSort('created_at')}>
                 <Group gap="xs">
-                  Timestamp <SortIcon column="created_at" />
+                  Timestamp <SortIcon column="created_at" sortBy={sortBy} sortOrder={sortOrder} />
                 </Group>
               </Table.Th>
               <Table.Th style={{ cursor: 'pointer' }} onClick={() => handleSort('user_id')}>
                 <Group gap="xs">
-                  User <SortIcon column="user_id" />
+                  User <SortIcon column="user_id" sortBy={sortBy} sortOrder={sortOrder} />
                 </Group>
               </Table.Th>
               <Table.Th style={{ cursor: 'pointer' }} onClick={() => handleSort('action')}>
                 <Group gap="xs">
-                  Action <SortIcon column="action" />
+                  Action <SortIcon column="action" sortBy={sortBy} sortOrder={sortOrder} />
                 </Group>
               </Table.Th>
               <Table.Th style={{ cursor: 'pointer' }} onClick={() => handleSort('resource')}>
                 <Group gap="xs">
-                  Resource <SortIcon column="resource" />
+                  Resource <SortIcon column="resource" sortBy={sortBy} sortOrder={sortOrder} />
                 </Group>
               </Table.Th>
               <Table.Th>Details</Table.Th>

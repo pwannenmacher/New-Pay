@@ -87,21 +87,25 @@ export function CatalogManagementPage() {
   const [newValidUntil, setNewValidUntil] = useState<Date | null>(null);
   const [saving, setSaving] = useState(false);
 
-  const loadCatalogs = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const data = await adminApi.listCatalogs();
-      setCatalogs(data);
-    } catch (err: unknown) {
-      setError(getErrorMessage(err, 'Failed to load catalogs'));
-    } finally {
-      setLoading(false);
-    }
+  // State is only updated in promise callbacks so this can run directly inside an effect
+  const fetchCatalogs = () =>
+    adminApi
+      .listCatalogs()
+      .then((data) => {
+        setCatalogs(data);
+        setError(null);
+      })
+      .catch((err: unknown) => setError(getErrorMessage(err, 'Failed to load catalogs')))
+      .finally(() => setLoading(false));
+
+  const loadCatalogs = () => {
+    setLoading(true);
+    setError(null);
+    return fetchCatalogs();
   };
 
   useEffect(() => {
-    loadCatalogs();
+    fetchCatalogs();
   }, []);
 
   const handleDelete = async (catalogId: number, catalogName: string) => {

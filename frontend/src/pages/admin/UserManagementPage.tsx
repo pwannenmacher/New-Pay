@@ -27,8 +27,6 @@ import {
   IconUserMinus,
   IconSearch,
   IconX,
-  IconChevronUp,
-  IconChevronDown,
   IconLock,
   IconLockOpen,
   IconEdit,
@@ -41,6 +39,7 @@ import {
 import { adminApi, type UserListParams } from '../../services/admin';
 import type { UserWithRoles, Role, ApiError } from '../../types';
 import { useAuth } from '../../contexts/AuthContext';
+import { SortIcon } from '../../components/SortIcon';
 
 export const UserManagementPage = () => {
   const { user: currentUser } = useAuth();
@@ -90,37 +89,55 @@ export const UserManagementPage = () => {
   const [sortBy, setSortBy] = useState<string>('created_at');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
-  const loadUsers = useCallback(async () => {
+  // Show the loading state as soon as a filter changes (set during render, not in the effect)
+  const queryKey = JSON.stringify([
+    currentPage,
+    searchQuery,
+    selectedRoleFilters,
+    activeFilter,
+    verifiedFilter,
+    sortBy,
+    sortOrder,
+    pageSize,
+  ]);
+  const [prevQueryKey, setPrevQueryKey] = useState(queryKey);
+  if (queryKey !== prevQueryKey) {
+    setPrevQueryKey(queryKey);
     setIsLoading(true);
-    try {
-      const params: UserListParams = {
-        page: currentPage,
-        limit: pageSize,
-        sort_by: sortBy,
-        sort_order: sortOrder,
-      };
+  }
 
-      if (searchQuery) params.search = searchQuery;
-      if (selectedRoleFilters.length > 0) {
-        params.role_ids = selectedRoleFilters.map((id) => parseInt(id));
-      }
-      if (activeFilter !== undefined) params.is_active = activeFilter;
-      if (verifiedFilter !== undefined) params.email_verified = verifiedFilter;
+  // State is only updated in promise callbacks so this can run directly inside an effect
+  const fetchUsers = useCallback(() => {
+    const params: UserListParams = {
+      page: currentPage,
+      limit: pageSize,
+      sort_by: sortBy,
+      sort_order: sortOrder,
+    };
 
-      const data = await adminApi.listUsers(params);
-      setUsers(data.users || []);
-      setTotalPages(data.total_pages);
-      setTotalCount(data.total);
-    } catch (error) {
-      const apiError = error as ApiError;
-      notifications.show({
-        title: 'Error',
-        message: apiError.error || 'Failed to load users',
-        color: 'red',
-      });
-    } finally {
-      setIsLoading(false);
+    if (searchQuery) params.search = searchQuery;
+    if (selectedRoleFilters.length > 0) {
+      params.role_ids = selectedRoleFilters.map((id) => parseInt(id));
     }
+    if (activeFilter !== undefined) params.is_active = activeFilter;
+    if (verifiedFilter !== undefined) params.email_verified = verifiedFilter;
+
+    return adminApi
+      .listUsers(params)
+      .then((data) => {
+        setUsers(data.users || []);
+        setTotalPages(data.total_pages);
+        setTotalCount(data.total);
+      })
+      .catch((error) => {
+        const apiError = error as ApiError;
+        notifications.show({
+          title: 'Error',
+          message: apiError.error || 'Failed to load users',
+          color: 'red',
+        });
+      })
+      .finally(() => setIsLoading(false));
   }, [
     currentPage,
     searchQuery,
@@ -132,22 +149,21 @@ export const UserManagementPage = () => {
     pageSize,
   ]);
 
-  useEffect(() => {
-    loadUsers();
-  }, [loadUsers]);
-
-  useEffect(() => {
-    loadRoles();
-  }, []);
-
-  const loadRoles = async () => {
-    try {
-      const data = await adminApi.listRoles();
-      setRoles(data);
-    } catch (error) {
-      console.error('Failed to load roles:', error);
-    }
+  const loadUsers = () => {
+    setIsLoading(true);
+    return fetchUsers();
   };
+
+  useEffect(() => {
+    fetchUsers();
+  }, [fetchUsers]);
+
+  useEffect(() => {
+    adminApi
+      .listRoles()
+      .then(setRoles)
+      .catch((error) => console.error('Failed to load roles:', error));
+  }, []);
 
   const openAssignRoleModal = (user: UserWithRoles) => {
     setSelectedUser(user);
@@ -480,11 +496,6 @@ export const UserManagementPage = () => {
       ? roles.filter((role) => !selectedUser?.roles?.some((ur) => ur.id === role.id))
       : selectedUser?.roles || [];
 
-  const SortIcon = ({ column }: { column: string }) => {
-    if (sortBy !== column) return null;
-    return sortOrder === 'asc' ? <IconChevronUp size={14} /> : <IconChevronDown size={14} />;
-  };
-
   return (
     <Container size="xl" my={40}>
       <Paper withBorder shadow="md" p={30} radius="md">
@@ -585,17 +596,17 @@ export const UserManagementPage = () => {
             <Table.Tr>
               <Table.Th style={{ cursor: 'pointer' }} onClick={() => handleSort('id')}>
                 <Group gap="xs">
-                  ID <SortIcon column="id" />
+                  ID <SortIcon column="id" sortBy={sortBy} sortOrder={sortOrder} />
                 </Group>
               </Table.Th>
               <Table.Th style={{ cursor: 'pointer' }} onClick={() => handleSort('name')}>
                 <Group gap="xs">
-                  Name <SortIcon column="name" />
+                  Name <SortIcon column="name" sortBy={sortBy} sortOrder={sortOrder} />
                 </Group>
               </Table.Th>
               <Table.Th style={{ cursor: 'pointer' }} onClick={() => handleSort('email')}>
                 <Group gap="xs">
-                  Email <SortIcon column="email" />
+                  Email <SortIcon column="email" sortBy={sortBy} sortOrder={sortOrder} />
                 </Group>
               </Table.Th>
               <Table.Th>Login Methods</Table.Th>
@@ -603,7 +614,8 @@ export const UserManagementPage = () => {
               <Table.Th>Status</Table.Th>
               <Table.Th style={{ cursor: 'pointer' }} onClick={() => handleSort('last_login_at')}>
                 <Group gap="xs">
-                  Last Login <SortIcon column="last_login_at" />
+                  Last Login{' '}
+                  <SortIcon column="last_login_at" sortBy={sortBy} sortOrder={sortOrder} />
                 </Group>
               </Table.Th>
               <Table.Th>Actions</Table.Th>

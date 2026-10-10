@@ -22,6 +22,20 @@ import { useAppConfig } from '../../contexts/AppConfigContext';
 import { useOAuthConfig } from '../../hooks/useOAuthConfig';
 import type { LoginRequest, ApiError } from '../../types';
 
+const oauthErrorMessages: Record<string, string> = {
+  registration_disabled:
+    'Neu-Registrierungen über OAuth sind nicht zulässig. Bitte wenden Sie sich an einen Administrator, um ein Konto zu erhalten.',
+  invalid_provider: 'Ungültiger OAuth-Provider.',
+  invalid_state: 'Ungültiger OAuth-Status. Bitte versuchen Sie es erneut.',
+  no_code: 'Kein Autorisierungscode erhalten.',
+  token_exchange_failed: 'Token-Austausch fehlgeschlagen.',
+  userinfo_failed: 'Benutzerinformationen konnten nicht abgerufen werden.',
+  no_email: 'Keine E-Mail-Adresse vom OAuth-Provider erhalten.',
+  user_creation_failed: 'Benutzer konnte nicht erstellt werden.',
+  no_token: 'Kein Zugangstoken erhalten.',
+  profile_fetch_failed: 'Benutzerprofil konnte nicht abgerufen werden.',
+};
+
 export const LoginPage = () => {
   const navigate = useNavigate();
   const { login } = useAuth();
@@ -29,33 +43,22 @@ export const LoginPage = () => {
   const { config: oauthConfig } = useOAuthConfig();
   const [isLoading, setIsLoading] = useState(false);
   const [searchParams] = useSearchParams();
+  const urlError = searchParams.get('error');
   const [oauthError, setOauthError] = useState<string | null>(null);
 
-  // Check for OAuth errors in URL
+  // Pick up OAuth errors from the URL (set during render, not in the effect)
+  if (urlError && oauthError === null) {
+    setOauthError(oauthErrorMessages[urlError] || 'Ein unbekannter Fehler ist aufgetreten.');
+  }
+
+  // Clear the error from URL
   useEffect(() => {
-    const error = searchParams.get('error');
-    if (error) {
-      const errorMessages: Record<string, string> = {
-        registration_disabled:
-          'Neu-Registrierungen über OAuth sind nicht zulässig. Bitte wenden Sie sich an einen Administrator, um ein Konto zu erhalten.',
-        invalid_provider: 'Ungültiger OAuth-Provider.',
-        invalid_state: 'Ungültiger OAuth-Status. Bitte versuchen Sie es erneut.',
-        no_code: 'Kein Autorisierungscode erhalten.',
-        token_exchange_failed: 'Token-Austausch fehlgeschlagen.',
-        userinfo_failed: 'Benutzerinformationen konnten nicht abgerufen werden.',
-        no_email: 'Keine E-Mail-Adresse vom OAuth-Provider erhalten.',
-        user_creation_failed: 'Benutzer konnte nicht erstellt werden.',
-        no_token: 'Kein Zugangstoken erhalten.',
-        profile_fetch_failed: 'Benutzerprofil konnte nicht abgerufen werden.',
-      };
-
-      setOauthError(errorMessages[error] || 'Ein unbekannter Fehler ist aufgetreten.');
-
-      // Clear the error from URL
-      searchParams.delete('error');
-      navigate({ search: searchParams.toString() }, { replace: true });
+    if (urlError) {
+      const params = new URLSearchParams(searchParams);
+      params.delete('error');
+      navigate({ search: params.toString() }, { replace: true });
     }
-  }, [searchParams, navigate]);
+  }, [urlError, searchParams, navigate]);
 
   const form = useForm<LoginRequest>({
     initialValues: {
@@ -94,7 +97,7 @@ export const LoginPage = () => {
   const handleOAuthLogin = (provider: string) => {
     const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || window.location.origin + '/api/v1';
     const redirectUrl = `${apiBaseUrl}/auth/oauth/login?provider=${encodeURIComponent(provider)}`;
-    window.location.href = redirectUrl;
+    window.location.assign(redirectUrl);
   };
 
   return (

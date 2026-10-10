@@ -1,7 +1,40 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState } from 'react';
 import { Badge, Group, Loader, Text, Tooltip } from '@mantine/core';
 import { selfAssessmentService } from '../services/selfAssessment';
 import type { WeightedScore } from '../types';
+
+function useWeightedScore(assessmentId: number) {
+  const [score, setScore] = useState<WeightedScore | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  // Reset to loading state when the assessment changes (instead of inside the effect)
+  const [prevAssessmentId, setPrevAssessmentId] = useState(assessmentId);
+  if (assessmentId !== prevAssessmentId) {
+    setPrevAssessmentId(assessmentId);
+    setLoading(true);
+  }
+
+  useEffect(() => {
+    let ignore = false;
+    selfAssessmentService
+      .getWeightedScore(assessmentId)
+      .then((data) => {
+        if (!ignore) setScore(data);
+      })
+      .catch((error) => {
+        console.error('Error loading weighted score:', error);
+        if (!ignore) setScore(null);
+      })
+      .finally(() => {
+        if (!ignore) setLoading(false);
+      });
+    return () => {
+      ignore = true;
+    };
+  }, [assessmentId]);
+
+  return { score, loading };
+}
 
 interface WeightedScoreBadgeProps {
   assessmentId: number;
@@ -9,25 +42,7 @@ interface WeightedScoreBadgeProps {
 }
 
 export function WeightedScoreBadge({ assessmentId, compact = false }: WeightedScoreBadgeProps) {
-  const [score, setScore] = useState<WeightedScore | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  const loadScore = useCallback(async () => {
-    try {
-      setLoading(true);
-      const data = await selfAssessmentService.getWeightedScore(assessmentId);
-      setScore(data);
-    } catch (error) {
-      console.error('Error loading weighted score:', error);
-      setScore(null);
-    } finally {
-      setLoading(false);
-    }
-  }, [assessmentId]);
-
-  useEffect(() => {
-    loadScore();
-  }, [loadScore]);
+  const { score, loading } = useWeightedScore(assessmentId);
 
   if (loading) {
     return <Loader size="xs" />;
@@ -51,25 +66,7 @@ export function WeightedScoreBadge({ assessmentId, compact = false }: WeightedSc
 }
 
 export function WeightedScoreDisplay({ assessmentId }: { assessmentId: number }) {
-  const [score, setScore] = useState<WeightedScore | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  const loadScore = useCallback(async () => {
-    try {
-      setLoading(true);
-      const data = await selfAssessmentService.getWeightedScore(assessmentId);
-      setScore(data);
-    } catch (error) {
-      console.error('Error loading weighted score:', error);
-      setScore(null);
-    } finally {
-      setLoading(false);
-    }
-  }, [assessmentId]);
-
-  useEffect(() => {
-    loadScore();
-  }, [loadScore]);
+  const { score, loading } = useWeightedScore(assessmentId);
 
   if (loading) {
     return (

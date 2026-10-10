@@ -58,6 +58,29 @@ const statusConfig = {
   discussion: { label: 'Besprechung', color: 'violet', icon: IconMessageCircle },
 };
 
+const fetchOpenAssessments = async (filters: Record<string, string | number>) => {
+  const data = await selfAssessmentService.getOpenAssessmentsForReview(filters);
+  const assessments = Array.isArray(data) ? data : [];
+
+  // Load confirmations for discussion status assessments
+  const discussionAssessments = assessments.filter((a) => a.status === 'discussion');
+  const confirmations: Record<number, DiscussionConfirmation[]> = {};
+
+  await Promise.all(
+    discussionAssessments.map(async (assessment) => {
+      try {
+        const result = await discussionService.getDiscussionResult(assessment.id);
+        confirmations[assessment.id] = result.confirmations || [];
+      } catch (error) {
+        console.error(`Error loading confirmations for assessment ${assessment.id}:`, error);
+        confirmations[assessment.id] = [];
+      }
+    })
+  );
+
+  return { assessments, confirmations };
+};
+
 export function ReviewOpenAssessmentsPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -75,56 +98,8 @@ export function ReviewOpenAssessmentsPage() {
   const [confirmations, setConfirmations] = useState<Record<number, DiscussionConfirmation[]>>({});
   const [archivingId, setArchivingId] = useState<number | null>(null);
 
-  const loadData = useCallback(async () => {
-    try {
-      setLoading(true);
-      const filters: Record<string, string | number> = {};
-      if (status) filters.status = status;
-      if (username) filters.username = username;
-      if (catalogId) filters.catalog_id = parseInt(catalogId);
-      if (fromDate) filters.from_date = fromDate;
-      if (toDate) filters.to_date = toDate;
-      if (fromSubmittedDate) filters.from_submitted_date = fromSubmittedDate;
-      if (toSubmittedDate) filters.to_submitted_date = toSubmittedDate;
-
-      const data = await selfAssessmentService.getOpenAssessmentsForReview(filters);
-      const assessmentsList = Array.isArray(data) ? data : [];
-      setAssessments(assessmentsList);
-
-      // Load confirmations for discussion status assessments
-      const discussionAssessments = assessmentsList.filter((a) => a.status === 'discussion');
-      const confirmationsData: Record<number, DiscussionConfirmation[]> = {};
-
-      await Promise.all(
-        discussionAssessments.map(async (assessment) => {
-          try {
-            const result = await discussionService.getDiscussionResult(assessment.id);
-            confirmationsData[assessment.id] = result.confirmations || [];
-          } catch (error) {
-            console.error(`Error loading confirmations for assessment ${assessment.id}:`, error);
-            confirmationsData[assessment.id] = [];
-          }
-        })
-      );
-
-      setConfirmations(confirmationsData);
-
-      // Store all assessments for catalog dropdown
-      if (!allAssessments.length) {
-        setAllAssessments(assessmentsList);
-      }
-    } catch (error: unknown) {
-      console.error('Error loading assessments:', error);
-      notifications.show({
-        title: 'Fehler',
-        message: getErrorMessage(error, 'Fehler beim Laden der Selbsteinschätzungen'),
-        color: 'red',
-      });
-    } finally {
-      setLoading(false);
-    }
-  }, [
-    allAssessments.length,
+  // Show the loading state as soon as a filter changes (set during render, not in the effect)
+  const filterKey = JSON.stringify([
     catalogId,
     fromDate,
     fromSubmittedDate,
@@ -133,15 +108,55 @@ export function ReviewOpenAssessmentsPage() {
     toSubmittedDate,
     username,
   ]);
+  const [prevFilterKey, setPrevFilterKey] = useState(filterKey);
+  if (filterKey !== prevFilterKey) {
+    setPrevFilterKey(filterKey);
+    setLoading(true);
+  }
+
+  // State is only updated in promise callbacks so this can run directly inside an effect
+  const fetchData = useCallback(() => {
+    const filters: Record<string, string | number> = {};
+    if (status) filters.status = status;
+    if (username) filters.username = username;
+    if (catalogId) filters.catalog_id = parseInt(catalogId);
+    if (fromDate) filters.from_date = fromDate;
+    if (toDate) filters.to_date = toDate;
+    if (fromSubmittedDate) filters.from_submitted_date = fromSubmittedDate;
+    if (toSubmittedDate) filters.to_submitted_date = toSubmittedDate;
+
+    return fetchOpenAssessments(filters)
+      .then((result) => {
+        setAssessments(result.assessments);
+        setConfirmations(result.confirmations);
+        // Store all assessments for catalog dropdown
+        setAllAssessments((prev) => (prev.length ? prev : result.assessments));
+      })
+      .catch((error: unknown) => {
+        console.error('Error loading assessments:', error);
+        notifications.show({
+          title: 'Fehler',
+          message: getErrorMessage(error, 'Fehler beim Laden der Selbsteinschätzungen'),
+          color: 'red',
+        });
+      })
+      .finally(() => setLoading(false));
+  }, [catalogId, fromDate, fromSubmittedDate, status, toDate, toSubmittedDate, username]);
+
+  const loadData = () => {
+    setLoading(true);
+    return fetchData();
+  };
 
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    fetchData();
+  }, [fetchData]);
 
   const handleFilter = () => {
     loadData();
   };
 
+  // Changing the filters triggers a reload via the effect above
   const handleReset = () => {
     setUsername('');
     setStatus('');
@@ -150,8 +165,6 @@ export function ReviewOpenAssessmentsPage() {
     setToDate(null);
     setFromSubmittedDate(null);
     setToSubmittedDate(null);
-    // Reload with no filters
-    setTimeout(() => loadData(), 100);
   };
 
   const handleStatusChange = async (assessmentId: number, newStatus: string) => {

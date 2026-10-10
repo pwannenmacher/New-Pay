@@ -76,7 +76,7 @@ export const RegisterPage = () => {
   const handleOAuthLogin = (provider: string) => {
     const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || window.location.origin + '/api/v1';
     const redirectUrl = `${apiBaseUrl}/auth/oauth/login?provider=${encodeURIComponent(provider)}`;
-    window.location.href = redirectUrl;
+    window.location.assign(redirectUrl);
   };
 
   // Show loading or nothing while checking config

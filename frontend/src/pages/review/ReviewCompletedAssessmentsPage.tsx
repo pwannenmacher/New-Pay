@@ -54,37 +54,8 @@ export function ReviewCompletedAssessmentsPage() {
   const [fromSubmittedDate, setFromSubmittedDate] = useState<string | null>(null);
   const [toSubmittedDate, setToSubmittedDate] = useState<string | null>(null);
 
-  const loadData = useCallback(async () => {
-    try {
-      setLoading(true);
-      const filters: Record<string, string | number> = {};
-      if (username) filters.username = username;
-      if (catalogId) filters.catalog_id = parseInt(catalogId);
-      if (fromDate) filters.from_date = fromDate;
-      if (toDate) filters.to_date = toDate;
-      if (fromSubmittedDate) filters.from_submitted_date = fromSubmittedDate;
-      if (toSubmittedDate) filters.to_submitted_date = toSubmittedDate;
-
-      const data = await selfAssessmentService.getCompletedAssessmentsForReview(filters);
-      const assessmentsList = Array.isArray(data) ? data : [];
-      setAssessments(assessmentsList);
-
-      // Store all assessments for catalog dropdown
-      if (!allAssessments.length) {
-        setAllAssessments(assessmentsList);
-      }
-    } catch (error: unknown) {
-      console.error('Error loading assessments:', error);
-      notifications.show({
-        title: 'Fehler',
-        message: getErrorMessage(error, 'Fehler beim Laden der Selbsteinschätzungen'),
-        color: 'red',
-      });
-    } finally {
-      setLoading(false);
-    }
-  }, [
-    allAssessments.length,
+  // Show the loading state as soon as a filter changes (set during render, not in the effect)
+  const filterKey = JSON.stringify([
     catalogId,
     fromDate,
     fromSubmittedDate,
@@ -92,15 +63,55 @@ export function ReviewCompletedAssessmentsPage() {
     toSubmittedDate,
     username,
   ]);
+  const [prevFilterKey, setPrevFilterKey] = useState(filterKey);
+  if (filterKey !== prevFilterKey) {
+    setPrevFilterKey(filterKey);
+    setLoading(true);
+  }
+
+  // State is only updated in promise callbacks so this can run directly inside an effect
+  const fetchData = useCallback(() => {
+    const filters: Record<string, string | number> = {};
+    if (username) filters.username = username;
+    if (catalogId) filters.catalog_id = parseInt(catalogId);
+    if (fromDate) filters.from_date = fromDate;
+    if (toDate) filters.to_date = toDate;
+    if (fromSubmittedDate) filters.from_submitted_date = fromSubmittedDate;
+    if (toSubmittedDate) filters.to_submitted_date = toSubmittedDate;
+
+    return selfAssessmentService
+      .getCompletedAssessmentsForReview(filters)
+      .then((data) => {
+        const assessmentsList = Array.isArray(data) ? data : [];
+        setAssessments(assessmentsList);
+        // Store all assessments for catalog dropdown
+        setAllAssessments((prev) => (prev.length ? prev : assessmentsList));
+      })
+      .catch((error: unknown) => {
+        console.error('Error loading assessments:', error);
+        notifications.show({
+          title: 'Fehler',
+          message: getErrorMessage(error, 'Fehler beim Laden der Selbsteinschätzungen'),
+          color: 'red',
+        });
+      })
+      .finally(() => setLoading(false));
+  }, [catalogId, fromDate, fromSubmittedDate, toDate, toSubmittedDate, username]);
+
+  const loadData = () => {
+    setLoading(true);
+    return fetchData();
+  };
 
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    fetchData();
+  }, [fetchData]);
 
   const handleFilter = () => {
     loadData();
   };
 
+  // Changing the filters triggers a reload via the effect above
   const handleReset = () => {
     setUsername('');
     setCatalogId('');
@@ -108,8 +119,6 @@ export function ReviewCompletedAssessmentsPage() {
     setToDate(null);
     setFromSubmittedDate(null);
     setToSubmittedDate(null);
-    // Reload with no filters
-    setTimeout(() => loadData(), 100);
   };
 
   const formatDate = (dateString?: string) => {

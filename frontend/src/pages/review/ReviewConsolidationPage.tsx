@@ -53,54 +53,61 @@ export function ReviewConsolidationPage() {
       ? new Date().getTime() - new Date(data.assessment.reviewed_at).getTime() < 60 * 60 * 1000
       : false;
 
-  const loadData = useCallback(async () => {
-    try {
-      setLoading(true);
-      const consolidationData = await consolidationService.getConsolidationData(parseInt(id!));
+  // State is only updated in promise callbacks so this can run directly inside an effect
+  const fetchData = useCallback(
+    () =>
+      consolidationService
+        .getConsolidationData(parseInt(id!))
+        .then((consolidationData) => {
+          if (!consolidationData) {
+            throw new Error('Keine Daten vom Server erhalten');
+          }
 
-      if (!consolidationData) {
-        throw new Error('Keine Daten vom Server erhalten');
-      }
+          setData(consolidationData);
 
-      setData(consolidationData);
+          // Initialize final comment if exists
+          if (consolidationData.final_consolidation?.comment) {
+            setFinalComment(consolidationData.final_consolidation.comment);
+          }
 
-      // Initialize final comment if exists
-      if (consolidationData.final_consolidation?.comment) {
-        setFinalComment(consolidationData.final_consolidation.comment);
-      }
+          // Initialize override data with existing overrides
+          const overrides: { [key: number]: Partial<ConsolidationOverride> } = {};
+          if (consolidationData.overrides) {
+            consolidationData.overrides.forEach((override) => {
+              overrides[override.category_id] = override;
+            });
+          }
+          setOverrideData(overrides);
 
-      // Initialize override data with existing overrides
-      const overrides: { [key: number]: Partial<ConsolidationOverride> } = {};
-      if (consolidationData.overrides) {
-        consolidationData.overrides.forEach((override) => {
-          overrides[override.category_id] = override;
-        });
-      }
-      setOverrideData(overrides);
+          // Initialize category comments
+          const comments: { [key: number]: string } = {};
+          if (consolidationData.category_discussion_comments) {
+            consolidationData.category_discussion_comments.forEach((comment) => {
+              comments[comment.category_id] = comment.comment;
+            });
+          }
+          setCategoryComments(comments);
+        })
+        .catch((error: unknown) => {
+          console.error('Error loading consolidation data:', error);
+          notifications.show({
+            title: 'Fehler',
+            message: getErrorMessage(error, 'Fehler beim Laden der Konsolidierungsdaten'),
+            color: 'red',
+          });
+        })
+        .finally(() => setLoading(false)),
+    [id]
+  );
 
-      // Initialize category comments
-      const comments: { [key: number]: string } = {};
-      if (consolidationData.category_discussion_comments) {
-        consolidationData.category_discussion_comments.forEach((comment) => {
-          comments[comment.category_id] = comment.comment;
-        });
-      }
-      setCategoryComments(comments);
-    } catch (error: unknown) {
-      console.error('Error loading consolidation data:', error);
-      notifications.show({
-        title: 'Fehler',
-        message: getErrorMessage(error, 'Fehler beim Laden der Konsolidierungsdaten'),
-        color: 'red',
-      });
-    } finally {
-      setLoading(false);
-    }
-  }, [id]);
+  const loadData = () => {
+    setLoading(true);
+    return fetchData();
+  };
 
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    fetchData();
+  }, [fetchData]);
 
   const handleSaveOverride = async (categoryId: number) => {
     const override = overrideData[categoryId];

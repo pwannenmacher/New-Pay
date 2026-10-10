@@ -18,50 +18,47 @@ import type { Session, ApiError } from '../../types';
 
 export const SessionsPage = () => {
   const [sessions, setSessions] = useState<Session[]>([]);
-  const [filteredSessions, setFilteredSessions] = useState<Session[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [deleteModalOpened, setDeleteModalOpened] = useState(false);
   const [deleteAllModalOpened, setDeleteAllModalOpened] = useState(false);
   const [sessionToDelete, setSessionToDelete] = useState<string | null>(null);
   const [userToDeleteAll, setUserToDeleteAll] = useState<number | null>(null);
 
-  const loadSessions = async () => {
+  // State is only updated in promise callbacks so this can run directly inside an effect
+  const fetchSessions = () =>
+    adminApi
+      .getAllSessions()
+      .then(setSessions)
+      .catch((error) => {
+        const apiError = error as ApiError;
+        notifications.show({
+          title: 'Error',
+          message: apiError.error || 'Failed to load sessions',
+          color: 'red',
+        });
+      })
+      .finally(() => setIsLoading(false));
+
+  const loadSessions = () => {
     setIsLoading(true);
-    try {
-      const data = await adminApi.getAllSessions();
-      setSessions(data);
-      setFilteredSessions(data);
-    } catch (error) {
-      const apiError = error as ApiError;
-      notifications.show({
-        title: 'Error',
-        message: apiError.error || 'Failed to load sessions',
-        color: 'red',
-      });
-    } finally {
-      setIsLoading(false);
-    }
+    return fetchSessions();
   };
 
   useEffect(() => {
-    loadSessions();
+    fetchSessions();
   }, []);
 
-  useEffect(() => {
-    if (searchQuery.trim() === '') {
-      setFilteredSessions(sessions);
-    } else {
-      const query = searchQuery.toLowerCase();
-      const filtered = sessions.filter(
-        (session) =>
-          session.user_email?.toLowerCase().includes(query) ||
-          session.user_name?.toLowerCase().includes(query) ||
-          session.ip_address.toLowerCase().includes(query)
-      );
-      setFilteredSessions(filtered);
-    }
-  }, [searchQuery, sessions]);
+  const normalizedQuery = searchQuery.trim().toLowerCase();
+  const filteredSessions =
+    normalizedQuery === ''
+      ? sessions
+      : sessions.filter(
+          (session) =>
+            session.user_email?.toLowerCase().includes(normalizedQuery) ||
+            session.user_name?.toLowerCase().includes(normalizedQuery) ||
+            session.ip_address.toLowerCase().includes(normalizedQuery)
+        );
 
   const handleDeleteSession = async () => {
     if (!sessionToDelete) return;

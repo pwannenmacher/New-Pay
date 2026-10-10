@@ -7,30 +7,33 @@ import type { Session, ApiError } from '../../types';
 
 export const SessionManagement = () => {
   const [sessions, setSessions] = useState<Session[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [deleteModalOpened, setDeleteModalOpened] = useState(false);
   const [deleteAllModalOpened, setDeleteAllModalOpened] = useState(false);
   const [sessionToDelete, setSessionToDelete] = useState<string | null>(null);
 
-  const loadSessions = async () => {
+  // State is only updated in promise callbacks so this can run directly inside an effect
+  const fetchSessions = () =>
+    sessionApi
+      .getMySessions()
+      .then(setSessions)
+      .catch((error) => {
+        const apiError = error as ApiError;
+        notifications.show({
+          title: 'Error',
+          message: apiError.error || 'Failed to load sessions',
+          color: 'red',
+        });
+      })
+      .finally(() => setIsLoading(false));
+
+  const loadSessions = () => {
     setIsLoading(true);
-    try {
-      const data = await sessionApi.getMySessions();
-      setSessions(data);
-    } catch (error) {
-      const apiError = error as ApiError;
-      notifications.show({
-        title: 'Error',
-        message: apiError.error || 'Failed to load sessions',
-        color: 'red',
-      });
-    } finally {
-      setIsLoading(false);
-    }
+    return fetchSessions();
   };
 
   useEffect(() => {
-    loadSessions();
+    fetchSessions();
   }, []);
 
   const handleDeleteSession = async () => {

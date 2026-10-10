@@ -65,85 +65,82 @@ export function ReviewAssessmentPage() {
   const [selectedPaths, setSelectedPaths] = useState<Map<number, number>>(new Map());
   const [loading, setLoading] = useState(true);
   const [savingCategory, setSavingCategory] = useState<number | null>(null);
-  const [activeCategory, setActiveCategory] = useState<string | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  // Default to the first category until the user picks one
+  const activeCategory = selectedCategory ?? catalog?.categories?.[0]?.id.toString() ?? null;
 
-  const loadData = useCallback(async () => {
-    try {
-      setLoading(true);
-      const [assessmentData, responsesData, reviewerResponsesData] = await Promise.all([
+  // State is only updated in promise callbacks so this can run directly inside an effect
+  const loadData = useCallback(
+    () =>
+      Promise.all([
         selfAssessmentService.getSelfAssessment(assessmentId),
         selfAssessmentService.getResponses(assessmentId),
         reviewerService.getResponses(assessmentId),
-      ]);
+      ])
+        .then(async ([assessmentData, responsesData, reviewerResponsesData]) => {
+          setAssessment(assessmentData);
 
-      setAssessment(assessmentData);
+          // Redirect to consolidation page if status is reviewed or beyond
+          if (
+            assessmentData.status === 'reviewed' ||
+            assessmentData.status === 'discussion' ||
+            assessmentData.status === 'archived' ||
+            assessmentData.status === 'closed'
+          ) {
+            notifications.show({
+              title: 'Hinweis',
+              message:
+                'Diese Bewertung kann nicht mehr bearbeitet werden. Sie wird zur Konsolidierungsseite umgeleitet.',
+              color: 'blue',
+            });
+            navigate(`/review/consolidation/${assessmentId}`);
+            return;
+          }
 
-      // Redirect to consolidation page if status is reviewed or beyond
-      if (
-        assessmentData.status === 'reviewed' ||
-        assessmentData.status === 'discussion' ||
-        assessmentData.status === 'archived' ||
-        assessmentData.status === 'closed'
-      ) {
-        notifications.show({
-          title: 'Hinweis',
-          message:
-            'Diese Bewertung kann nicht mehr bearbeitet werden. Sie wird zur Konsolidierungsseite umgeleitet.',
-          color: 'blue',
-        });
-        navigate(`/review/consolidation/${assessmentId}`);
-        return;
-      }
+          setUserResponses(responsesData);
 
-      setUserResponses(responsesData);
+          if (assessmentData.catalog_id) {
+            const catalogData = await catalogService.getCatalog(assessmentData.catalog_id);
+            setCatalog(catalogData);
+          }
 
-      if (assessmentData.catalog_id) {
-        const catalogData = await catalogService.getCatalog(assessmentData.catalog_id);
-        setCatalog(catalogData);
-      }
+          // Load existing reviewer responses from backend
+          const loadedReviewerResponses = new Map<number, ReviewerResponse>();
+          const initialSelectedPaths = new Map();
 
-      // Load existing reviewer responses from backend
-      const loadedReviewerResponses = new Map<number, ReviewerResponse>();
-      const initialSelectedPaths = new Map();
+          // Handle null or undefined reviewerResponsesData
+          if (reviewerResponsesData && Array.isArray(reviewerResponsesData)) {
+            reviewerResponsesData.forEach((response) => {
+              loadedReviewerResponses.set(response.category_id, response);
+              initialSelectedPaths.set(response.category_id, response.path_id);
+            });
+          }
 
-      // Handle null or undefined reviewerResponsesData
-      if (reviewerResponsesData && Array.isArray(reviewerResponsesData)) {
-        reviewerResponsesData.forEach((response) => {
-          loadedReviewerResponses.set(response.category_id, response);
-          initialSelectedPaths.set(response.category_id, response.path_id);
-        });
-      }
+          // For categories without reviewer response, use user's path as initial selection
+          responsesData.forEach((response) => {
+            if (!initialSelectedPaths.has(response.category_id)) {
+              initialSelectedPaths.set(response.category_id, response.path_id);
+            }
+          });
 
-      // For categories without reviewer response, use user's path as initial selection
-      responsesData.forEach((response) => {
-        if (!initialSelectedPaths.has(response.category_id)) {
-          initialSelectedPaths.set(response.category_id, response.path_id);
-        }
-      });
-
-      setReviewerResponses(loadedReviewerResponses);
-      setSelectedPaths(initialSelectedPaths);
-    } catch (error: unknown) {
-      console.error('Error loading data:', error);
-      notifications.show({
-        title: 'Fehler',
-        message: getErrorMessage(error, 'Daten konnten nicht geladen werden'),
-        color: 'red',
-      });
-    } finally {
-      setLoading(false);
-    }
-  }, [assessmentId, navigate]);
+          setReviewerResponses(loadedReviewerResponses);
+          setSelectedPaths(initialSelectedPaths);
+        })
+        .catch((error: unknown) => {
+          console.error('Error loading data:', error);
+          notifications.show({
+            title: 'Fehler',
+            message: getErrorMessage(error, 'Daten konnten nicht geladen werden'),
+            color: 'red',
+          });
+        })
+        .finally(() => setLoading(false)),
+    [assessmentId, navigate]
+  );
 
   useEffect(() => {
     loadData();
   }, [loadData]);
-
-  useEffect(() => {
-    if (catalog?.categories && catalog.categories.length > 0 && !activeCategory) {
-      setActiveCategory(catalog.categories[0].id.toString());
-    }
-  }, [catalog, activeCategory]);
 
   const getStatusBadge = (status: string) => {
     const config = statusConfig[status as keyof typeof statusConfig];
@@ -364,7 +361,7 @@ export function ReviewAssessmentPage() {
         </Paper>
 
         {activeCategories.length > 0 && (
-          <Tabs value={activeCategory} onChange={setActiveCategory}>
+          <Tabs value={activeCategory} onChange={setSelectedCategory}>
             <Tabs.List>
               {activeCategories.map((category) => {
                 const reviewerResponse = getReviewerResponseForCategory(category.id);

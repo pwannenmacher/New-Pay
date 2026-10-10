@@ -65,44 +65,56 @@ export default function SelfAssessmentsAdminPage() {
   const [fromDate, setFromDate] = useState<string | null>(null);
   const [toDate, setToDate] = useState<string | null>(null);
 
-  const loadData = useCallback(async () => {
-    try {
-      setLoading(true);
-      const filters: Record<string, string> = {};
-      if (status) filters.status = status;
-      if (username) filters.username = username;
-      if (fromDate) filters.from_date = new Date(fromDate).toISOString();
-      if (toDate) filters.to_date = new Date(toDate).toISOString();
+  // Show the loading state as soon as a filter changes (set during render, not in the effect)
+  const filterKey = JSON.stringify([fromDate, status, toDate, username]);
+  const [prevFilterKey, setPrevFilterKey] = useState(filterKey);
+  if (filterKey !== prevFilterKey) {
+    setPrevFilterKey(filterKey);
+    setLoading(true);
+  }
 
-      const data = await selfAssessmentService.getAllSelfAssessmentsAdmin(filters);
-      setAssessments(Array.isArray(data) ? data : []);
-    } catch (error: unknown) {
-      console.error('Error loading data:', error);
-      setAssessments([]);
-      notifications.show({
-        title: 'Fehler',
-        message: 'Daten konnten nicht geladen werden',
-        color: 'red',
-      });
-    } finally {
-      setLoading(false);
-    }
+  // State is only updated in promise callbacks so this can run directly inside an effect
+  const fetchData = useCallback(() => {
+    const filters: Record<string, string> = {};
+    if (status) filters.status = status;
+    if (username) filters.username = username;
+    if (fromDate) filters.from_date = new Date(fromDate).toISOString();
+    if (toDate) filters.to_date = new Date(toDate).toISOString();
+
+    return selfAssessmentService
+      .getAllSelfAssessmentsAdmin(filters)
+      .then((data) => setAssessments(Array.isArray(data) ? data : []))
+      .catch((error: unknown) => {
+        console.error('Error loading data:', error);
+        setAssessments([]);
+        notifications.show({
+          title: 'Fehler',
+          message: 'Daten konnten nicht geladen werden',
+          color: 'red',
+        });
+      })
+      .finally(() => setLoading(false));
   }, [fromDate, status, toDate, username]);
 
+  const loadData = () => {
+    setLoading(true);
+    return fetchData();
+  };
+
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    fetchData();
+  }, [fetchData]);
 
   const handleFilter = () => {
     loadData();
   };
 
+  // Changing the filters triggers a reload via the effect above
   const handleReset = () => {
     setUsername('');
     setStatus('');
     setFromDate(null);
     setToDate(null);
-    setTimeout(loadData, 100);
   };
 
   const handleClose = async (assessmentId: number) => {

@@ -45,31 +45,39 @@ export function ReviewDiscussionPage() {
   const [archiving, setArchiving] = useState(false);
   const [assessmentStatus, setAssessmentStatus] = useState<string>('discussion');
 
-  const loadData = useCallback(async () => {
-    try {
-      setLoading(true);
-      const discussionData = await discussionService.getDiscussionResult(assessmentId);
-      setData(discussionData);
-      setDiscussionComment(discussionData.discussion_note || '');
-      // Get assessment status
-      if (discussionData.assessment_status) {
-        setAssessmentStatus(discussionData.assessment_status);
-      }
-    } catch (error: unknown) {
-      console.error('Error loading discussion data:', error);
-      notifications.show({
-        title: 'Fehler',
-        message: getErrorMessage(error, 'Diskussionsdaten konnten nicht geladen werden'),
-        color: 'red',
-      });
-    } finally {
-      setLoading(false);
-    }
-  }, [assessmentId]);
+  // State is only updated in promise callbacks so this can run directly inside an effect
+  const fetchData = useCallback(
+    () =>
+      discussionService
+        .getDiscussionResult(assessmentId)
+        .then((discussionData) => {
+          setData(discussionData);
+          setDiscussionComment(discussionData.discussion_note || '');
+          // Get assessment status
+          if (discussionData.assessment_status) {
+            setAssessmentStatus(discussionData.assessment_status);
+          }
+        })
+        .catch((error: unknown) => {
+          console.error('Error loading discussion data:', error);
+          notifications.show({
+            title: 'Fehler',
+            message: getErrorMessage(error, 'Diskussionsdaten konnten nicht geladen werden'),
+            color: 'red',
+          });
+        })
+        .finally(() => setLoading(false)),
+    [assessmentId]
+  );
+
+  const loadData = () => {
+    setLoading(true);
+    return fetchData();
+  };
 
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    fetchData();
+  }, [fetchData]);
 
   const handleSaveComment = async () => {
     try {

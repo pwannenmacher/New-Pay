@@ -52,41 +52,31 @@ export function CatalogViewPage() {
   const [error, setError] = useState<string | null>(null);
   const [catalog, setCatalog] = useState<CatalogWithDetails | null>(null);
 
+  const catalogId = id ? parseInt(id, 10) : NaN;
+  // Only load if we have a valid numeric ID
+  const isValidId = !isNaN(catalogId) && catalogId > 0;
+  const isInvalidId = id !== 'new' && !isValidId;
+  const displayError = isInvalidId ? 'Ungültige Katalog-ID' : error;
+
   useEffect(() => {
     if (id === 'new') {
       navigate('/admin/catalogs/new/edit', { replace: true });
       return;
     }
-    if (id) {
-      const catalogId = parseInt(id, 10);
-      // Only load if we have a valid numeric ID
-      if (!isNaN(catalogId) && catalogId > 0) {
-        loadCatalog(catalogId);
-      } else {
-        setError('Ungültige Katalog-ID');
-        setLoading(false);
-      }
-    }
-  }, [id, navigate]);
+    if (!isValidId) return;
 
-  const loadCatalog = async (catalogId: number) => {
-    try {
-      setLoading(true);
-      setError(null);
-      const data = await adminApi.getCatalog(catalogId);
-      setCatalog(data);
-    } catch (err: unknown) {
-      setError(getErrorMessage(err, 'Failed to load catalog'));
-    } finally {
-      setLoading(false);
-    }
-  };
+    adminApi
+      .getCatalog(catalogId)
+      .then(setCatalog)
+      .catch((err: unknown) => setError(getErrorMessage(err, 'Failed to load catalog')))
+      .finally(() => setLoading(false));
+  }, [id, catalogId, isValidId, navigate]);
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('de-DE');
   };
 
-  if (loading) {
+  if (loading && !isInvalidId) {
     return (
       <Container size="xl" py="xl">
         <Stack align="center" py="xl">
@@ -97,11 +87,11 @@ export function CatalogViewPage() {
     );
   }
 
-  if (error || !catalog) {
+  if (displayError || !catalog) {
     return (
       <Container size="xl" py="xl">
         <Alert icon={<IconAlertCircle size={16} />} title="Fehler" color="red">
-          {error || 'Katalog nicht gefunden'}
+          {displayError || 'Katalog nicht gefunden'}
         </Alert>
       </Container>
     );

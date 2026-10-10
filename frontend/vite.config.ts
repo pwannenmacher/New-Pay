@@ -15,20 +15,26 @@ export default defineConfig({
     },
   },
   build: {
-    rollupOptions: {
+    rolldownOptions: {
       output: {
-        manualChunks: (id) => {
-          if (id.includes('node_modules')) {
-            if (id.includes('react') || id.includes('react-dom') || id.includes('react-router-dom')) {
-              return 'react-vendor';
-            }
-            if (id.includes('@mantine/core') || id.includes('@mantine/hooks')) {
-              return 'mantine-core';
-            }
-            if (id.includes('@mantine/form') || id.includes('@mantine/notifications')) {
-              return 'mantine-extras';
-            }
-          }
+        codeSplitting: {
+          groups: [
+            {
+              test: /node_modules/,
+              name: (id) => {
+                if (id.includes('react') || id.includes('react-dom') || id.includes('react-router-dom')) {
+                  return 'react-vendor';
+                }
+                if (id.includes('@mantine/core') || id.includes('@mantine/hooks')) {
+                  return 'mantine-core';
+                }
+                if (id.includes('@mantine/form') || id.includes('@mantine/notifications')) {
+                  return 'mantine-extras';
+                }
+                return null;
+              },
+            },
+          ],
         },
       },
     },

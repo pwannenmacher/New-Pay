@@ -38,26 +38,32 @@ export function UserDiscussionPage() {
   const [data, setData] = useState<DiscussionResult | null>(null);
   const [confirming, setConfirming] = useState(false);
 
-  const loadData = useCallback(async () => {
-    try {
-      setLoading(true);
-      const discussionData = await discussionService.getDiscussionResult(assessmentId);
-      setData(discussionData);
-    } catch (error: unknown) {
-      console.error('Error loading discussion data:', error);
-      notifications.show({
-        title: 'Fehler',
-        message: getErrorMessage(error, 'Diskussionsdaten konnten nicht geladen werden'),
-        color: 'red',
-      });
-    } finally {
-      setLoading(false);
-    }
-  }, [assessmentId]);
+  // State is only updated in promise callbacks so this can run directly inside an effect
+  const fetchData = useCallback(
+    () =>
+      discussionService
+        .getDiscussionResult(assessmentId)
+        .then(setData)
+        .catch((error: unknown) => {
+          console.error('Error loading discussion data:', error);
+          notifications.show({
+            title: 'Fehler',
+            message: getErrorMessage(error, 'Diskussionsdaten konnten nicht geladen werden'),
+            color: 'red',
+          });
+        })
+        .finally(() => setLoading(false)),
+    [assessmentId]
+  );
+
+  const loadData = () => {
+    setLoading(true);
+    return fetchData();
+  };
 
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    fetchData();
+  }, [fetchData]);
 
   const handleConfirmMeeting = async () => {
     try {

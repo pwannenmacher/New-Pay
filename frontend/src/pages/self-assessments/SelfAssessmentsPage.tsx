@@ -41,6 +41,52 @@ const statusConfig = {
   closed: { label: 'Geschlossen', color: 'red', icon: IconX },
 };
 
+const fetchSelfAssessmentsData = async () => {
+  const [assessmentsData, catalogsData] = await Promise.all([
+    selfAssessmentService.getMySelfAssessments(),
+    selfAssessmentService.getActiveCatalogs(),
+  ]);
+  const assessments = Array.isArray(assessmentsData) ? assessmentsData : [];
+  const catalogsList = Array.isArray(catalogsData) ? catalogsData : [];
+
+  // Check if user has any active assessment (not archived or closed)
+  const activeStatuses = ['draft', 'submitted', 'in_review', 'reviewed', 'discussion'];
+  const hasActiveAssessment = assessments.some((a) => activeStatuses.includes(a.status));
+
+  // Load discussion results for assessments with results
+  let discussionResults: Record<number, DiscussionResult> | null = null;
+  const assessmentsWithResults = assessments.filter(
+    (a) => a.status === 'discussion' || a.status === 'archived'
+  );
+  if (assessmentsWithResults.length > 0) {
+    const results = await Promise.all(
+      assessmentsWithResults.map(async (assessment) => {
+        try {
+          const result = await discussionService.getDiscussionResult(assessment.id);
+          return { assessmentId: assessment.id, result };
+        } catch (error) {
+          console.error(`Error loading result for assessment ${assessment.id}:`, error);
+          return null;
+        }
+      })
+    );
+    const resultsMap: Record<number, DiscussionResult> = {};
+    results.forEach((item) => {
+      if (item) {
+        resultsMap[item.assessmentId] = item.result;
+      }
+    });
+    discussionResults = resultsMap;
+  }
+
+  return {
+    assessments,
+    activeCatalog: catalogsList.length > 0 ? catalogsList[0] : null,
+    hasActiveAssessment,
+    discussionResults,
+  };
+};
+
 export default function SelfAssessmentsPage() {
   const navigate = useNavigate();
   const [assessments, setAssessments] = useState<SelfAssessment[]>([]);
@@ -51,66 +97,38 @@ export default function SelfAssessmentsPage() {
   const [hasActiveAssessment, setHasActiveAssessment] = useState(false);
   const [discussionResults, setDiscussionResults] = useState<Record<number, DiscussionResult>>({});
 
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  const loadData = async () => {
-    try {
-      setLoading(true);
-      const [assessmentsData, catalogsData] = await Promise.all([
-        selfAssessmentService.getMySelfAssessments(),
-        selfAssessmentService.getActiveCatalogs(),
-      ]);
-      const assessmentsList = Array.isArray(assessmentsData) ? assessmentsData : [];
-      const catalogsList = Array.isArray(catalogsData) ? catalogsData : [];
-
-      setAssessments(assessmentsList);
-      setActiveCatalog(catalogsList.length > 0 ? catalogsList[0] : null);
-
-      // Check if user has any active assessment (not archived or closed)
-      const activeStatuses = ['draft', 'submitted', 'in_review', 'reviewed', 'discussion'];
-      const hasActive = assessmentsList.some((a) => activeStatuses.includes(a.status));
-      setHasActiveAssessment(hasActive);
-
-      // Load discussion results for assessments with results
-      const assessmentsWithResults = assessmentsList.filter(
-        (a) => a.status === 'discussion' || a.status === 'archived'
-      );
-      if (assessmentsWithResults.length > 0) {
-        const results = await Promise.all(
-          assessmentsWithResults.map(async (assessment) => {
-            try {
-              const result = await discussionService.getDiscussionResult(assessment.id);
-              return { assessmentId: assessment.id, result };
-            } catch (error) {
-              console.error(`Error loading result for assessment ${assessment.id}:`, error);
-              return null;
-            }
-          })
-        );
-        const resultsMap: Record<number, DiscussionResult> = {};
-        results.forEach((item) => {
-          if (item) {
-            resultsMap[item.assessmentId] = item.result;
-          }
+  // State is only updated in promise callbacks so this can run directly inside an effect
+  const fetchData = () =>
+    fetchSelfAssessmentsData()
+      .then((data) => {
+        setAssessments(data.assessments);
+        setActiveCatalog(data.activeCatalog);
+        setHasActiveAssessment(data.hasActiveAssessment);
+        if (data.discussionResults) {
+          setDiscussionResults(data.discussionResults);
+        }
+      })
+      .catch((error) => {
+        console.error('Error loading data:', error);
+        setAssessments([]);
+        setActiveCatalog(null);
+        setHasActiveAssessment(false);
+        notifications.show({
+          title: 'Fehler',
+          message: 'Daten konnten nicht geladen werden',
+          color: 'red',
         });
-        setDiscussionResults(resultsMap);
-      }
-    } catch (error) {
-      console.error('Error loading data:', error);
-      setAssessments([]);
-      setActiveCatalog(null);
-      setHasActiveAssessment(false);
-      notifications.show({
-        title: 'Fehler',
-        message: 'Daten konnten nicht geladen werden',
-        color: 'red',
-      });
-    } finally {
-      setLoading(false);
-    }
+      })
+      .finally(() => setLoading(false));
+
+  const loadData = () => {
+    setLoading(true);
+    return fetchData();
   };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
 
   const handleCreateAssessment = async () => {
     if (!activeCatalog) return;

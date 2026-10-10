@@ -49,21 +49,14 @@ export function CatalogsPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    loadCatalogs();
+    adminApi
+      .listCatalogs()
+      .then(setCatalogs)
+      .catch((err: unknown) =>
+        setError(getErrorMessage(err, 'Fehler beim Laden der Kriterienkataloge'))
+      )
+      .finally(() => setLoading(false));
   }, []);
-
-  const loadCatalogs = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const data = await adminApi.listCatalogs();
-      setCatalogs(data);
-    } catch (err: unknown) {
-      setError(getErrorMessage(err, 'Fehler beim Laden der Kriterienkataloge'));
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('de-DE');

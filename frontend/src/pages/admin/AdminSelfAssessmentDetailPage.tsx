@@ -49,37 +49,43 @@ export default function AdminSelfAssessmentDetailPage() {
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
 
-  const loadAssessment = useCallback(async () => {
-    try {
-      setLoading(true);
-      const data = await selfAssessmentService.getSelfAssessment(parseInt(id!));
-      setAssessment(data);
+  // State is only updated in promise callbacks so this can run directly inside an effect
+  const fetchAssessment = useCallback(
+    () =>
+      selfAssessmentService
+        .getSelfAssessment(parseInt(id!))
+        .then((data) => {
+          setAssessment(data);
 
-      // Load catalog information
-      try {
-        const catalogData = await adminService.getCatalog(data.catalog_id);
-        setCatalog(catalogData);
-      } catch (error) {
-        console.error('Error loading catalog:', error);
-      }
-    } catch (error: unknown) {
-      console.error('Error loading assessment:', error);
-      notifications.show({
-        title: 'Fehler',
-        message: getErrorMessage(error, 'Selbsteinschätzung konnte nicht geladen werden'),
-        color: 'red',
-      });
-      navigate('/admin/self-assessments');
-    } finally {
-      setLoading(false);
-    }
-  }, [id, navigate]);
+          // Load catalog information
+          return adminService
+            .getCatalog(data.catalog_id)
+            .then(setCatalog)
+            .catch((error) => console.error('Error loading catalog:', error));
+        })
+        .catch((error: unknown) => {
+          console.error('Error loading assessment:', error);
+          notifications.show({
+            title: 'Fehler',
+            message: getErrorMessage(error, 'Selbsteinschätzung konnte nicht geladen werden'),
+            color: 'red',
+          });
+          navigate('/admin/self-assessments');
+        })
+        .finally(() => setLoading(false)),
+    [id, navigate]
+  );
+
+  const loadAssessment = () => {
+    setLoading(true);
+    return fetchAssessment();
+  };
 
   useEffect(() => {
     if (id) {
-      loadAssessment();
+      fetchAssessment();
     }
-  }, [id, loadAssessment]);
+  }, [id, fetchAssessment]);
 
   const handleStatusChange = async (newStatus: string) => {
     if (!assessment) return;

@@ -37,37 +37,41 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
   // Setup automatic token refresh (1 minute before expiration)
   const setupTokenRefresh = useCallback(() => {
-    // Clear existing timer
-    if (refreshTimerRef.current) {
-      clearTimeout(refreshTimerRef.current);
-    }
-
-    const token = tokenService.getAccessToken();
-    if (!token) return;
-
-    const timeUntilRefresh = getTimeUntilRefresh(token);
-    if (timeUntilRefresh === null) return;
-
-    console.warn(`Token will be refreshed in ${Math.floor(timeUntilRefresh / 1000)} seconds`);
-
-    refreshTimerRef.current = setTimeout(async () => {
-      try {
-        const response = await apiClient.post<{ access_token: string; refresh_token: string }>(
-          '/auth/refresh',
-          {}
-        );
-        tokenService.setTokens(response.access_token, response.refresh_token);
-        console.warn('Token refreshed successfully');
-        // Setup next refresh
-        setupTokenRefresh();
-      } catch (error) {
-        console.error('Failed to refresh token:', error);
-        // Token refresh failed, logout user
-        tokenService.clearTokens();
-        setUser(null);
-        window.location.href = '/login';
+    const scheduleRefresh = () => {
+      // Clear existing timer
+      if (refreshTimerRef.current) {
+        clearTimeout(refreshTimerRef.current);
       }
-    }, timeUntilRefresh);
+
+      const token = tokenService.getAccessToken();
+      if (!token) return;
+
+      const timeUntilRefresh = getTimeUntilRefresh(token);
+      if (timeUntilRefresh === null) return;
+
+      console.warn(`Token will be refreshed in ${Math.floor(timeUntilRefresh / 1000)} seconds`);
+
+      refreshTimerRef.current = setTimeout(async () => {
+        try {
+          const response = await apiClient.post<{ access_token: string; refresh_token: string }>(
+            '/auth/refresh',
+            {}
+          );
+          tokenService.setTokens(response.access_token, response.refresh_token);
+          console.warn('Token refreshed successfully');
+          // Setup next refresh
+          scheduleRefresh();
+        } catch (error) {
+          console.error('Failed to refresh token:', error);
+          // Token refresh failed, logout user
+          tokenService.clearTokens();
+          setUser(null);
+          window.location.href = '/login';
+        }
+      }, timeUntilRefresh);
+    };
+
+    scheduleRefresh();
   }, []);
 
   // Setup session check (every 30 seconds)

@@ -105,35 +105,39 @@ export function CatalogEditorPage() {
   const [newCategoryDescription, setNewCategoryDescription] = useState('');
   const [newCategoryWeight, setNewCategoryWeight] = useState<string>('');
 
+  // State is only updated in promise callbacks so this can run directly inside an effect
+  const fetchCatalog = (catalogId: number) =>
+    adminApi
+      .getCatalog(catalogId)
+      .then((data) => {
+        setError(null);
+        setCatalog(data);
+        setName(data.name);
+        setDescription(data.description || '');
+        setValidFrom(new Date(data.valid_from));
+        setValidUntil(new Date(data.valid_until));
+        setPhase(data.phase || 'draft');
+        setCategories(data.categories?.map((c) => c) || []);
+        setLevels(data.levels || []);
+      })
+      .catch((err: unknown) => setError(getErrorMessage(err, 'Failed to load catalog')))
+      .finally(() => setLoading(false));
+
+  const loadCatalog = (catalogId: number) => {
+    setLoading(true);
+    setError(null);
+    return fetchCatalog(catalogId);
+  };
+
   useEffect(() => {
     if (!isNew && id) {
       const catalogId = parseInt(id, 10);
       // Only load if we have a valid numeric ID
       if (!isNaN(catalogId) && catalogId > 0) {
-        loadCatalog(catalogId);
+        fetchCatalog(catalogId);
       }
     }
   }, [id, isNew]);
-
-  const loadCatalog = async (catalogId: number) => {
-    try {
-      setLoading(true);
-      setError(null);
-      const data = await adminApi.getCatalog(catalogId);
-      setCatalog(data);
-      setName(data.name);
-      setDescription(data.description || '');
-      setValidFrom(new Date(data.valid_from));
-      setValidUntil(new Date(data.valid_until));
-      setPhase(data.phase || 'draft');
-      setCategories(data.categories?.map((c) => c) || []);
-      setLevels(data.levels || []);
-    } catch (err: unknown) {
-      setError(getErrorMessage(err, 'Failed to load catalog'));
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const calculateCompletionStats = () => {
     const totalPaths = categories.reduce((sum, cat) => sum + (cat.paths?.length || 0), 0);
