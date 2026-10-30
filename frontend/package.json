@@ -19,7 +19,7 @@
     "@mantine/form": "^9.7.3",
     "@mantine/hooks": "^9.7.3",
     "@mantine/notifications": "^9.7.3",
-    "@tabler/icons-react": "^3.49.0",
+    "@tabler/icons-react": "^3.50.0",
     "dayjs": "^1.11.23",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
